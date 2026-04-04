@@ -5,7 +5,8 @@
 ## 0.3.4 (2026-04-05)
 - mDNS only active during pairing (not permanently at adapter start)
 - Always store device IP on pairing (no dependency on mDNS for normal operation)
-- Simplify discovery callback (pairing only, no IP tracking)
+- Automatic IP recovery: after 3 failed reconnects, mDNS searches for new IP (one attempt, then offline)
+- Device marked offline with clear log message when unreachable and mDNS finds nothing
 
 ## 0.3.3 (2026-04-05)
 - Fix mDNS pairing: restart browser on pairing start (cached devices were not re-announced)

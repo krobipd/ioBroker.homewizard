@@ -155,8 +155,8 @@ homewizard.0.
 ## Changelog
 
 ### 0.3.4 (2026-04-05)
-- mDNS only active during pairing, not permanently
-- Always store device IP on pairing
+- mDNS only during pairing, automatic IP recovery on connection loss
+- Device marked offline when unreachable (no endless reconnect loop)
 
 ### 0.3.3 (2026-04-05)
 - Fix mDNS pairing not finding devices (browser restart on pairing start)

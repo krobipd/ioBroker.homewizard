@@ -33,6 +33,8 @@ const WS_RECONNECT_MAX_MS = 3e5;
 const REST_POLL_MS = 1e4;
 const SYSTEM_POLL_MS = 6e4;
 const MAX_AUTH_FAILURES = 3;
+const WS_FAILURES_BEFORE_MDNS = 3;
+const IP_RECOVERY_TIMEOUT_MS = 6e4;
 class HomeWizard extends utils.Adapter {
   stateManager;
   discovery = null;
@@ -40,6 +42,7 @@ class HomeWizard extends utils.Adapter {
   pairingTimer = void 0;
   pairingPollTimer = void 0;
   systemPollTimer = void 0;
+  ipRecoveryTimer = void 0;
   isPairing = false;
   pairingManualIp = "";
   discoveredDuringPairing = [];
@@ -95,7 +98,8 @@ class HomeWizard extends utils.Adapter {
         reconnectTimer: void 0,
         wsFailCount: 0,
         authFailCount: 0,
-        lastErrorCode: ""
+        lastErrorCode: "",
+        ipRecoveryDone: false
       };
       this.connections.set(key, conn);
       if (conn.ip) {
@@ -213,6 +217,9 @@ class HomeWizard extends utils.Adapter {
     if (this.systemPollTimer) {
       this.clearInterval(this.systemPollTimer);
     }
+    if (this.ipRecoveryTimer) {
+      this.clearTimeout(this.ipRecoveryTimer);
+    }
     (_a = this.discovery) == null ? void 0 : _a.stop();
     for (const conn of this.connections.values()) {
       (_b = conn.wsClient) == null ? void 0 : _b.close();
@@ -296,6 +303,7 @@ class HomeWizard extends utils.Adapter {
     await this.setStateAsync("startPairing", { val: false, ack: true });
     this.isPairing = true;
     this.discoveredDuringPairing = [];
+    this.stopIpRecovery();
     const ipState = await this.getStateAsync("pairingIp");
     this.pairingManualIp = (ipState == null ? void 0 : ipState.val) ? String(ipState.val).trim() : "";
     await this.setStateAsync("pairingIp", { val: "", ack: true });
@@ -360,7 +368,8 @@ class HomeWizard extends utils.Adapter {
           reconnectTimer: void 0,
           wsFailCount: 0,
           authFailCount: 0,
-          lastErrorCode: ""
+          lastErrorCode: "",
+          ipRecoveryDone: false
         };
         this.connections.set(key, conn);
         void this.initDevice(conn);
@@ -398,6 +407,72 @@ class HomeWizard extends utils.Adapter {
       this.pairingTimer = void 0;
     }
   }
+  /** Start mDNS to find devices that changed IP */
+  startIpRecovery() {
+    if (this.discovery || this.isPairing) {
+      return;
+    }
+    this.log.info("Device unreachable \u2014 searching for new IP via mDNS");
+    this.discovery = new import_discovery.HomeWizardDiscovery(this.log);
+    this.discovery.start((discovered) => {
+      for (const conn of this.connections.values()) {
+        if (conn.config.serial !== discovered.serial) {
+          continue;
+        }
+        if (discovered.ip === conn.ip || conn.wsAuthenticated) {
+          return;
+        }
+        this.log.info(
+          `${conn.config.productName}: found at new IP ${discovered.ip} (was ${conn.ip})`
+        );
+        conn.ip = discovered.ip;
+        conn.config.ip = discovered.ip;
+        conn.wsFailCount = 0;
+        void this.saveDeviceToObject(conn.config);
+        if (conn.reconnectTimer) {
+          this.clearTimeout(conn.reconnectTimer);
+          conn.reconnectTimer = void 0;
+        }
+        if (conn.pollTimer) {
+          this.clearInterval(conn.pollTimer);
+          conn.pollTimer = void 0;
+        }
+        this.connectWebSocket(conn);
+        return;
+      }
+    });
+    this.ipRecoveryTimer = this.setTimeout(() => {
+      this.ipRecoveryTimer = void 0;
+      this.stopIpRecovery();
+      for (const conn of this.connections.values()) {
+        if (!conn.wsAuthenticated && conn.wsFailCount > 0) {
+          conn.ipRecoveryDone = true;
+          if (conn.reconnectTimer) {
+            this.clearTimeout(conn.reconnectTimer);
+            conn.reconnectTimer = void 0;
+          }
+          if (conn.pollTimer) {
+            this.clearInterval(conn.pollTimer);
+            conn.pollTimer = void 0;
+          }
+          this.log.warn(
+            `${conn.config.productName}: device offline \u2014 check network or re-pair with new IP`
+          );
+        }
+      }
+    }, IP_RECOVERY_TIMEOUT_MS);
+  }
+  /** Stop mDNS IP recovery */
+  stopIpRecovery() {
+    if (this.ipRecoveryTimer) {
+      this.clearTimeout(this.ipRecoveryTimer);
+      this.ipRecoveryTimer = void 0;
+    }
+    if (this.discovery && !this.isPairing) {
+      this.discovery.stop();
+      this.discovery = null;
+    }
+  }
   /**
    * Initialize a newly discovered device — fetch info and connect WebSocket
    *
@@ -430,6 +505,9 @@ class HomeWizard extends utils.Adapter {
     if (conn.authFailCount >= MAX_AUTH_FAILURES) {
       return;
     }
+    if (conn.wsFailCount >= WS_FAILURES_BEFORE_MDNS && !conn.ipRecoveryDone) {
+      this.startIpRecovery();
+    }
     const key = this.stateManager.devicePrefix(conn.config);
     const wsClient = new import_websocket_client.HomeWizardWebSocket(conn.ip, conn.config.token, {
       onMeasurement: (data) => {
@@ -439,11 +517,20 @@ class HomeWizard extends utils.Adapter {
         conn.wsAuthenticated = true;
         conn.wsFailCount = 0;
         conn.authFailCount = 0;
+        conn.ipRecoveryDone = false;
         void this.stateManager.setDeviceConnected(conn.config, true);
         this.updateGlobalConnection();
         if (conn.pollTimer) {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = void 0;
+        }
+        if (this.discovery && !this.isPairing) {
+          const allConnected = Array.from(this.connections.values()).every(
+            (c) => c.wsAuthenticated
+          );
+          if (allConnected) {
+            this.stopIpRecovery();
+          }
         }
         if (conn.lastErrorCode) {
           this.log.info(`${conn.config.productName}: connection restored`);

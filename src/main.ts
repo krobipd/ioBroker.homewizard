@@ -24,6 +24,10 @@ const REST_POLL_MS = 10_000;
 const SYSTEM_POLL_MS = 60_000;
 /** Max auth failures before giving up */
 const MAX_AUTH_FAILURES = 3;
+/** WS failures before starting mDNS IP recovery */
+const WS_FAILURES_BEFORE_MDNS = 3;
+/** mDNS IP recovery timeout in milliseconds */
+const IP_RECOVERY_TIMEOUT_MS = 60_000;
 
 class HomeWizard extends utils.Adapter {
   private stateManager!: StateManager;
@@ -32,6 +36,7 @@ class HomeWizard extends utils.Adapter {
   private pairingTimer: ioBroker.Timeout | undefined = undefined;
   private pairingPollTimer: ioBroker.Interval | undefined = undefined;
   private systemPollTimer: ioBroker.Interval | undefined = undefined;
+  private ipRecoveryTimer: ioBroker.Timeout | undefined = undefined;
   private isPairing = false;
   private pairingManualIp = "";
   private discoveredDuringPairing: DiscoveredDevice[] = [];
@@ -100,6 +105,7 @@ class HomeWizard extends utils.Adapter {
         wsFailCount: 0,
         authFailCount: 0,
         lastErrorCode: "",
+        ipRecoveryDone: false,
       };
       this.connections.set(key, conn);
 
@@ -240,6 +246,9 @@ class HomeWizard extends utils.Adapter {
     if (this.systemPollTimer) {
       this.clearInterval(this.systemPollTimer);
     }
+    if (this.ipRecoveryTimer) {
+      this.clearTimeout(this.ipRecoveryTimer);
+    }
 
     this.discovery?.stop();
 
@@ -343,6 +352,9 @@ class HomeWizard extends utils.Adapter {
     this.isPairing = true;
     this.discoveredDuringPairing = [];
 
+    // Stop IP recovery if running — pairing takes priority
+    this.stopIpRecovery();
+
     // Check if manual IP is set, then clear pairingIp immediately
     const ipState = await this.getStateAsync("pairingIp");
     this.pairingManualIp = ipState?.val ? String(ipState.val).trim() : "";
@@ -427,6 +439,7 @@ class HomeWizard extends utils.Adapter {
           wsFailCount: 0,
           authFailCount: 0,
           lastErrorCode: "",
+          ipRecoveryDone: false,
         };
         this.connections.set(key, conn);
         void this.initDevice(conn);
@@ -473,6 +486,88 @@ class HomeWizard extends utils.Adapter {
     }
   }
 
+  /** Start mDNS to find devices that changed IP */
+  private startIpRecovery(): void {
+    // Don't start if already running or pairing
+    if (this.discovery || this.isPairing) {
+      return;
+    }
+
+    this.log.info("Device unreachable — searching for new IP via mDNS");
+
+    this.discovery = new HomeWizardDiscovery(this.log);
+    this.discovery.start((discovered) => {
+      // Match against disconnected devices
+      for (const conn of this.connections.values()) {
+        if (conn.config.serial !== discovered.serial) {
+          continue;
+        }
+        if (discovered.ip === conn.ip || conn.wsAuthenticated) {
+          return; // Same IP or already connected
+        }
+
+        this.log.info(
+          `${conn.config.productName}: found at new IP ${discovered.ip} (was ${conn.ip})`,
+        );
+
+        // Update IP and persist
+        conn.ip = discovered.ip;
+        conn.config.ip = discovered.ip;
+        conn.wsFailCount = 0;
+        void this.saveDeviceToObject(conn.config);
+
+        // Cancel pending reconnect and connect immediately
+        if (conn.reconnectTimer) {
+          this.clearTimeout(conn.reconnectTimer);
+          conn.reconnectTimer = undefined;
+        }
+        if (conn.pollTimer) {
+          this.clearInterval(conn.pollTimer);
+          conn.pollTimer = undefined;
+        }
+        this.connectWebSocket(conn);
+        return;
+      }
+    });
+
+    // Stop after timeout — mark device offline, stop reconnecting
+    this.ipRecoveryTimer = this.setTimeout(() => {
+      this.ipRecoveryTimer = undefined;
+      this.stopIpRecovery();
+
+      // Mark all unreachable devices as offline
+      for (const conn of this.connections.values()) {
+        if (!conn.wsAuthenticated && conn.wsFailCount > 0) {
+          conn.ipRecoveryDone = true;
+          // Stop reconnect timer and REST fallback
+          if (conn.reconnectTimer) {
+            this.clearTimeout(conn.reconnectTimer);
+            conn.reconnectTimer = undefined;
+          }
+          if (conn.pollTimer) {
+            this.clearInterval(conn.pollTimer);
+            conn.pollTimer = undefined;
+          }
+          this.log.warn(
+            `${conn.config.productName}: device offline — check network or re-pair with new IP`,
+          );
+        }
+      }
+    }, IP_RECOVERY_TIMEOUT_MS);
+  }
+
+  /** Stop mDNS IP recovery */
+  private stopIpRecovery(): void {
+    if (this.ipRecoveryTimer) {
+      this.clearTimeout(this.ipRecoveryTimer);
+      this.ipRecoveryTimer = undefined;
+    }
+    if (this.discovery && !this.isPairing) {
+      this.discovery.stop();
+      this.discovery = null;
+    }
+  }
+
   /**
    * Initialize a newly discovered device — fetch info and connect WebSocket
    *
@@ -510,6 +605,11 @@ class HomeWizard extends utils.Adapter {
       return;
     }
 
+    // After repeated failures, try mDNS once to find a new IP
+    if (conn.wsFailCount >= WS_FAILURES_BEFORE_MDNS && !conn.ipRecoveryDone) {
+      this.startIpRecovery();
+    }
+
     const key = this.stateManager.devicePrefix(conn.config);
 
     const wsClient = new HomeWizardWebSocket(conn.ip, conn.config.token, {
@@ -520,6 +620,7 @@ class HomeWizard extends utils.Adapter {
         conn.wsAuthenticated = true;
         conn.wsFailCount = 0;
         conn.authFailCount = 0;
+        conn.ipRecoveryDone = false;
         void this.stateManager.setDeviceConnected(conn.config, true);
         this.updateGlobalConnection();
 
@@ -527,6 +628,16 @@ class HomeWizard extends utils.Adapter {
         if (conn.pollTimer) {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = undefined;
+        }
+
+        // Stop IP recovery if all devices are connected
+        if (this.discovery && !this.isPairing) {
+          const allConnected = Array.from(this.connections.values()).every(
+            (c) => c.wsAuthenticated,
+          );
+          if (allConnected) {
+            this.stopIpRecovery();
+          }
         }
 
         // Log restoration if we had errors before
