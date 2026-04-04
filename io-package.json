@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "news": {
+      "0.3.3": {
+        "en": "Fix mDNS pairing not finding devices, improve log messages during pairing",
+        "de": "mDNS-Pairing findet Geraete wieder, verbesserte Log-Meldungen beim Pairing",
+        "ru": "Исправлено обнаружение устройств через mDNS при сопряжении, улучшены сообщения в логе",
+        "pt": "Corrigida descoberta de dispositivos via mDNS durante emparelhamento, mensagens de log melhoradas",
+        "nl": "mDNS-koppeling vindt apparaten weer, verbeterde logberichten tijdens koppelen",
+        "fr": "Correction de la decouverte mDNS lors de l appairage, messages de log ameliores",
+        "it": "Corretta scoperta mDNS durante l associazione, messaggi di log migliorati",
+        "es": "Corregido descubrimiento mDNS durante emparejamiento, mensajes de log mejorados",
+        "pl": "Naprawiono wykrywanie mDNS podczas parowania, ulepszone komunikaty w logu",
+        "uk": "Виправлено виявлення mDNS пiд час сполучення, покращенi повiдомлення в лозi",
+        "zh-cn": "修复 mDNS 配对时未发现设备的问题，改进配对日志消息"
+      },
       "0.3.2": {
         "en": "Improve Admin UI and README with detailed configuration guide (prerequisites, manual IP pairing)",
         "de": "Admin UI und README verbessert mit detaillierter Konfigurationsanleitung (Voraussetzungen, manuelles IP-Pairing)",
@@ -80,19 +93,6 @@
         "pl": "Dołączono certyfikat CA HomeWizard dla prawidłowej walidacji TLS zamiast pomijania weryfikacji",
         "uk": "Додано CA-сертифікат HomeWizard для належної перевірки TLS замість пропуску верифікації",
         "zh-cn": "捆绑 HomeWizard CA 证书进行正确的 TLS 验证，而非跳过验证"
-      },
-      "0.1.1": {
-        "en": "Add unit tests (129 tests), fix Dependabot config",
-        "de": "Unit-Tests hinzugefügt (129 Tests), Dependabot-Konfiguration korrigiert",
-        "ru": "Добавлены модульные тесты (129 тестов), исправлена конфигурация Dependabot",
-        "pt": "Adicionados testes unitários (129 testes), corrigida configuração do Dependabot",
-        "nl": "Unit tests toegevoegd (129 tests), Dependabot-configuratie gecorrigeerd",
-        "fr": "Ajout de tests unitaires (129 tests), correction de la configuration Dependabot",
-        "it": "Aggiunti test unitari (129 test), corretta configurazione Dependabot",
-        "es": "Añadidos tests unitarios (129 tests), corregida configuración de Dependabot",
-        "pl": "Dodano testy jednostkowe (129 testów), poprawiono konfigurację Dependabot",
-        "uk": "Додано модульні тести (129 тестів), виправлено конфігурацію Dependabot",
-        "zh-cn": "添加单元测试（129个测试），修复 Dependabot 配置"
       }
     },
     "titleLang": {

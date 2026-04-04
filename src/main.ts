@@ -223,7 +223,7 @@ class HomeWizard extends utils.Adapter {
         ) {
           this.discoveredDuringPairing.push(discovered);
           this.log.info(
-            `Discovered: ${discovered.name} (${discovered.productType}) at ${discovered.ip} — waiting for button press...`,
+            `Found ${discovered.name} (${discovered.productType}) at ${discovered.ip} — press the button on the device to pair`,
           );
         }
         return;
@@ -403,7 +403,7 @@ class HomeWizard extends utils.Adapter {
 
     if (this.pairingManualIp) {
       this.log.info(
-        `Pairing with manual IP ${this.pairingManualIp} — press the button on your HomeWizard device within 60 seconds!`,
+        `Pairing mode enabled for ${this.pairingManualIp} — press the button on your HomeWizard device now (60 seconds timeout)`,
       );
       // Add as discovered device immediately
       this.discoveredDuringPairing.push({
@@ -414,15 +414,16 @@ class HomeWizard extends utils.Adapter {
       });
     } else {
       this.log.info(
-        "Pairing mode started (mDNS) — press the button on your HomeWizard device within 60 seconds!",
+        "Pairing mode enabled — searching for devices via mDNS, press the button on your HomeWizard device now (60 seconds timeout)",
       );
-      // If discovery isn't running yet (no devices configured), start it
+      // Restart mDNS browser to trigger fresh query — already-cached devices
+      // won't be re-announced otherwise and pairing would never find them
       if (!this.discovery) {
         this.discovery = new HomeWizardDiscovery(this.log);
-        this.discovery.start((discovered) => {
-          this.onDeviceDiscovered(discovered);
-        });
       }
+      this.discovery.start((discovered) => {
+        this.onDeviceDiscovered(discovered);
+      });
     }
 
     // Poll discovered devices for pairing
@@ -433,7 +434,9 @@ class HomeWizard extends utils.Adapter {
     // Timeout pairing
     this.pairingTimer = this.setTimeout(() => {
       this.stopPairing();
-      this.log.info("Pairing mode timed out");
+      this.log.info(
+        "Pairing mode automatically disabled after 60 seconds timeout",
+      );
     }, PAIRING_TIMEOUT_MS);
   }
 
@@ -446,7 +449,7 @@ class HomeWizard extends utils.Adapter {
 
         // Success! Button was pressed
         this.log.info(
-          `Paired with ${device.name} (${device.productType}) at ${device.ip}`,
+          `Successfully paired with ${device.name} (${device.productType}) at ${device.ip} — connecting...`,
         );
 
         // Get device info

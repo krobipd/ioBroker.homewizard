@@ -197,7 +197,7 @@ class HomeWizard extends utils.Adapter {
         )) {
           this.discoveredDuringPairing.push(discovered);
           this.log.info(
-            `Discovered: ${discovered.name} (${discovered.productType}) at ${discovered.ip} \u2014 waiting for button press...`
+            `Found ${discovered.name} (${discovered.productType}) at ${discovered.ip} \u2014 press the button on the device to pair`
           );
         }
         return;
@@ -345,7 +345,7 @@ class HomeWizard extends utils.Adapter {
     await this.setStateAsync("pairingIp", { val: "", ack: true });
     if (this.pairingManualIp) {
       this.log.info(
-        `Pairing with manual IP ${this.pairingManualIp} \u2014 press the button on your HomeWizard device within 60 seconds!`
+        `Pairing mode enabled for ${this.pairingManualIp} \u2014 press the button on your HomeWizard device now (60 seconds timeout)`
       );
       this.discoveredDuringPairing.push({
         ip: this.pairingManualIp,
@@ -355,21 +355,23 @@ class HomeWizard extends utils.Adapter {
       });
     } else {
       this.log.info(
-        "Pairing mode started (mDNS) \u2014 press the button on your HomeWizard device within 60 seconds!"
+        "Pairing mode enabled \u2014 searching for devices via mDNS, press the button on your HomeWizard device now (60 seconds timeout)"
       );
       if (!this.discovery) {
         this.discovery = new import_discovery.HomeWizardDiscovery(this.log);
-        this.discovery.start((discovered) => {
-          this.onDeviceDiscovered(discovered);
-        });
       }
+      this.discovery.start((discovered) => {
+        this.onDeviceDiscovered(discovered);
+      });
     }
     this.pairingPollTimer = this.setInterval(() => {
       void this.pollPairing();
     }, PAIRING_POLL_MS);
     this.pairingTimer = this.setTimeout(() => {
       this.stopPairing();
-      this.log.info("Pairing mode timed out");
+      this.log.info(
+        "Pairing mode automatically disabled after 60 seconds timeout"
+      );
     }, PAIRING_TIMEOUT_MS);
   }
   /** Poll all discovered devices to attempt pairing */
@@ -379,7 +381,7 @@ class HomeWizard extends utils.Adapter {
         const client = new import_homewizard_client.HomeWizardClient(device.ip);
         const result = await client.requestPairing();
         this.log.info(
-          `Paired with ${device.name} (${device.productType}) at ${device.ip}`
+          `Successfully paired with ${device.name} (${device.productType}) at ${device.ip} \u2014 connecting...`
         );
         const authedClient = new import_homewizard_client.HomeWizardClient(device.ip, result.token);
         const info = await authedClient.getDeviceInfo();

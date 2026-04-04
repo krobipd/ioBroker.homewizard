@@ -154,6 +154,10 @@ homewizard.0.
 
 ## Changelog
 
+### 0.3.3 (2026-04-05)
+- Fix mDNS pairing not finding devices (browser restart on pairing start)
+- Improve log messages during pairing
+
 ### 0.3.2 (2026-04-05)
 - Improve Admin UI and README with detailed configuration guide
 
@@ -178,9 +182,6 @@ homewizard.0.
 
 ### 0.1.1 (2026-04-04)
 - Add unit tests (129 tests)
-
-### 0.1.0 (2026-04-04)
-- Initial release with API v2, WebSocket push, mDNS discovery, multi-device pairing
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 

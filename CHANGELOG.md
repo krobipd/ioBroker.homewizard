@@ -2,6 +2,10 @@
 
 ## **WORK IN PROGRESS**
 
+## 0.3.3 (2026-04-05)
+- Fix mDNS pairing: restart browser on pairing start (cached devices were not re-announced)
+- Improve log messages during pairing (clearer user instructions)
+
 ## 0.3.2 (2026-04-05)
 - Improve Admin UI: structured sections for prerequisites, automatic/manual pairing, device management
 - Improve README: detailed configuration guide with prerequisites and manual IP pairing
