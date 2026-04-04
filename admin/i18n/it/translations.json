@@ -1,0 +1,16 @@
+{
+  "headerDevices": "Dispositivi associati",
+  "devicesInfo": "I dispositivi vengono aggiunti automaticamente tramite la modalità di associazione. Usa il punto dati 'startPairing' nella scheda Oggetti per associare un nuovo dispositivo. L'indirizzo IP può essere aggiornato qui se cambia.",
+  "labelDevices": "Dispositivi",
+  "colProductName": "Nome",
+  "colProductType": "Tipo",
+  "colSerial": "Numero di serie",
+  "colIP": "Indirizzo IP",
+  "colToken": "Token",
+  "headerPairing": "Associazione",
+  "pairingInfo": "Per aggiungere un dispositivo: imposta il punto dati 'startPairing' su true, poi premi il pulsante fisico sul dispositivo HomeWizard entro 60 secondi. Il dispositivo verrà scoperto automaticamente.",
+  "supportHeader": "Supporto",
+  "aboutInfo": "Questo adattatore è gratuito e open source. Se lo trovi utile, considera di supportare lo sviluppo:",
+  "donateKofi": "Ko-fi",
+  "donatePaypal": "PayPal"
+}

@@ -1,0 +1,16 @@
+{
+  "headerDevices": "Sparowane urządzenia",
+  "devicesInfo": "Urządzenia są dodawane automatycznie przez tryb parowania. Użyj punktu danych 'startPairing' w zakładce Obiekty, aby sparować nowe urządzenie. Adres IP można zaktualizować tutaj, jeśli się zmieni.",
+  "labelDevices": "Urządzenia",
+  "colProductName": "Nazwa",
+  "colProductType": "Typ",
+  "colSerial": "Numer seryjny",
+  "colIP": "Adres IP",
+  "colToken": "Token",
+  "headerPairing": "Parowanie",
+  "pairingInfo": "Aby dodać urządzenie: ustaw punkt danych 'startPairing' na true, a następnie naciśnij fizyczny przycisk na urządzeniu HomeWizard w ciągu 60 sekund. Urządzenie zostanie wykryte automatycznie.",
+  "supportHeader": "Wsparcie",
+  "aboutInfo": "Ten adapter jest darmowy i otwartoźródłowy. Jeśli uważasz go za przydatny, rozważ wsparcie rozwoju:",
+  "donateKofi": "Ko-fi",
+  "donatePaypal": "PayPal"
+}

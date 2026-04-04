@@ -1,0 +1,99 @@
+{
+  "i18n": true,
+  "type": "panel",
+  "items": {
+    "_headerDevices": {
+      "type": "header",
+      "text": "headerDevices",
+      "size": 3
+    },
+    "_devicesInfo": {
+      "type": "staticText",
+      "text": "devicesInfo",
+      "style": { "fontSize": 14, "marginBottom": 16 }
+    },
+    "devices": {
+      "type": "table",
+      "label": "labelDevices",
+      "sm": 12,
+      "items": [
+        {
+          "type": "text",
+          "attr": "productName",
+          "title": "colProductName",
+          "width": "20%",
+          "readOnly": true
+        },
+        {
+          "type": "text",
+          "attr": "productType",
+          "title": "colProductType",
+          "width": "15%",
+          "readOnly": true
+        },
+        {
+          "type": "text",
+          "attr": "serial",
+          "title": "colSerial",
+          "width": "20%",
+          "readOnly": true
+        },
+        {
+          "type": "text",
+          "attr": "ip",
+          "title": "colIP",
+          "width": "20%"
+        },
+        {
+          "type": "text",
+          "attr": "token",
+          "title": "colToken",
+          "width": "25%",
+          "readOnly": true
+        }
+      ],
+      "noDelete": false
+    },
+    "_headerPairing": {
+      "newLine": true,
+      "type": "header",
+      "text": "headerPairing",
+      "size": 4
+    },
+    "_pairingInfo": {
+      "type": "staticText",
+      "text": "pairingInfo",
+      "style": { "fontSize": 14, "marginBottom": 16 }
+    },
+    "_supportHeader": {
+      "newLine": true,
+      "type": "header",
+      "text": "supportHeader",
+      "size": 5
+    },
+    "_aboutInfo": {
+      "type": "staticText",
+      "text": "aboutInfo",
+      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
+      "style": { "fontSize": 14, "marginBottom": 16 }
+    },
+    "_kofiLink": {
+      "type": "staticLink",
+      "href": "https://ko-fi.com/krobipd",
+      "label": "donateKofi",
+      "button": true,
+      "variant": "outlined",
+      "color": "primary",
+      "xs": 12, "sm": 6, "md": 4, "lg": 4, "xl": 4
+    },
+    "_paypalLink": {
+      "type": "staticLink",
+      "href": "https://paypal.me/krobipd",
+      "label": "donatePaypal",
+      "button": true,
+      "variant": "outlined",
+      "color": "primary",
+      "xs": 12, "sm": 6, "md": 4, "lg": 4, "xl": 4
+    }
+  }
+}

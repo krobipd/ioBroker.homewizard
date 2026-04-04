@@ -1,0 +1,16 @@
+{
+  "headerDevices": "Dispositivos emparelhados",
+  "devicesInfo": "Os dispositivos são adicionados automaticamente através do modo de emparelhamento. Use o ponto de dados 'startPairing' na aba Objetos para emparelhar um novo dispositivo. O endereço IP pode ser atualizado aqui se mudar.",
+  "labelDevices": "Dispositivos",
+  "colProductName": "Nome",
+  "colProductType": "Tipo",
+  "colSerial": "Número de série",
+  "colIP": "Endereço IP",
+  "colToken": "Token",
+  "headerPairing": "Emparelhamento",
+  "pairingInfo": "Para adicionar um dispositivo: defina o ponto de dados 'startPairing' como true e pressione o botão físico no dispositivo HomeWizard dentro de 60 segundos. O dispositivo será descoberto automaticamente.",
+  "supportHeader": "Apoio",
+  "aboutInfo": "Este adaptador é gratuito e de código aberto. Se você achar útil, considere apoiar o desenvolvimento:",
+  "donateKofi": "Ko-fi",
+  "donatePaypal": "PayPal"
+}

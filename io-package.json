@@ -1,0 +1,136 @@
+{
+  "common": {
+    "name": "homewizard",
+    "version": "0.1.0",
+    "news": {
+      "0.1.0": {
+        "en": "Initial release with API v2, WebSocket push, mDNS discovery, multi-device pairing",
+        "de": "Erstveröffentlichung mit API v2, WebSocket-Push, mDNS-Discovery, Multi-Geräte-Pairing",
+        "ru": "Первый выпуск с API v2, WebSocket push, mDNS discovery, сопряжение нескольких устройств",
+        "pt": "Lançamento inicial com API v2, WebSocket push, descoberta mDNS, emparelhamento multi-dispositivo",
+        "nl": "Eerste release met API v2, WebSocket push, mDNS discovery, multi-device pairing",
+        "fr": "Version initiale avec API v2, WebSocket push, découverte mDNS, appairage multi-appareils",
+        "it": "Rilascio iniziale con API v2, WebSocket push, scoperta mDNS, associazione multi-dispositivo",
+        "es": "Lanzamiento inicial con API v2, WebSocket push, descubrimiento mDNS, emparejamiento multi-dispositivo",
+        "pl": "Pierwsze wydanie z API v2, WebSocket push, odkrywanie mDNS, parowanie wielu urządzeń",
+        "uk": "Початковий випуск з API v2, WebSocket push, mDNS виявлення, з'єднання кількох пристроїв",
+        "zh-cn": "初始版本，支持 API v2、WebSocket 推送、mDNS 发现、多设备配对"
+      }
+    },
+    "titleLang": {
+      "en": "HomeWizard Energy",
+      "de": "HomeWizard Energy",
+      "ru": "HomeWizard Energy",
+      "pt": "HomeWizard Energy",
+      "nl": "HomeWizard Energy",
+      "fr": "HomeWizard Energy",
+      "it": "HomeWizard Energy",
+      "es": "HomeWizard Energy",
+      "pl": "HomeWizard Energy",
+      "uk": "HomeWizard Energy",
+      "zh-cn": "HomeWizard Energy"
+    },
+    "desc": {
+      "en": "Real-time energy monitoring from HomeWizard devices (P1 Meter, kWh Meter, Battery) via API v2 with WebSocket push",
+      "de": "Echtzeit-Energieüberwachung von HomeWizard-Geräten (P1 Meter, kWh Meter, Batterie) via API v2 mit WebSocket-Push",
+      "ru": "Мониторинг энергии в реальном времени от устройств HomeWizard (P1 Meter, kWh Meter, Battery) через API v2 с WebSocket push",
+      "pt": "Monitoramento de energia em tempo real de dispositivos HomeWizard (P1 Meter, kWh Meter, Battery) via API v2 com WebSocket push",
+      "nl": "Realtime energiemonitoring van HomeWizard-apparaten (P1 Meter, kWh Meter, Battery) via API v2 met WebSocket push",
+      "fr": "Surveillance énergétique en temps réel des appareils HomeWizard (P1 Meter, kWh Meter, Battery) via API v2 avec WebSocket push",
+      "it": "Monitoraggio energetico in tempo reale da dispositivi HomeWizard (P1 Meter, kWh Meter, Battery) via API v2 con WebSocket push",
+      "es": "Monitoreo de energía en tiempo real de dispositivos HomeWizard (P1 Meter, kWh Meter, Battery) vía API v2 con WebSocket push",
+      "pl": "Monitorowanie energii w czasie rzeczywistym z urządzeń HomeWizard (P1 Meter, kWh Meter, Battery) przez API v2 z WebSocket push",
+      "uk": "Моніторинг енергії в реальному часі від пристроїв HomeWizard (P1 Meter, kWh Meter, Battery) через API v2 з WebSocket push",
+      "zh-cn": "通过 API v2 和 WebSocket 推送实时监控 HomeWizard 设备（P1 Meter、kWh Meter、Battery）的能源数据"
+    },
+    "authors": [
+      "krobi <krobi@power-dreams.com>"
+    ],
+    "keywords": [
+      "homewizard",
+      "energy",
+      "p1",
+      "meter",
+      "smartmeter",
+      "websocket",
+      "power"
+    ],
+    "licenseInformation": {
+      "license": "MIT",
+      "type": "free"
+    },
+    "platform": "Javascript/Node.js",
+    "icon": "homewizard.svg",
+    "extIcon": "https://raw.githubusercontent.com/krobipd/ioBroker.homewizard/main/admin/homewizard.svg",
+    "readme": "https://github.com/krobipd/ioBroker.homewizard/blob/main/README.md",
+    "enabled": true,
+    "tier": 3,
+    "loglevel": "info",
+    "mode": "daemon",
+    "type": "energy",
+    "compact": true,
+    "connectionType": "local",
+    "dataSource": "push",
+    "adminUI": {
+      "config": "json"
+    },
+    "supportedMessages": {
+      "stopInstance": true
+    },
+    "dependencies": [
+      {
+        "js-controller": ">=7.0.0"
+      }
+    ],
+    "globalDependencies": [
+      {
+        "admin": ">=7.6.20"
+      }
+    ]
+  },
+  "encryptedNative": [
+    "devices"
+  ],
+  "protectedNative": [
+    "devices"
+  ],
+  "native": {
+    "devices": []
+  },
+  "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": {
+        "name": "Adapter Information"
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "name": "Connection status",
+        "type": "boolean",
+        "role": "indicator.connected",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "startPairing",
+      "type": "state",
+      "common": {
+        "name": "Start pairing mode",
+        "type": "boolean",
+        "role": "button",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    }
+  ]
+}

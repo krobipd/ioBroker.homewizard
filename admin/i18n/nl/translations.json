@@ -1,0 +1,16 @@
+{
+  "headerDevices": "Gekoppelde apparaten",
+  "devicesInfo": "Apparaten worden automatisch toegevoegd via de koppelmodus. Gebruik het datapunt 'startPairing' in het tabblad Objecten om een nieuw apparaat te koppelen. Het IP-adres kan hier worden bijgewerkt als dit verandert.",
+  "labelDevices": "Apparaten",
+  "colProductName": "Naam",
+  "colProductType": "Type",
+  "colSerial": "Serienummer",
+  "colIP": "IP-adres",
+  "colToken": "Token",
+  "headerPairing": "Koppelen",
+  "pairingInfo": "Om een apparaat toe te voegen: zet het datapunt 'startPairing' op true en druk vervolgens binnen 60 seconden op de fysieke knop op je HomeWizard-apparaat. Het apparaat wordt automatisch gevonden en toegevoegd.",
+  "supportHeader": "Ondersteuning",
+  "aboutInfo": "Deze adapter is gratis en open source. Als je het nuttig vindt, overweeg dan de ontwikkeling te steunen:",
+  "donateKofi": "Ko-fi",
+  "donatePaypal": "PayPal"
+}
