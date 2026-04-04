@@ -2,6 +2,10 @@
 
 ## **WORK IN PROGRESS**
 
+## 0.1.1 (2026-04-04)
+- Add unit tests (129 tests: API error, discovery, WebSocket, state manager, package)
+- Fix Dependabot config (open-pull-requests-limit: 15, remove fixed schedule time)
+
 ## 0.1.0 (2026-04-04)
 - Initial release
 - HomeWizard API v2 with Bearer Token authentication

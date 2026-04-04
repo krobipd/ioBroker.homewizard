@@ -1,0 +1,473 @@
+import { expect } from "chai";
+import { StateManager } from "../src/lib/state-manager";
+import type { DeviceConfig, Measurement, SystemInfo, BatteryControl } from "../src/lib/types";
+
+interface ObjectDef {
+    type: string;
+    common: Record<string, unknown>;
+    native: Record<string, unknown>;
+}
+
+interface StateValue {
+    val: unknown;
+    ack: boolean;
+}
+
+interface MockAdapter {
+    objects: Map<string, ObjectDef>;
+    states: Map<string, StateValue>;
+    extendObjectAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
+    setStateAsync: (id: string, state: StateValue) => Promise<void>;
+    delObjectAsync: (id: string, opts?: { recursive: boolean }) => Promise<void>;
+}
+
+function createMockAdapter(): MockAdapter {
+    const objects = new Map<string, ObjectDef>();
+    const states = new Map<string, StateValue>();
+
+    return {
+        objects,
+        states,
+        extendObjectAsync: async (id: string, obj: Partial<ObjectDef>): Promise<void> => {
+            const existing = objects.get(id) || { type: "", common: {}, native: {} };
+            objects.set(id, {
+                type: obj.type || existing.type,
+                common: { ...existing.common, ...(obj.common || {}) },
+                native: { ...existing.native, ...(obj.native || {}) },
+            });
+        },
+        setStateAsync: async (id: string, state: StateValue): Promise<void> => {
+            states.set(id, state);
+        },
+        delObjectAsync: async (id: string, _opts?: { recursive: boolean }): Promise<void> => {
+            // Delete the object and all children
+            for (const key of objects.keys()) {
+                if (key === id || key.startsWith(`${id}.`)) {
+                    objects.delete(key);
+                }
+            }
+            for (const key of states.keys()) {
+                if (key === id || key.startsWith(`${id}.`)) {
+                    states.delete(key);
+                }
+            }
+        },
+    };
+}
+
+const testDevice: DeviceConfig = {
+    ip: "192.168.1.100",
+    token: "abcdef1234567890",
+    productType: "HWE-P1",
+    serial: "aabbccddeeff",
+    productName: "P1 Meter",
+};
+
+describe("StateManager", () => {
+    let adapter: MockAdapter;
+    let manager: StateManager;
+
+    beforeEach(() => {
+        adapter = createMockAdapter();
+        manager = new StateManager(adapter as never);
+    });
+
+    describe("devicePrefix", () => {
+        it("should sanitize product type and serial", () => {
+            const prefix = manager.devicePrefix(testDevice);
+            expect(prefix).to.equal("hwe-p1_aabbccddeeff");
+        });
+
+        it("should replace special characters with underscore", () => {
+            const device: DeviceConfig = {
+                ...testDevice,
+                productType: "HWE/P1.v2",
+                serial: "aa:bb:cc",
+            };
+            const prefix = manager.devicePrefix(device);
+            expect(prefix).to.equal("hwe_p1_v2_aa_bb_cc");
+        });
+
+        it("should lowercase the prefix", () => {
+            const device: DeviceConfig = {
+                ...testDevice,
+                productType: "HWE-KWH3",
+                serial: "AABBCC",
+            };
+            const prefix = manager.devicePrefix(device);
+            expect(prefix).to.equal("hwe-kwh3_aabbcc");
+        });
+    });
+
+    describe("createDeviceStates", () => {
+        it("should create device object", async () => {
+            await manager.createDeviceStates(testDevice);
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff");
+            expect(obj).to.not.be.undefined;
+            expect(obj!.type).to.equal("device");
+            expect(obj!.common.name).to.equal("P1 Meter");
+        });
+
+        it("should create info channel", async () => {
+            await manager.createDeviceStates(testDevice);
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.info");
+            expect(obj).to.not.be.undefined;
+            expect(obj!.type).to.equal("channel");
+        });
+
+        it("should create info states", async () => {
+            await manager.createDeviceStates(testDevice);
+            const expected = [
+                "hwe-p1_aabbccddeeff.info.productName",
+                "hwe-p1_aabbccddeeff.info.productType",
+                "hwe-p1_aabbccddeeff.info.firmware",
+                "hwe-p1_aabbccddeeff.info.connected",
+                "hwe-p1_aabbccddeeff.info.wifi_rssi_db",
+                "hwe-p1_aabbccddeeff.info.uptime_s",
+            ];
+            for (const id of expected) {
+                expect(adapter.objects.has(id), `Missing: ${id}`).to.be.true;
+            }
+        });
+
+        it("should set initial productName and productType values", async () => {
+            await manager.createDeviceStates(testDevice);
+            const name = adapter.states.get("hwe-p1_aabbccddeeff.info.productName");
+            expect(name?.val).to.equal("P1 Meter");
+            expect(name?.ack).to.be.true;
+
+            const type = adapter.states.get("hwe-p1_aabbccddeeff.info.productType");
+            expect(type?.val).to.equal("HWE-P1");
+        });
+
+        it("should use productType as name fallback", async () => {
+            const device: DeviceConfig = {
+                ...testDevice,
+                productName: "",
+            };
+            await manager.createDeviceStates(device);
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff");
+            expect(obj!.common.name).to.equal("HWE-P1");
+        });
+    });
+
+    describe("updateMeasurement", () => {
+        it("should create and set power states", async () => {
+            const data: Measurement = {
+                power_w: 1234,
+                power_l1_w: 400,
+                power_l2_w: 500,
+                power_l3_w: 334,
+            };
+            await manager.updateMeasurement(testDevice, data);
+
+            const power = adapter.states.get("hwe-p1_aabbccddeeff.power_w");
+            expect(power?.val).to.equal(1234);
+            expect(power?.ack).to.be.true;
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.power_l1_w")?.val).to.equal(400);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.power_l2_w")?.val).to.equal(500);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.power_l3_w")?.val).to.equal(334);
+        });
+
+        it("should create state objects with correct roles and units", async () => {
+            const data: Measurement = { power_w: 100, voltage_l1_v: 230.5 };
+            await manager.updateMeasurement(testDevice, data);
+
+            const powerObj = adapter.objects.get("hwe-p1_aabbccddeeff.power_w");
+            expect(powerObj?.common.role).to.equal("value.power");
+            expect(powerObj?.common.unit).to.equal("W");
+
+            const voltObj = adapter.objects.get("hwe-p1_aabbccddeeff.voltage_l1_v");
+            expect(voltObj?.common.role).to.equal("value.voltage");
+            expect(voltObj?.common.unit).to.equal("V");
+        });
+
+        it("should skip undefined/null values", async () => {
+            const data: Measurement = { power_w: 100 };
+            await manager.updateMeasurement(testDevice, data);
+
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.power_w")).to.be.true;
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.power_l1_w")).to.be.false;
+        });
+
+        it("should handle energy import/export values", async () => {
+            const data: Measurement = {
+                energy_import_kwh: 12345.678,
+                energy_export_kwh: 9876.543,
+                energy_import_t1_kwh: 6000,
+                energy_import_t2_kwh: 6345.678,
+            };
+            await manager.updateMeasurement(testDevice, data);
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.energy_import_kwh")?.val).to.equal(12345.678);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.energy_export_kwh")?.val).to.equal(9876.543);
+
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.energy_import_kwh");
+            expect(obj?.common.unit).to.equal("kWh");
+            expect(obj?.common.role).to.equal("value.energy");
+        });
+
+        it("should handle voltage quality counters in quality channel", async () => {
+            const data: Measurement = {
+                voltage_sag_l1_count: 3,
+                voltage_swell_l2_count: 1,
+                any_power_fail_count: 5,
+            };
+            await manager.updateMeasurement(testDevice, data);
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.quality.voltage_sag_l1_count")?.val).to.equal(3);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.quality.voltage_swell_l2_count")?.val).to.equal(1);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.quality.power_fail_count")?.val).to.equal(5);
+        });
+
+        it("should handle battery-specific fields", async () => {
+            const data: Measurement = {
+                state_of_charge_pct: 85,
+                cycles: 142,
+            };
+            await manager.updateMeasurement(testDevice, data);
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.state_of_charge_pct")?.val).to.equal(85);
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.state_of_charge_pct");
+            expect(obj?.common.role).to.equal("value.battery");
+            expect(obj?.common.unit).to.equal("%");
+        });
+
+        it("should handle external meters", async () => {
+            const data: Measurement = {
+                power_w: 100,
+                external: [
+                    {
+                        unique_id: "gas001",
+                        type: "gas_meter",
+                        timestamp: "2026-04-04T12:00:00",
+                        value: 1234.567,
+                        unit: "m3",
+                    },
+                ],
+            };
+            await manager.updateMeasurement(testDevice, data);
+
+            // External channel
+            const extChannel = adapter.objects.get("hwe-p1_aabbccddeeff.external");
+            expect(extChannel?.type).to.equal("channel");
+
+            // Gas meter channel
+            const gasChannel = adapter.objects.get("hwe-p1_aabbccddeeff.external.gas_meter_gas001");
+            expect(gasChannel?.type).to.equal("channel");
+
+            // Values
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.external.gas_meter_gas001.value")?.val).to.equal(1234.567);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.external.gas_meter_gas001.unit")?.val).to.equal("m3");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.external.gas_meter_gas001.timestamp")?.val).to.equal("2026-04-04T12:00:00");
+        });
+
+        it("should handle multiple external meters", async () => {
+            const data: Measurement = {
+                external: [
+                    { unique_id: "gas1", type: "gas_meter", timestamp: "t1", value: 100, unit: "m3" },
+                    { unique_id: "water1", type: "water_meter", timestamp: "t2", value: 50, unit: "l" },
+                ],
+            };
+            await manager.updateMeasurement(testDevice, data);
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.external.gas_meter_gas1.value")?.val).to.equal(100);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.external.water_meter_water1.value")?.val).to.equal(50);
+        });
+
+        it("should handle empty measurement", async () => {
+            const data: Measurement = {};
+            await manager.updateMeasurement(testDevice, data);
+            // No states should be created (besides any from previous calls)
+            expect(adapter.states.size).to.equal(0);
+        });
+
+        it("should handle metadata fields", async () => {
+            const data: Measurement = {
+                meter_model: "Landis+Gyr E350",
+                timestamp: "2026-04-04T12:00:00",
+                tariff: 2,
+            };
+            await manager.updateMeasurement(testDevice, data);
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.meter_model")?.val).to.equal("Landis+Gyr E350");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.timestamp")?.val).to.equal("2026-04-04T12:00:00");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.tariff")?.val).to.equal(2);
+        });
+    });
+
+    describe("updateSystem", () => {
+        const system: SystemInfo = {
+            wifi_ssid: "MyNetwork",
+            wifi_rssi_db: -65,
+            uptime_s: 3600,
+            cloud_enabled: true,
+            status_led_brightness_pct: 50,
+            api_v1_enabled: false,
+        };
+
+        it("should update wifi and uptime in info channel", async () => {
+            await manager.updateSystem(testDevice, system);
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.info.wifi_rssi_db")?.val).to.equal(-65);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.info.uptime_s")?.val).to.equal(3600);
+        });
+
+        it("should create system channel", async () => {
+            await manager.updateSystem(testDevice, system);
+
+            const channel = adapter.objects.get("hwe-p1_aabbccddeeff.system");
+            expect(channel?.type).to.equal("channel");
+            expect(channel?.common.name).to.equal("System Settings");
+        });
+
+        it("should create writable system states", async () => {
+            await manager.updateSystem(testDevice, system);
+
+            const cloud = adapter.objects.get("hwe-p1_aabbccddeeff.system.cloud_enabled");
+            expect(cloud?.common.write).to.be.true;
+            expect(cloud?.common.role).to.equal("switch");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.system.cloud_enabled")?.val).to.be.true;
+
+            const led = adapter.objects.get("hwe-p1_aabbccddeeff.system.status_led_brightness_pct");
+            expect(led?.common.write).to.be.true;
+            expect(led?.common.unit).to.equal("%");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.system.status_led_brightness_pct")?.val).to.equal(50);
+        });
+
+        it("should create api_v1_enabled when present", async () => {
+            await manager.updateSystem(testDevice, system);
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.system.api_v1_enabled")?.val).to.be.false;
+        });
+
+        it("should skip api_v1_enabled when undefined", async () => {
+            const systemNoV1: SystemInfo = {
+                wifi_ssid: "Test",
+                wifi_rssi_db: -70,
+                uptime_s: 100,
+                cloud_enabled: false,
+                status_led_brightness_pct: 100,
+            };
+            await manager.updateSystem(testDevice, systemNoV1);
+
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.system.api_v1_enabled")).to.be.false;
+        });
+
+        it("should create reboot and identify buttons", async () => {
+            await manager.updateSystem(testDevice, system);
+
+            const reboot = adapter.objects.get("hwe-p1_aabbccddeeff.system.reboot");
+            expect(reboot?.common.role).to.equal("button");
+            expect(reboot?.common.write).to.be.true;
+
+            const identify = adapter.objects.get("hwe-p1_aabbccddeeff.system.identify");
+            expect(identify?.common.role).to.equal("button");
+            expect(identify?.common.write).to.be.true;
+        });
+    });
+
+    describe("updateBattery", () => {
+        const battery: BatteryControl = {
+            mode: "zero",
+            permissions: ["charge_allowed", "discharge_allowed"],
+            battery_count: 2,
+            power_w: -500,
+            target_power_w: 0,
+            max_consumption_w: 800,
+            max_production_w: 800,
+        };
+
+        it("should create battery channel", async () => {
+            await manager.updateBattery(testDevice, battery);
+
+            const channel = adapter.objects.get("hwe-p1_aabbccddeeff.battery");
+            expect(channel?.type).to.equal("channel");
+            expect(channel?.common.name).to.equal("Battery Control");
+        });
+
+        it("should create writable mode state", async () => {
+            await manager.updateBattery(testDevice, battery);
+
+            const mode = adapter.objects.get("hwe-p1_aabbccddeeff.battery.mode");
+            expect(mode?.common.write).to.be.true;
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.mode")?.val).to.equal("zero");
+        });
+
+        it("should store permissions as JSON string", async () => {
+            await manager.updateBattery(testDevice, battery);
+
+            const perms = adapter.states.get("hwe-p1_aabbccddeeff.battery.permissions");
+            expect(perms?.val).to.equal(JSON.stringify(["charge_allowed", "discharge_allowed"]));
+
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.battery.permissions");
+            expect(obj?.common.role).to.equal("json");
+        });
+
+        it("should set battery count", async () => {
+            await manager.updateBattery(testDevice, battery);
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.battery_count")?.val).to.equal(2);
+        });
+
+        it("should set power values with units", async () => {
+            await manager.updateBattery(testDevice, battery);
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.power_w")?.val).to.equal(-500);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.target_power_w")?.val).to.equal(0);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.max_consumption_w")?.val).to.equal(800);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.max_production_w")?.val).to.equal(800);
+
+            const powerObj = adapter.objects.get("hwe-p1_aabbccddeeff.battery.power_w");
+            expect(powerObj?.common.unit).to.equal("W");
+            expect(powerObj?.common.role).to.equal("value.power");
+        });
+
+        it("should skip optional fields when undefined", async () => {
+            const minimal: BatteryControl = { mode: "standby" };
+            await manager.updateBattery(testDevice, minimal);
+
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.mode")?.val).to.equal("standby");
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.battery.permissions")).to.be.false;
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.battery.battery_count")).to.be.false;
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.battery.power_w")).to.be.false;
+        });
+    });
+
+    describe("setDeviceConnected", () => {
+        it("should set connected state to true", async () => {
+            await manager.setDeviceConnected(testDevice, true);
+            const state = adapter.states.get("hwe-p1_aabbccddeeff.info.connected");
+            expect(state?.val).to.be.true;
+            expect(state?.ack).to.be.true;
+        });
+
+        it("should set connected state to false", async () => {
+            await manager.setDeviceConnected(testDevice, false);
+            const state = adapter.states.get("hwe-p1_aabbccddeeff.info.connected");
+            expect(state?.val).to.be.false;
+        });
+    });
+
+    describe("removeDevice", () => {
+        it("should remove all device objects and states", async () => {
+            await manager.createDeviceStates(testDevice);
+            await manager.updateMeasurement(testDevice, { power_w: 100 });
+
+            // Verify things exist
+            expect(adapter.objects.size).to.be.greaterThan(0);
+            expect(adapter.states.size).to.be.greaterThan(0);
+
+            await manager.removeDevice(testDevice);
+
+            // All objects/states with the device prefix should be gone
+            for (const key of adapter.objects.keys()) {
+                expect(key.startsWith("hwe-p1_aabbccddeeff"), `Object not removed: ${key}`).to.be.false;
+            }
+            for (const key of adapter.states.keys()) {
+                expect(key.startsWith("hwe-p1_aabbccddeeff"), `State not removed: ${key}`).to.be.false;
+            }
+        });
+    });
+});

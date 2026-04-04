@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "news": {
+      "0.1.1": {
+        "en": "Add unit tests (129 tests), fix Dependabot config",
+        "de": "Unit-Tests hinzugefügt (129 Tests), Dependabot-Konfiguration korrigiert",
+        "ru": "Добавлены модульные тесты (129 тестов), исправлена конфигурация Dependabot",
+        "pt": "Adicionados testes unitários (129 testes), corrigida configuração do Dependabot",
+        "nl": "Unit tests toegevoegd (129 tests), Dependabot-configuratie gecorrigeerd",
+        "fr": "Ajout de tests unitaires (129 tests), correction de la configuration Dependabot",
+        "it": "Aggiunti test unitari (129 test), corretta configurazione Dependabot",
+        "es": "Añadidos tests unitarios (129 tests), corregida configuración de Dependabot",
+        "pl": "Dodano testy jednostkowe (129 testów), poprawiono konfigurację Dependabot",
+        "uk": "Додано модульні тести (129 тестів), виправлено конфігурацію Dependabot",
+        "zh-cn": "添加单元测试（129个测试），修复 Dependabot 配置"
+      },
       "0.1.0": {
         "en": "Initial release with API v2, WebSocket push, mDNS discovery, multi-device pairing",
         "de": "Erstveröffentlichung mit API v2, WebSocket-Push, mDNS-Discovery, Multi-Geräte-Pairing",
