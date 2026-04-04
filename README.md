@@ -51,14 +51,34 @@ Real-time energy monitoring from HomeWizard devices via API v2 with WebSocket pu
 
 ## Configuration
 
-Devices are added via the **pairing mode**, not manually:
+### Prerequisites
 
-1. Open the **Objects** tab in ioBroker Admin
+The **local API** must be enabled on your HomeWizard device:
+
+1. Open the **HomeWizard app** on your phone
+2. Go to **Settings** > **Meters** > select your device > **Local API** > **Enable**
+
+### Adding a device (automatic via mDNS)
+
+1. Go to the **Objects** tab in ioBroker Admin
 2. Set `homewizard.0.startPairing` to `true`
 3. **Press the physical button** on your HomeWizard device within 60 seconds
-4. The device is discovered automatically and appears in the adapter settings
+4. The device is discovered automatically and appears under `homewizard.0`
 
-The Admin UI shows all paired devices. You can update the IP address if a device gets a new one.
+### Adding a device (manual IP)
+
+If mDNS is not available (e.g. different VLAN, Docker, or firewall blocking multicast):
+
+1. Set `homewizard.0.pairingIp` to the IP address of your device
+2. Set `homewizard.0.startPairing` to `true`
+3. **Press the physical button** on the device within 60 seconds
+
+### Managing devices
+
+All paired devices are listed in the **Objects** tab under `homewizard.0`. Each device has its own folder (e.g. `hwe-p1_5c2fafaabbcc`) with measurement data, system settings, and device info.
+
+- **Remove a device:** Set its `remove` data point to `true` — the device and all data points are deleted immediately
+- **IP changes:** Handled automatically via mDNS. No manual action needed
 
 ---
 
@@ -133,6 +153,9 @@ homewizard.0.
 ---
 
 ## Changelog
+
+### 0.3.2 (2026-04-05)
+- Improve Admin UI and README with detailed configuration guide
 
 ### 0.3.1 (2026-04-05)
 - Fix uncaught exception on device removal (invalid WebSocket frame during close)

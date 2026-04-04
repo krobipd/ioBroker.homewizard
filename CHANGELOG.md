@@ -2,6 +2,10 @@
 
 ## **WORK IN PROGRESS**
 
+## 0.3.2 (2026-04-05)
+- Improve Admin UI: structured sections for prerequisites, automatic/manual pairing, device management
+- Improve README: detailed configuration guide with prerequisites and manual IP pairing
+
 ## 0.3.1 (2026-04-05)
 - Fix uncaught exception on device removal (WS_ERR_INVALID_OPCODE from late frames)
 - Use `terminate()` instead of `close()` for immediate WebSocket cleanup

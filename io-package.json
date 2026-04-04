@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "news": {
+      "0.3.2": {
+        "en": "Improve Admin UI and README with detailed configuration guide (prerequisites, manual IP pairing)",
+        "de": "Admin UI und README verbessert mit detaillierter Konfigurationsanleitung (Voraussetzungen, manuelles IP-Pairing)",
+        "ru": "Улучшен Admin UI и README с подробным руководством по настройке (предварительные требования, ручное IP-сопряжение)",
+        "pt": "Admin UI e README melhorados com guia de configuração detalhado (pré-requisitos, emparelhamento manual por IP)",
+        "nl": "Admin UI en README verbeterd met gedetailleerde configuratiegids (vereisten, handmatig IP-koppelen)",
+        "fr": "Admin UI et README améliorés avec guide de configuration détaillé (prérequis, appairage IP manuel)",
+        "it": "Admin UI e README migliorati con guida di configurazione dettagliata (prerequisiti, associazione IP manuale)",
+        "es": "Admin UI y README mejorados con guía de configuración detallada (requisitos, emparejamiento IP manual)",
+        "pl": "Ulepszono Admin UI i README ze szczegółowym przewodnikiem konfiguracji (wymagania, ręczne parowanie IP)",
+        "uk": "Покращено Admin UI та README з детальним посібником з налаштування (передумови, ручне IP-сполучення)",
+        "zh-cn": "改进 Admin UI 和 README，提供详细配置指南（前提条件、手动 IP 配对）"
+      },
       "0.3.1": {
         "en": "Fix uncaught exception on device removal (invalid WebSocket frame during close)",
         "de": "Uncaught Exception beim Geraet entfernen behoben (ungueltiger WebSocket-Frame beim Schliessen)",
@@ -80,19 +93,6 @@
         "pl": "Dodano testy jednostkowe (129 testów), poprawiono konfigurację Dependabot",
         "uk": "Додано модульні тести (129 тестів), виправлено конфігурацію Dependabot",
         "zh-cn": "添加单元测试（129个测试），修复 Dependabot 配置"
-      },
-      "0.1.0": {
-        "en": "Initial release with API v2, WebSocket push, mDNS discovery, multi-device pairing",
-        "de": "Erstveröffentlichung mit API v2, WebSocket-Push, mDNS-Discovery, Multi-Geräte-Pairing",
-        "ru": "Первый выпуск с API v2, WebSocket push, mDNS discovery, сопряжение нескольких устройств",
-        "pt": "Lançamento inicial com API v2, WebSocket push, descoberta mDNS, emparelhamento multi-dispositivo",
-        "nl": "Eerste release met API v2, WebSocket push, mDNS discovery, multi-device pairing",
-        "fr": "Version initiale avec API v2, WebSocket push, découverte mDNS, appairage multi-appareils",
-        "it": "Rilascio iniziale con API v2, WebSocket push, scoperta mDNS, associazione multi-dispositivo",
-        "es": "Lanzamiento inicial con API v2, WebSocket push, descubrimiento mDNS, emparejamiento multi-dispositivo",
-        "pl": "Pierwsze wydanie z API v2, WebSocket push, odkrywanie mDNS, parowanie wielu urządzeń",
-        "uk": "Початковий випуск з API v2, WebSocket push, mDNS виявлення, з'єднання кількох пристроїв",
-        "zh-cn": "初始版本，支持 API v2、WebSocket 推送、mDNS 发现、多设备配对"
       }
     },
     "titleLang": {

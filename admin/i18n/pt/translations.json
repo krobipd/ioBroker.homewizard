@@ -1,10 +1,15 @@
 {
-  "headerPairing": "Emparelhamento",
-  "pairingInfo": "Para adicionar um dispositivo: defina o ponto de dados 'startPairing' como true na aba Objetos e pressione o botão físico no dispositivo HomeWizard dentro de 60 segundos. O dispositivo será descoberto automaticamente via mDNS. Para redes sem mDNS, defina 'pairingIp' primeiro.",
-  "headerDevices": "Dispositivos",
-  "devicesInfo": "Os dispositivos emparelhados são exibidos na aba Objetos sob esta instância do adaptador. Cada dispositivo possui pontos de dados de informação, sistema e medição. Para remover um dispositivo, defina seu ponto de dados 'remove' como true.",
-  "supportHeader": "Apoio",
-  "aboutInfo": "Este adaptador é gratuito e de código aberto. Se você achar útil, considere apoiar o desenvolvimento:",
+  "headerPairing": "Adicionar dispositivo",
+  "pairingAutoHeader": "Automático (mDNS)",
+  "pairingAutoInfo": "1. Vá para a aba Objetos e defina 'homewizard.0.startPairing' como true.\n2. Pressione o botão físico no dispositivo HomeWizard dentro de 60 segundos.\n3. O dispositivo é descoberto automaticamente e aparece sob esta instância do adaptador.",
+  "pairingManualHeader": "Manual (IP fixo)",
+  "pairingManualInfo": "Se o mDNS não estiver disponível (ex.: VLAN diferente ou Docker):\n1. Defina 'homewizard.0.pairingIp' com o endereço IP do dispositivo.\n2. Depois defina 'homewizard.0.startPairing' como true.\n3. Pressione o botão físico no dispositivo dentro de 60 segundos.",
+  "headerDevices": "Gerenciar dispositivos",
+  "devicesInfo": "Todos os dispositivos emparelhados estão listados na aba Objetos sob 'homewizard.0'. Cada dispositivo tem sua própria pasta (ex.: hwe-p1_5c2fafaabbcc) com dados de medição, configurações do sistema e informações do dispositivo.\n\nPara remover um dispositivo, defina seu ponto de dados 'remove' como true. O dispositivo e todos os seus pontos de dados serão excluídos imediatamente.",
+  "headerPrerequisites": "Pré-requisitos",
+  "prerequisitesInfo": "A API local deve estar ativada no dispositivo HomeWizard. Abra o app HomeWizard → Configurações → Medidores → seu dispositivo → API Local → Ativar.",
+  "supportHeader": "Suporte",
+  "aboutInfo": "Este adaptador é gratuito e de código aberto. Se for útil para você, considere apoiar o desenvolvimento:",
   "donateKofi": "Ko-fi",
   "donatePaypal": "PayPal"
 }

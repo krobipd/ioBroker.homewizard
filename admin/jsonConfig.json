@@ -2,16 +2,43 @@
   "i18n": true,
   "type": "panel",
   "items": {
+    "_headerPrerequisites": {
+      "type": "header",
+      "text": "headerPrerequisites",
+      "size": 3
+    },
+    "_prerequisitesInfo": {
+      "type": "staticText",
+      "text": "prerequisitesInfo",
+      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
+      "style": { "fontSize": 14, "marginBottom": 16 }
+    },
     "_headerPairing": {
       "type": "header",
       "text": "headerPairing",
       "size": 3
     },
-    "_pairingInfo": {
+    "_pairingAutoHeader": {
+      "type": "header",
+      "text": "pairingAutoHeader",
+      "size": 5
+    },
+    "_pairingAutoInfo": {
       "type": "staticText",
-      "text": "pairingInfo",
+      "text": "pairingAutoInfo",
       "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
-      "style": { "fontSize": 14, "marginBottom": 16 }
+      "style": { "fontSize": 14, "marginBottom": 16, "whiteSpace": "pre-line" }
+    },
+    "_pairingManualHeader": {
+      "type": "header",
+      "text": "pairingManualHeader",
+      "size": 5
+    },
+    "_pairingManualInfo": {
+      "type": "staticText",
+      "text": "pairingManualInfo",
+      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
+      "style": { "fontSize": 14, "marginBottom": 16, "whiteSpace": "pre-line" }
     },
     "_headerDevices": {
       "type": "header",
@@ -22,7 +49,7 @@
       "type": "staticText",
       "text": "devicesInfo",
       "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
-      "style": { "fontSize": 14, "marginBottom": 16 }
+      "style": { "fontSize": 14, "marginBottom": 16, "whiteSpace": "pre-line" }
     },
     "_supportHeader": {
       "newLine": true,
