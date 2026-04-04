@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { HW_AGENT } from "./cacert";
 import type { Measurement, WsMessage } from "./types";
 
 /** Callback interface for WebSocket events */
@@ -50,7 +51,7 @@ export class HomeWizardWebSocket {
     this.callbacks.log.debug(`WS connecting to ${url}`);
 
     this.ws = new WebSocket(url, {
-      rejectUnauthorized: false, // HomeWizard uses self-signed certs
+      agent: HW_AGENT,
       handshakeTimeout: 10_000,
     });
 

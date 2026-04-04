@@ -33,6 +33,7 @@ __export(homewizard_client_exports, {
 });
 module.exports = __toCommonJS(homewizard_client_exports);
 var https = __toESM(require("node:https"));
+var import_cacert = require("./cacert");
 class HomeWizardClient {
   ip;
   token;
@@ -115,8 +116,7 @@ class HomeWizardClient {
           path,
           method,
           headers,
-          rejectUnauthorized: false,
-          // HomeWizard uses self-signed certs
+          agent: import_cacert.HW_AGENT,
           timeout: 1e4
         },
         (res) => {

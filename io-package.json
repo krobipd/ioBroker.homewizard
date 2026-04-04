@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "news": {
+      "0.1.2": {
+        "en": "Bundle HomeWizard CA certificate for proper TLS validation instead of skipping verification",
+        "de": "HomeWizard CA-Zertifikat für korrekte TLS-Validierung gebündelt statt Überprüfung zu überspringen",
+        "ru": "Встроен CA-сертификат HomeWizard для корректной проверки TLS вместо пропуска верификации",
+        "pt": "Certificado CA HomeWizard incluído para validação TLS adequada em vez de ignorar verificação",
+        "nl": "HomeWizard CA-certificaat gebundeld voor correcte TLS-validatie in plaats van verificatie over te slaan",
+        "fr": "Certificat CA HomeWizard intégré pour une validation TLS correcte au lieu d'ignorer la vérification",
+        "it": "Certificato CA HomeWizard incluso per una corretta validazione TLS invece di saltare la verifica",
+        "es": "Certificado CA HomeWizard incluido para validación TLS correcta en lugar de omitir verificación",
+        "pl": "Dołączono certyfikat CA HomeWizard dla prawidłowej walidacji TLS zamiast pomijania weryfikacji",
+        "uk": "Додано CA-сертифікат HomeWizard для належної перевірки TLS замість пропуску верифікації",
+        "zh-cn": "捆绑 HomeWizard CA 证书进行正确的 TLS 验证，而非跳过验证"
+      },
       "0.1.1": {
         "en": "Add unit tests (129 tests), fix Dependabot config",
         "de": "Unit-Tests hinzugefügt (129 Tests), Dependabot-Konfiguration korrigiert",

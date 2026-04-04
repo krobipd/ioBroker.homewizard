@@ -2,6 +2,11 @@
 
 ## **WORK IN PROGRESS**
 
+## 0.1.2 (2026-04-04)
+- Bundle HomeWizard CA certificate for proper TLS validation (like Home Assistant integration)
+- Replace `rejectUnauthorized: false` with CA-based cert chain validation
+- Shared HTTPS agent for all connections
+
 ## 0.1.1 (2026-04-04)
 - Add unit tests (129 tests: API error, discovery, WebSocket, state manager, package)
 - Fix Dependabot config (open-pull-requests-limit: 15, remove fixed schedule time)

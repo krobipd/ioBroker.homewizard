@@ -32,6 +32,7 @@ __export(websocket_client_exports, {
 });
 module.exports = __toCommonJS(websocket_client_exports);
 var import_ws = __toESM(require("ws"));
+var import_cacert = require("./cacert");
 class HomeWizardWebSocket {
   ip;
   token;
@@ -57,8 +58,7 @@ class HomeWizardWebSocket {
     const url = `wss://${this.ip}/api/ws`;
     this.callbacks.log.debug(`WS connecting to ${url}`);
     this.ws = new import_ws.default(url, {
-      rejectUnauthorized: false,
-      // HomeWizard uses self-signed certs
+      agent: import_cacert.HW_AGENT,
       handshakeTimeout: 1e4
     });
     this.ws.on("open", () => {

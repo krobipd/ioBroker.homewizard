@@ -134,6 +134,10 @@ homewizard.0.
 
 ## Changelog
 
+### 0.1.2 (2026-04-04)
+- Bundle HomeWizard CA certificate for proper TLS validation
+- Replace `rejectUnauthorized: false` with CA-based cert chain validation
+
 ### 0.1.1 (2026-04-04)
 - Add unit tests (129 tests)
 - Fix Dependabot config

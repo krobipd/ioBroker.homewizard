@@ -1,4 +1,5 @@
 import * as https from "node:https";
+import { HW_AGENT } from "./cacert";
 import type {
   BatteryControl,
   DeviceInfo,
@@ -105,7 +106,7 @@ export class HomeWizardClient {
           path,
           method,
           headers,
-          rejectUnauthorized: false, // HomeWizard uses self-signed certs
+          agent: HW_AGENT,
           timeout: 10_000,
         },
         (res) => {

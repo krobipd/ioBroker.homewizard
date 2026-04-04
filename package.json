@@ -1,6 +1,6 @@
 {
   "name": "iobroker.homewizard",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "ioBroker adapter for HomeWizard Energy devices — real-time energy monitoring via API v2 with WebSocket push",
   "author": {
     "name": "krobi",
