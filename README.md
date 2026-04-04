@@ -77,7 +77,7 @@ homewizard.0.
     │   ├── wifi_rssi_db         — WiFi signal strength (number, dB)
     │   └── uptime_s             — Device uptime (number, s)
     ├── power_w                  — Total power (number, W)
-    ├─�� power_l1_w .. l3_w       — Power per phase (number, W)
+    ├── power_l1_w .. l3_w       — Power per phase (number, W)
     ├── voltage_l1_v .. l3_v     — Voltage per phase (number, V)
     ├── current_l1_a .. l3_a     — Current per phase (number, A)
     ├── frequency_hz             — Grid frequency (number, Hz)
@@ -94,7 +94,7 @@ homewizard.0.
     ├── external/                — External meters (gas, water, heat)
     │   └── {type}_{id}/
     │       ├── value            — Meter reading (number)
-    │       ���── unit             — Unit (string)
+    │       ├── unit             — Unit (string)
     │       └── timestamp        — Last update (string)
     ├── battery/                 — Battery control (if batteries connected)
     │   ├── mode                 — zero / to_full / standby (string, R/W)
