@@ -5,7 +5,6 @@
   "colProductName": "Name",
   "colProductType": "Typ",
   "colSerial": "Seriennummer",
-  "colIP": "IP-Adresse",
   "colToken": "Token",
   "headerPairing": "Kopplung",
   "pairingInfo": "Um ein neues Gerät hinzuzufügen: Setze den Datenpunkt 'startPairing' auf true und drücke dann innerhalb von 60 Sekunden den physischen Knopf am HomeWizard-Gerät. Das Gerät wird automatisch erkannt und zur Liste hinzugefügt.",

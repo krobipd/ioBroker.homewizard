@@ -5,7 +5,6 @@
   "colProductName": "Nome",
   "colProductType": "Tipo",
   "colSerial": "Número de série",
-  "colIP": "Endereço IP",
   "colToken": "Token",
   "headerPairing": "Emparelhamento",
   "pairingInfo": "Para adicionar um dispositivo: defina o ponto de dados 'startPairing' como true e pressione o botão físico no dispositivo HomeWizard dentro de 60 segundos. O dispositivo será descoberto automaticamente.",

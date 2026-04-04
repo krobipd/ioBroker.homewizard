@@ -5,7 +5,6 @@
   "colProductName": "Naam",
   "colProductType": "Type",
   "colSerial": "Serienummer",
-  "colIP": "IP-adres",
   "colToken": "Token",
   "headerPairing": "Koppelen",
   "pairingInfo": "Om een apparaat toe te voegen: zet het datapunt 'startPairing' op true en druk vervolgens binnen 60 seconden op de fysieke knop op je HomeWizard-apparaat. Het apparaat wordt automatisch gevonden en toegevoegd.",

@@ -5,7 +5,6 @@
   "colProductName": "Назва",
   "colProductType": "Тип",
   "colSerial": "Серійний номер",
-  "colIP": "IP-адреса",
   "colToken": "Токен",
   "headerPairing": "Сполучення",
   "pairingInfo": "Щоб додати пристрій: встановіть точку даних 'startPairing' на true, потім натисніть фізичну кнопку на пристрої HomeWizard протягом 60 секунд. Пристрій буде виявлено автоматично.",

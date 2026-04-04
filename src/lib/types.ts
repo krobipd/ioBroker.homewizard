@@ -8,8 +8,6 @@ export interface AdapterConfig {
 
 /** Persisted config for a single paired device */
 export interface DeviceConfig {
-  /** Device IP address */
-  ip: string;
   /** Bearer token from pairing */
   token: string;
   /** Product type (e.g. HWE-P1) */
@@ -255,6 +253,8 @@ export interface DiscoveredDevice {
 export interface DeviceConnection {
   /** Device config */
   config: DeviceConfig;
+  /** Current IP address (from mDNS, not persisted) */
+  ip: string;
   /** WebSocket client instance (if connected) */
   wsClient: HomeWizardWebSocket | null;
   /** Whether WS is authenticated */

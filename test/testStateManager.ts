@@ -56,7 +56,6 @@ function createMockAdapter(): MockAdapter {
 }
 
 const testDevice: DeviceConfig = {
-    ip: "192.168.1.100",
     token: "abcdef1234567890",
     productType: "HWE-P1",
     serial: "aabbccddeeff",
@@ -141,10 +140,7 @@ describe("StateManager", () => {
         });
 
         it("should use productType as name fallback", async () => {
-            const device: DeviceConfig = {
-                ...testDevice,
-                productName: "",
-            };
+            const device: DeviceConfig = { ...testDevice, productName: "" };
             await manager.createDeviceStates(device);
             const obj = adapter.objects.get("hwe-p1_aabbccddeeff");
             expect(obj!.common.name).to.equal("HWE-P1");

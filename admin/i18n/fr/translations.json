@@ -5,7 +5,6 @@
   "colProductName": "Nom",
   "colProductType": "Type",
   "colSerial": "Numéro de série",
-  "colIP": "Adresse IP",
   "colToken": "Jeton",
   "headerPairing": "Appairage",
   "pairingInfo": "Pour ajouter un appareil : définissez le point de données 'startPairing' sur true, puis appuyez sur le bouton physique de votre appareil HomeWizard dans les 60 secondes. L'appareil sera découvert automatiquement.",

@@ -2,6 +2,13 @@
 
 ## **WORK IN PROGRESS**
 
+## 0.1.3 (2026-04-04)
+- Remove IP from device config — devices are now discovered via mDNS at runtime
+- mDNS discovery runs permanently (not just during pairing)
+- Automatic IP updates when device IP changes (DHCP)
+- Remove IP column from Admin UI device table
+- Add `noAdd` to device table (devices can only be added via pairing)
+
 ## 0.1.2 (2026-04-04)
 - Bundle HomeWizard CA certificate for proper TLS validation (like Home Assistant integration)
 - Replace `rejectUnauthorized: false` with CA-based cert chain validation

@@ -134,6 +134,10 @@ homewizard.0.
 
 ## Changelog
 
+### 0.1.3 (2026-04-04)
+- Remove IP from config — devices discovered via mDNS at runtime
+- mDNS discovery runs permanently, automatic IP updates on DHCP changes
+
 ### 0.1.2 (2026-04-04)
 - Bundle HomeWizard CA certificate for proper TLS validation
 - Replace `rejectUnauthorized: false` with CA-based cert chain validation

@@ -5,7 +5,6 @@
   "colProductName": "名称",
   "colProductType": "类型",
   "colSerial": "序列号",
-  "colIP": "IP 地址",
   "colToken": "令牌",
   "headerPairing": "配对",
   "pairingInfo": "要添加新设备：将 'startPairing' 数据点设置为 true，然后在 60 秒内按下 HomeWizard 设备上的物理按钮。设备将被自动发现并添加到上面的列表中。",
