@@ -134,11 +134,15 @@ homewizard.0.
 
 ## Changelog
 
+### 0.3.0 (2026-04-05)
+- Store device config in device objects (no adapter restart on pairing/remove)
+- Fix datapoint issues (startPairing, pairingIp, button states)
+- Reconnect workflow: IP change handling, auth backoff, error dedup
+
 ### 0.2.0 (2026-04-05)
 - Fix WebSocket auth format and mDNS service type (`_homewizard._tcp`)
 - Add editable IP column in Admin UI (empty = mDNS, set = fixed IP)
 - Add manual IP pairing for networks without mDNS
-- Add per-device remove button
 
 ### 0.1.3 (2026-04-04)
 - mDNS discovery runs permanently, automatic IP updates

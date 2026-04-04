@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "news": {
+      "0.3.0": {
+        "en": "Store device config in device objects (no adapter restart), fix datapoint issues, reconnect workflow",
+        "de": "Gerätekonfiguration in Geräteobjekten gespeichert (kein Adapter-Neustart), Datenpunkt-Fixes, Reconnect-Workflow",
+        "ru": "Конфигурация устройств в объектах устройств (без перезапуска адаптера), исправления точек данных, workflow переподключения",
+        "pt": "Configuração de dispositivos em objetos de dispositivo (sem reiniciar adaptador), correções de pontos de dados, workflow de reconexão",
+        "nl": "Apparaatconfiguratie in apparaatobjecten (geen adapter herstart), datapunt-fixes, reconnect workflow",
+        "fr": "Configuration des appareils dans les objets d appareil (pas de redémarrage), corrections des points de données, workflow de reconnexion",
+        "it": "Configurazione dispositivi negli oggetti dispositivo (nessun riavvio adattatore), correzioni punti dati, workflow di riconnessione",
+        "es": "Configuración de dispositivos en objetos de dispositivo (sin reiniciar adaptador), correcciones de puntos de datos, workflow de reconexión",
+        "pl": "Konfiguracja urządzeń w obiektach urządzeń (bez restartu adaptera), poprawki punktów danych, workflow reconnect",
+        "uk": "Конфігурація пристроїв в об єктах пристроїв (без перезапуску адаптера), виправлення точок даних, workflow перепідключення",
+        "zh-cn": "设备配置存储在设备对象中（无需重启适配器），数据点修复，重连工作流"
+      },
       "0.2.0": {
         "en": "Fix WebSocket auth and mDNS service type, add editable IP field in Admin UI, manual IP pairing",
         "de": "WebSocket-Auth und mDNS-Servicetyp korrigiert, editierbares IP-Feld in Admin UI, manuelles IP-Pairing",
@@ -140,15 +153,9 @@
       }
     ]
   },
-  "encryptedNative": [
-    "devices"
-  ],
-  "protectedNative": [
-    "devices"
-  ],
-  "native": {
-    "devices": []
-  },
+  "encryptedNative": [],
+  "protectedNative": [],
+  "native": {},
   "instanceObjects": [
     {
       "_id": "info",

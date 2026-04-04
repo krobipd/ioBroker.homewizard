@@ -560,13 +560,7 @@ class StateManager {
       false,
       "s"
     );
-    await this.createState(
-      `${prefix}.remove`,
-      "Remove device",
-      "boolean",
-      "button",
-      true
-    );
+    await this.createButton(`${prefix}.remove`, "Remove device");
     await this.adapter.setStateAsync(`${prefix}.info.productName`, {
       val: config.productName,
       ack: true
@@ -695,19 +689,10 @@ class StateManager {
         true
       );
     }
-    await this.createState(
-      `${prefix}.system.reboot`,
-      "Reboot device",
-      "boolean",
-      "button",
-      true
-    );
-    await this.createState(
+    await this.createButton(`${prefix}.system.reboot`, "Reboot device");
+    await this.createButton(
       `${prefix}.system.identify`,
-      "Identify (blink LED)",
-      "boolean",
-      "button",
-      true
+      "Identify (blink LED)"
     );
   }
   /**
@@ -849,6 +834,26 @@ class StateManager {
       common,
       native: {}
     });
+  }
+  /**
+   * Create a button state (read: false, write: true) with initial value false
+   *
+   * @param id State ID
+   * @param name State name
+   */
+  async createButton(id, name) {
+    await this.adapter.extendObjectAsync(id, {
+      type: "state",
+      common: {
+        name,
+        type: "boolean",
+        role: "button",
+        read: false,
+        write: true
+      },
+      native: {}
+    });
+    await this.adapter.setStateAsync(id, { val: false, ack: true });
   }
   /**
    * Ensure state exists and set value

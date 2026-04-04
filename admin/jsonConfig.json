@@ -18,45 +18,11 @@
       "text": "headerDevices",
       "size": 3
     },
-    "devices": {
-      "type": "table",
-      "label": "labelDevices",
-      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
-      "items": [
-        {
-          "attr": "productName",
-          "type": "text",
-          "title": "colProductName",
-          "filter": false,
-          "sort": false,
-          "readOnly": true,
-          "width": "30%"
-        },
-        {
-          "attr": "serial",
-          "type": "text",
-          "title": "colSerial",
-          "filter": false,
-          "sort": false,
-          "readOnly": true,
-          "width": "30%"
-        },
-        {
-          "attr": "ip",
-          "type": "text",
-          "title": "colIp",
-          "filter": false,
-          "sort": false,
-          "placeholder": "mDNS",
-          "width": "30%"
-        }
-      ]
-    },
     "_devicesInfo": {
       "type": "staticText",
       "text": "devicesInfo",
       "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
-      "style": { "fontSize": 12, "marginBottom": 16, "color": "#888" }
+      "style": { "fontSize": 14, "marginBottom": 16 }
     },
     "_supportHeader": {
       "newLine": true,

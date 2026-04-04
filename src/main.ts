@@ -22,6 +22,8 @@ const WS_RECONNECT_MAX_MS = 300_000;
 const REST_POLL_MS = 10_000;
 /** System info poll interval in milliseconds */
 const SYSTEM_POLL_MS = 60_000;
+/** Max auth failures before giving up */
+const MAX_AUTH_FAILURES = 3;
 
 class HomeWizard extends utils.Adapter {
   private stateManager!: StateManager;
@@ -60,6 +62,10 @@ class HomeWizard extends utils.Adapter {
       native: {},
     });
 
+    // Reset pairing states on start (in case previous run was killed mid-pairing)
+    await this.setStateAsync("startPairing", { val: false, ack: true });
+    await this.setStateAsync("pairingIp", { val: "", ack: true });
+
     // Subscribe to pairing button and writable device states
     await this.subscribeStatesAsync("startPairing");
     await this.subscribeStatesAsync("*.system.reboot");
@@ -71,18 +77,18 @@ class HomeWizard extends utils.Adapter {
     await this.subscribeStatesAsync("*.battery.permissions");
     await this.subscribeStatesAsync("*.remove");
 
-    const devices: DeviceConfig[] = this.config.devices || [];
+    // Load devices from device objects (not from adapter config)
+    const devices = await this.loadDevicesFromObjects();
     if (devices.length === 0) {
       this.log.info(
         "No devices configured — press 'Start Pairing' to add a HomeWizard device",
       );
       await this.setStateAsync("info.connection", { val: false, ack: true });
-      return;
     }
 
     // Create connection entries for all configured devices
     for (const device of devices) {
-      const key = `${device.productType}_${device.serial}`;
+      const key = this.stateManager.devicePrefix(device);
       await this.stateManager.createDeviceStates(device);
       const conn: DeviceConnection = {
         config: device,
@@ -92,6 +98,7 @@ class HomeWizard extends utils.Adapter {
         pollTimer: undefined,
         reconnectTimer: undefined,
         wsFailCount: 0,
+        authFailCount: 0,
         lastErrorCode: "",
       };
       this.connections.set(key, conn);
@@ -104,7 +111,6 @@ class HomeWizard extends utils.Adapter {
     }
 
     // Start mDNS discovery (updates IP if device announces)
-    this.log.debug("Starting mDNS discovery for _homewizard._tcp");
     this.discovery = new HomeWizardDiscovery(this.log);
     this.discovery.start((discovered) => {
       this.onDeviceDiscovered(discovered);
@@ -119,6 +125,86 @@ class HomeWizard extends utils.Adapter {
   }
 
   /**
+   * Load device configs from existing device objects
+   * Tokens are stored encrypted in device object native
+   */
+  private async loadDevicesFromObjects(): Promise<DeviceConfig[]> {
+    const devices: DeviceConfig[] = [];
+
+    // Also migrate from old adapter config if devices exist there
+    const oldDevices: DeviceConfig[] =
+      ((this.config as Record<string, unknown>).devices as DeviceConfig[]) ||
+      [];
+    if (oldDevices.length > 0) {
+      this.log.debug(
+        `Migrating ${oldDevices.length} device(s) from adapter config to device objects`,
+      );
+      for (const device of oldDevices) {
+        await this.saveDeviceToObject(device);
+      }
+      // Clear old config (this triggers one restart, but only during migration)
+      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
+        native: { devices: [] },
+      });
+      return oldDevices;
+    }
+
+    // Read device objects from our namespace
+    const objects = await this.getAdapterObjectsAsync();
+    for (const [id, obj] of Object.entries(objects)) {
+      if (obj.type !== "device") {
+        continue;
+      }
+      const native = obj.native as Record<string, string> | undefined;
+      if (!native?.encryptedToken || !native.serial) {
+        continue;
+      }
+      const localId = id.replace(`${this.namespace}.`, "");
+      this.log.debug(`Loading device from object: ${localId}`);
+      const token = this.decrypt(native.encryptedToken);
+      devices.push({
+        token,
+        productType: native.productType || "unknown",
+        serial: native.serial,
+        productName: native.productName || native.productType || "unknown",
+        ...(native.ip ? { ip: native.ip } : {}),
+      });
+    }
+
+    return devices;
+  }
+
+  /**
+   * Save device config to its device object native (encrypted token)
+   *
+   * @param config Device configuration to save
+   */
+  private async saveDeviceToObject(config: DeviceConfig): Promise<void> {
+    const prefix = this.stateManager.devicePrefix(config);
+    const encryptedToken = this.encrypt(config.token);
+    await this.extendObjectAsync(prefix, {
+      type: "device",
+      common: { name: config.productName || config.productType },
+      native: {
+        encryptedToken,
+        productType: config.productType,
+        serial: config.serial,
+        productName: config.productName,
+        ...(config.ip ? { ip: config.ip } : {}),
+      },
+    });
+  }
+
+  /**
+   * Remove device config from its device object
+   *
+   * @param config Device configuration to remove
+   */
+  private async removeDeviceFromObject(config: DeviceConfig): Promise<void> {
+    await this.stateManager.removeDevice(config);
+  }
+
+  /**
    * Handle a discovered device from mDNS
    *
    * @param discovered Discovered device info
@@ -126,8 +212,8 @@ class HomeWizard extends utils.Adapter {
   private onDeviceDiscovered(discovered: DiscoveredDevice): void {
     // During pairing, collect new devices
     if (this.isPairing) {
-      const existing = (this.config.devices || []).find(
-        (d) => d.serial === discovered.serial,
+      const existing = Array.from(this.connections.values()).find(
+        (c) => c.config.serial === discovered.serial,
       );
       if (!existing) {
         if (
@@ -152,12 +238,32 @@ class HomeWizard extends utils.Adapter {
 
       // Update IP if changed
       if (conn.ip !== discovered.ip) {
-        if (conn.ip) {
-          this.log.debug(
-            `${conn.config.productName}: IP changed ${conn.ip} → ${discovered.ip}`,
-          );
-        }
+        const oldIp = conn.ip;
         conn.ip = discovered.ip;
+
+        if (oldIp) {
+          this.log.debug(
+            `${conn.config.productName}: IP changed ${oldIp} → ${discovered.ip}`,
+          );
+          // Close active WS so it reconnects with new IP
+          if (conn.wsClient) {
+            conn.wsClient.close();
+            conn.wsClient = null;
+            conn.wsAuthenticated = false;
+            // Cancel pending reconnect — we reconnect immediately
+            if (conn.reconnectTimer) {
+              this.clearTimeout(conn.reconnectTimer);
+              conn.reconnectTimer = undefined;
+            }
+            if (conn.pollTimer) {
+              this.clearInterval(conn.pollTimer);
+              conn.pollTimer = undefined;
+            }
+            conn.wsFailCount = 0;
+            conn.authFailCount = 0;
+            this.connectWebSocket(conn);
+          }
+        }
       }
 
       // Connect if not already connected
@@ -284,12 +390,16 @@ class HomeWizard extends utils.Adapter {
       return;
     }
 
+    // Reset startPairing immediately so it doesn't survive a restart
+    await this.setStateAsync("startPairing", { val: false, ack: true });
+
     this.isPairing = true;
     this.discoveredDuringPairing = [];
 
-    // Check if manual IP is set
+    // Check if manual IP is set, then clear pairingIp immediately
     const ipState = await this.getStateAsync("pairingIp");
     this.pairingManualIp = ipState?.val ? String(ipState.val).trim() : "";
+    await this.setStateAsync("pairingIp", { val: "", ack: true });
 
     if (this.pairingManualIp) {
       this.log.info(
@@ -351,18 +461,12 @@ class HomeWizard extends utils.Adapter {
           ...(this.pairingManualIp ? { ip: this.pairingManualIp } : {}),
         };
 
-        // Save to config
-        const devices = [...(this.config.devices || []), deviceConfig];
-        await this.extendForeignObjectAsync(
-          `system.adapter.${this.namespace}`,
-          {
-            native: { devices },
-          },
-        );
-
-        // Create states and connect
-        const key = `${deviceConfig.productType}_${deviceConfig.serial}`;
+        // Save to device object (no adapter restart!)
+        await this.saveDeviceToObject(deviceConfig);
         await this.stateManager.createDeviceStates(deviceConfig);
+
+        // Create connection and connect
+        const key = this.stateManager.devicePrefix(deviceConfig);
         const conn: DeviceConnection = {
           config: deviceConfig,
           ip: device.ip,
@@ -371,6 +475,7 @@ class HomeWizard extends utils.Adapter {
           pollTimer: undefined,
           reconnectTimer: undefined,
           wsFailCount: 0,
+          authFailCount: 0,
           lastErrorCode: "",
         };
         this.connections.set(key, conn);
@@ -378,10 +483,12 @@ class HomeWizard extends utils.Adapter {
 
         // Remove from discovery list
         this.discoveredDuringPairing = this.discoveredDuringPairing.filter(
-          (d) => d.serial !== device.serial,
+          (d) => d.serial !== info.serial,
         );
 
+        this.stopPairing();
         this.updateGlobalConnection();
+        return;
       } catch (err) {
         // 403 = button not pressed yet — expected, keep polling
         if (err instanceof HomeWizardApiError && err.statusCode === 403) {
@@ -408,16 +515,6 @@ class HomeWizard extends utils.Adapter {
       this.clearTimeout(this.pairingTimer);
       this.pairingTimer = undefined;
     }
-
-    // Stop discovery only if no devices are configured (nothing to listen for)
-    if ((this.config.devices || []).length === 0) {
-      this.discovery?.stop();
-      this.discovery = null;
-    }
-
-    // Reset pairing states
-    void this.setStateAsync("startPairing", { val: false, ack: true });
-    void this.setStateAsync("pairingIp", { val: "", ack: true });
   }
 
   /**
@@ -452,7 +549,12 @@ class HomeWizard extends utils.Adapter {
       return; // No IP yet — wait for mDNS
     }
 
-    const key = `${conn.config.productType}_${conn.config.serial}`;
+    // Stop reconnecting if auth keeps failing
+    if (conn.authFailCount >= MAX_AUTH_FAILURES) {
+      return;
+    }
+
+    const key = this.stateManager.devicePrefix(conn.config);
 
     const wsClient = new HomeWizardWebSocket(conn.ip, conn.config.token, {
       onMeasurement: (data: Measurement) => {
@@ -461,7 +563,7 @@ class HomeWizard extends utils.Adapter {
       onConnected: () => {
         conn.wsAuthenticated = true;
         conn.wsFailCount = 0;
-        conn.lastErrorCode = "";
+        conn.authFailCount = 0;
         void this.stateManager.setDeviceConnected(conn.config, true);
         this.updateGlobalConnection();
 
@@ -471,17 +573,38 @@ class HomeWizard extends utils.Adapter {
           conn.pollTimer = undefined;
         }
 
+        // Log restoration if we had errors before
+        if (conn.lastErrorCode) {
+          this.log.info(`${conn.config.productName}: connection restored`);
+          conn.lastErrorCode = "";
+        }
+
         this.log.debug(
           `WebSocket connected to ${conn.config.productName} (${conn.ip})`,
         );
       },
       onDisconnected: (error?: Error) => {
         conn.wsAuthenticated = false;
+        conn.wsClient = null;
         void this.stateManager.setDeviceConnected(conn.config, false);
         this.updateGlobalConnection();
 
         if (error) {
           this.logDeviceError(conn, "ws", error);
+        }
+
+        // Check if this was an auth failure
+        if (
+          error instanceof HomeWizardApiError &&
+          error.errorCode === "user:unauthorized"
+        ) {
+          conn.authFailCount++;
+          if (conn.authFailCount >= MAX_AUTH_FAILURES) {
+            this.log.warn(
+              `${conn.config.productName}: token invalid — re-pair device to fix`,
+            );
+            return;
+          }
         }
 
         // Start REST fallback
@@ -537,7 +660,8 @@ class HomeWizard extends utils.Adapter {
   /** Poll system info for all connected devices */
   private async pollAllSystemInfo(): Promise<void> {
     for (const conn of this.connections.values()) {
-      if (conn.ip) {
+      // Only poll devices that have an IP and are connected or at least reachable
+      if (conn.ip && (conn.wsAuthenticated || conn.pollTimer)) {
         await this.pollSystemInfo(conn);
       }
     }
@@ -561,7 +685,10 @@ class HomeWizard extends utils.Adapter {
       // Also poll battery if device supports it
       try {
         const battery = await client.getBatteries();
-        await this.stateManager.updateBattery(conn.config, battery);
+        // Only create battery states if batteries are actually connected
+        if (battery.battery_count && battery.battery_count > 0) {
+          await this.stateManager.updateBattery(conn.config, battery);
+        }
       } catch {
         // Device may not support batteries — that's fine
       }
@@ -582,7 +709,7 @@ class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Remove a device — disconnect, delete states, remove from config
+   * Remove a device — disconnect, delete states and object
    *
    * @param stateId The remove state ID
    */
@@ -607,16 +734,8 @@ class HomeWizard extends utils.Adapter {
     }
     this.connections.delete(key);
 
-    // Delete states
-    await this.stateManager.removeDevice(conn.config);
-
-    // Remove from config
-    const devices = (this.config.devices || []).filter(
-      (d) => d.serial !== conn.config.serial,
-    );
-    await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-      native: { devices },
-    });
+    // Delete device object and all states (no adapter restart!)
+    await this.removeDeviceFromObject(conn.config);
 
     this.updateGlobalConnection();
   }

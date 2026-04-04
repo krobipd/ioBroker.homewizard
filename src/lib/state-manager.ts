@@ -576,13 +576,7 @@ export class StateManager {
     );
 
     // Remove device button
-    await this.createState(
-      `${prefix}.remove`,
-      "Remove device",
-      "boolean",
-      "button",
-      true,
-    );
+    await this.createButton(`${prefix}.remove`, "Remove device");
 
     // Set initial info values
     await this.adapter.setStateAsync(`${prefix}.info.productName`, {
@@ -734,19 +728,10 @@ export class StateManager {
     }
 
     // Action buttons
-    await this.createState(
-      `${prefix}.system.reboot`,
-      "Reboot device",
-      "boolean",
-      "button",
-      true,
-    );
-    await this.createState(
+    await this.createButton(`${prefix}.system.reboot`, "Reboot device");
+    await this.createButton(
       `${prefix}.system.identify`,
       "Identify (blink LED)",
-      "boolean",
-      "button",
-      true,
     );
   }
 
@@ -908,6 +893,27 @@ export class StateManager {
       common: common as ioBroker.StateCommon,
       native: {},
     });
+  }
+
+  /**
+   * Create a button state (read: false, write: true) with initial value false
+   *
+   * @param id State ID
+   * @param name State name
+   */
+  private async createButton(id: string, name: string): Promise<void> {
+    await this.adapter.extendObjectAsync(id, {
+      type: "state",
+      common: {
+        name,
+        type: "boolean",
+        role: "button",
+        read: false,
+        write: true,
+      } as ioBroker.StateCommon,
+      native: {},
+    });
+    await this.adapter.setStateAsync(id, { val: false, ack: true });
   }
 
   /**

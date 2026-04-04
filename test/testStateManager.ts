@@ -145,6 +145,20 @@ describe("StateManager", () => {
             const obj = adapter.objects.get("hwe-p1_aabbccddeeff");
             expect(obj!.common.name).to.equal("HWE-P1");
         });
+
+        it("should create remove button with read:false and initial value", async () => {
+            await manager.createDeviceStates(testDevice);
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.remove");
+            expect(obj).to.not.be.undefined;
+            expect(obj!.common.role).to.equal("button");
+            expect(obj!.common.read).to.be.false;
+            expect(obj!.common.write).to.be.true;
+
+            const state = adapter.states.get("hwe-p1_aabbccddeeff.remove");
+            expect(state).to.not.be.undefined;
+            expect(state!.val).to.be.false;
+            expect(state!.ack).to.be.true;
+        });
     });
 
     describe("updateMeasurement", () => {
@@ -351,16 +365,27 @@ describe("StateManager", () => {
             expect(adapter.states.has("hwe-p1_aabbccddeeff.system.api_v1_enabled")).to.be.false;
         });
 
-        it("should create reboot and identify buttons", async () => {
+        it("should create reboot and identify buttons with read:false and initial value", async () => {
             await manager.updateSystem(testDevice, system);
 
             const reboot = adapter.objects.get("hwe-p1_aabbccddeeff.system.reboot");
             expect(reboot?.common.role).to.equal("button");
             expect(reboot?.common.write).to.be.true;
+            expect(reboot?.common.read).to.be.false;
 
             const identify = adapter.objects.get("hwe-p1_aabbccddeeff.system.identify");
             expect(identify?.common.role).to.equal("button");
             expect(identify?.common.write).to.be.true;
+            expect(identify?.common.read).to.be.false;
+
+            // Buttons should have initial state value
+            const rebootState = adapter.states.get("hwe-p1_aabbccddeeff.system.reboot");
+            expect(rebootState).to.not.be.undefined;
+            expect(rebootState!.val).to.be.false;
+
+            const identifyState = adapter.states.get("hwe-p1_aabbccddeeff.system.identify");
+            expect(identifyState).to.not.be.undefined;
+            expect(identifyState!.val).to.be.false;
         });
     });
 

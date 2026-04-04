@@ -1,14 +1,8 @@
 import type { HomeWizardWebSocket } from "./websocket-client";
 
-/** HomeWizard adapter configuration stored in native */
-export interface AdapterConfig {
-  /** Array of paired device configs (tokens encrypted via encryptedNative) */
-  devices: DeviceConfig[];
-}
-
-/** Persisted config for a single paired device */
+/** Persisted config for a single paired device (stored in device object native) */
 export interface DeviceConfig {
-  /** Bearer token from pairing */
+  /** Bearer token (encrypted via adapter.encrypt) */
   token: string;
   /** Product type (e.g. HWE-P1) */
   productType: string;
@@ -16,7 +10,7 @@ export interface DeviceConfig {
   serial: string;
   /** Human-readable product name */
   productName: string;
-  /** Last known IP address (fallback when mDNS unavailable) */
+  /** Fixed IP address (only when manually set, empty = mDNS) */
   ip?: string;
 }
 
@@ -255,7 +249,7 @@ export interface DiscoveredDevice {
 export interface DeviceConnection {
   /** Device config */
   config: DeviceConfig;
-  /** Current IP address (from mDNS, not persisted) */
+  /** Current IP address (from mDNS or stored fixed IP) */
   ip: string;
   /** WebSocket client instance (if connected) */
   wsClient: HomeWizardWebSocket | null;
@@ -267,17 +261,8 @@ export interface DeviceConnection {
   reconnectTimer: ioBroker.Timeout | undefined;
   /** Consecutive WS failures for backoff */
   wsFailCount: number;
+  /** Consecutive auth failures */
+  authFailCount: number;
   /** Last error code for dedup */
   lastErrorCode: string;
-}
-
-// Augment the ioBroker global namespace
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
-  namespace ioBroker {
-    interface AdapterConfig {
-      /** Array of paired device configs (tokens encrypted via encryptedNative) */
-      devices: DeviceConfig[];
-    }
-  }
 }

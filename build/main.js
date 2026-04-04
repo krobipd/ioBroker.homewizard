@@ -32,6 +32,7 @@ const WS_RECONNECT_BASE_MS = 5e3;
 const WS_RECONNECT_MAX_MS = 3e5;
 const REST_POLL_MS = 1e4;
 const SYSTEM_POLL_MS = 6e4;
+const MAX_AUTH_FAILURES = 3;
 class HomeWizard extends utils.Adapter {
   stateManager;
   discovery = null;
@@ -64,6 +65,8 @@ class HomeWizard extends utils.Adapter {
       },
       native: {}
     });
+    await this.setStateAsync("startPairing", { val: false, ack: true });
+    await this.setStateAsync("pairingIp", { val: "", ack: true });
     await this.subscribeStatesAsync("startPairing");
     await this.subscribeStatesAsync("*.system.reboot");
     await this.subscribeStatesAsync("*.system.identify");
@@ -73,16 +76,15 @@ class HomeWizard extends utils.Adapter {
     await this.subscribeStatesAsync("*.battery.mode");
     await this.subscribeStatesAsync("*.battery.permissions");
     await this.subscribeStatesAsync("*.remove");
-    const devices = this.config.devices || [];
+    const devices = await this.loadDevicesFromObjects();
     if (devices.length === 0) {
       this.log.info(
         "No devices configured \u2014 press 'Start Pairing' to add a HomeWizard device"
       );
       await this.setStateAsync("info.connection", { val: false, ack: true });
-      return;
     }
     for (const device of devices) {
-      const key = `${device.productType}_${device.serial}`;
+      const key = this.stateManager.devicePrefix(device);
       await this.stateManager.createDeviceStates(device);
       const conn = {
         config: device,
@@ -92,6 +94,7 @@ class HomeWizard extends utils.Adapter {
         pollTimer: void 0,
         reconnectTimer: void 0,
         wsFailCount: 0,
+        authFailCount: 0,
         lastErrorCode: ""
       };
       this.connections.set(key, conn);
@@ -100,7 +103,6 @@ class HomeWizard extends utils.Adapter {
         void this.initDevice(conn);
       }
     }
-    this.log.debug("Starting mDNS discovery for _homewizard._tcp");
     this.discovery = new import_discovery.HomeWizardDiscovery(this.log);
     this.discovery.start((discovered) => {
       this.onDeviceDiscovered(discovered);
@@ -111,14 +113,83 @@ class HomeWizard extends utils.Adapter {
     this.updateGlobalConnection();
   }
   /**
+   * Load device configs from existing device objects
+   * Tokens are stored encrypted in device object native
+   */
+  async loadDevicesFromObjects() {
+    const devices = [];
+    const oldDevices = this.config.devices || [];
+    if (oldDevices.length > 0) {
+      this.log.debug(
+        `Migrating ${oldDevices.length} device(s) from adapter config to device objects`
+      );
+      for (const device of oldDevices) {
+        await this.saveDeviceToObject(device);
+      }
+      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
+        native: { devices: [] }
+      });
+      return oldDevices;
+    }
+    const objects = await this.getAdapterObjectsAsync();
+    for (const [id, obj] of Object.entries(objects)) {
+      if (obj.type !== "device") {
+        continue;
+      }
+      const native = obj.native;
+      if (!(native == null ? void 0 : native.encryptedToken) || !native.serial) {
+        continue;
+      }
+      const localId = id.replace(`${this.namespace}.`, "");
+      this.log.debug(`Loading device from object: ${localId}`);
+      const token = this.decrypt(native.encryptedToken);
+      devices.push({
+        token,
+        productType: native.productType || "unknown",
+        serial: native.serial,
+        productName: native.productName || native.productType || "unknown",
+        ...native.ip ? { ip: native.ip } : {}
+      });
+    }
+    return devices;
+  }
+  /**
+   * Save device config to its device object native (encrypted token)
+   *
+   * @param config Device configuration to save
+   */
+  async saveDeviceToObject(config) {
+    const prefix = this.stateManager.devicePrefix(config);
+    const encryptedToken = this.encrypt(config.token);
+    await this.extendObjectAsync(prefix, {
+      type: "device",
+      common: { name: config.productName || config.productType },
+      native: {
+        encryptedToken,
+        productType: config.productType,
+        serial: config.serial,
+        productName: config.productName,
+        ...config.ip ? { ip: config.ip } : {}
+      }
+    });
+  }
+  /**
+   * Remove device config from its device object
+   *
+   * @param config Device configuration to remove
+   */
+  async removeDeviceFromObject(config) {
+    await this.stateManager.removeDevice(config);
+  }
+  /**
    * Handle a discovered device from mDNS
    *
    * @param discovered Discovered device info
    */
   onDeviceDiscovered(discovered) {
     if (this.isPairing) {
-      const existing = (this.config.devices || []).find(
-        (d) => d.serial === discovered.serial
+      const existing = Array.from(this.connections.values()).find(
+        (c) => c.config.serial === discovered.serial
       );
       if (!existing) {
         if (!this.discoveredDuringPairing.find(
@@ -137,12 +208,29 @@ class HomeWizard extends utils.Adapter {
         continue;
       }
       if (conn.ip !== discovered.ip) {
-        if (conn.ip) {
-          this.log.debug(
-            `${conn.config.productName}: IP changed ${conn.ip} \u2192 ${discovered.ip}`
-          );
-        }
+        const oldIp = conn.ip;
         conn.ip = discovered.ip;
+        if (oldIp) {
+          this.log.debug(
+            `${conn.config.productName}: IP changed ${oldIp} \u2192 ${discovered.ip}`
+          );
+          if (conn.wsClient) {
+            conn.wsClient.close();
+            conn.wsClient = null;
+            conn.wsAuthenticated = false;
+            if (conn.reconnectTimer) {
+              this.clearTimeout(conn.reconnectTimer);
+              conn.reconnectTimer = void 0;
+            }
+            if (conn.pollTimer) {
+              this.clearInterval(conn.pollTimer);
+              conn.pollTimer = void 0;
+            }
+            conn.wsFailCount = 0;
+            conn.authFailCount = 0;
+            this.connectWebSocket(conn);
+          }
+        }
       }
       if (!conn.wsClient && !conn.reconnectTimer) {
         this.log.debug(
@@ -249,10 +337,12 @@ class HomeWizard extends utils.Adapter {
       this.log.debug("Pairing already active");
       return;
     }
+    await this.setStateAsync("startPairing", { val: false, ack: true });
     this.isPairing = true;
     this.discoveredDuringPairing = [];
     const ipState = await this.getStateAsync("pairingIp");
     this.pairingManualIp = (ipState == null ? void 0 : ipState.val) ? String(ipState.val).trim() : "";
+    await this.setStateAsync("pairingIp", { val: "", ack: true });
     if (this.pairingManualIp) {
       this.log.info(
         `Pairing with manual IP ${this.pairingManualIp} \u2014 press the button on your HomeWizard device within 60 seconds!`
@@ -300,15 +390,9 @@ class HomeWizard extends utils.Adapter {
           productName: info.product_name,
           ...this.pairingManualIp ? { ip: this.pairingManualIp } : {}
         };
-        const devices = [...this.config.devices || [], deviceConfig];
-        await this.extendForeignObjectAsync(
-          `system.adapter.${this.namespace}`,
-          {
-            native: { devices }
-          }
-        );
-        const key = `${deviceConfig.productType}_${deviceConfig.serial}`;
+        await this.saveDeviceToObject(deviceConfig);
         await this.stateManager.createDeviceStates(deviceConfig);
+        const key = this.stateManager.devicePrefix(deviceConfig);
         const conn = {
           config: deviceConfig,
           ip: device.ip,
@@ -317,14 +401,17 @@ class HomeWizard extends utils.Adapter {
           pollTimer: void 0,
           reconnectTimer: void 0,
           wsFailCount: 0,
+          authFailCount: 0,
           lastErrorCode: ""
         };
         this.connections.set(key, conn);
         void this.initDevice(conn);
         this.discoveredDuringPairing = this.discoveredDuringPairing.filter(
-          (d) => d.serial !== device.serial
+          (d) => d.serial !== info.serial
         );
+        this.stopPairing();
         this.updateGlobalConnection();
+        return;
       } catch (err) {
         if (err instanceof import_homewizard_client.HomeWizardApiError && err.statusCode === 403) {
           continue;
@@ -337,7 +424,6 @@ class HomeWizard extends utils.Adapter {
   }
   /** Stop pairing mode */
   stopPairing() {
-    var _a;
     this.isPairing = false;
     this.pairingManualIp = "";
     this.discoveredDuringPairing = [];
@@ -349,12 +435,6 @@ class HomeWizard extends utils.Adapter {
       this.clearTimeout(this.pairingTimer);
       this.pairingTimer = void 0;
     }
-    if ((this.config.devices || []).length === 0) {
-      (_a = this.discovery) == null ? void 0 : _a.stop();
-      this.discovery = null;
-    }
-    void this.setStateAsync("startPairing", { val: false, ack: true });
-    void this.setStateAsync("pairingIp", { val: "", ack: true });
   }
   /**
    * Initialize a newly discovered device — fetch info and connect WebSocket
@@ -385,7 +465,10 @@ class HomeWizard extends utils.Adapter {
     if (!conn.ip) {
       return;
     }
-    const key = `${conn.config.productType}_${conn.config.serial}`;
+    if (conn.authFailCount >= MAX_AUTH_FAILURES) {
+      return;
+    }
+    const key = this.stateManager.devicePrefix(conn.config);
     const wsClient = new import_websocket_client.HomeWizardWebSocket(conn.ip, conn.config.token, {
       onMeasurement: (data) => {
         void this.stateManager.updateMeasurement(conn.config, data);
@@ -393,12 +476,16 @@ class HomeWizard extends utils.Adapter {
       onConnected: () => {
         conn.wsAuthenticated = true;
         conn.wsFailCount = 0;
-        conn.lastErrorCode = "";
+        conn.authFailCount = 0;
         void this.stateManager.setDeviceConnected(conn.config, true);
         this.updateGlobalConnection();
         if (conn.pollTimer) {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = void 0;
+        }
+        if (conn.lastErrorCode) {
+          this.log.info(`${conn.config.productName}: connection restored`);
+          conn.lastErrorCode = "";
         }
         this.log.debug(
           `WebSocket connected to ${conn.config.productName} (${conn.ip})`
@@ -406,10 +493,20 @@ class HomeWizard extends utils.Adapter {
       },
       onDisconnected: (error) => {
         conn.wsAuthenticated = false;
+        conn.wsClient = null;
         void this.stateManager.setDeviceConnected(conn.config, false);
         this.updateGlobalConnection();
         if (error) {
           this.logDeviceError(conn, "ws", error);
+        }
+        if (error instanceof import_homewizard_client.HomeWizardApiError && error.errorCode === "user:unauthorized") {
+          conn.authFailCount++;
+          if (conn.authFailCount >= MAX_AUTH_FAILURES) {
+            this.log.warn(
+              `${conn.config.productName}: token invalid \u2014 re-pair device to fix`
+            );
+            return;
+          }
         }
         this.startRestFallback(conn);
         conn.wsFailCount++;
@@ -455,7 +552,7 @@ class HomeWizard extends utils.Adapter {
   /** Poll system info for all connected devices */
   async pollAllSystemInfo() {
     for (const conn of this.connections.values()) {
-      if (conn.ip) {
+      if (conn.ip && (conn.wsAuthenticated || conn.pollTimer)) {
         await this.pollSystemInfo(conn);
       }
     }
@@ -475,7 +572,9 @@ class HomeWizard extends utils.Adapter {
       await this.stateManager.updateSystem(conn.config, system);
       try {
         const battery = await client.getBatteries();
-        await this.stateManager.updateBattery(conn.config, battery);
+        if (battery.battery_count && battery.battery_count > 0) {
+          await this.stateManager.updateBattery(conn.config, battery);
+        }
       } catch {
       }
     } catch (err) {
@@ -493,7 +592,7 @@ class HomeWizard extends utils.Adapter {
     });
   }
   /**
-   * Remove a device — disconnect, delete states, remove from config
+   * Remove a device — disconnect, delete states and object
    *
    * @param stateId The remove state ID
    */
@@ -515,13 +614,7 @@ class HomeWizard extends utils.Adapter {
       this.clearTimeout(conn.reconnectTimer);
     }
     this.connections.delete(key);
-    await this.stateManager.removeDevice(conn.config);
-    const devices = (this.config.devices || []).filter(
-      (d) => d.serial !== conn.config.serial
-    );
-    await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-      native: { devices }
-    });
+    await this.removeDeviceFromObject(conn.config);
     this.updateGlobalConnection();
   }
   /**
