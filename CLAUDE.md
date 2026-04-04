@@ -6,7 +6,10 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten von HomeWizard-Geräten (P1 Meter, kWh Meter, Plug-In Battery) via API v2 mit WebSocket-Push.
 
-**Status: Code fertig, noch nicht veröffentlicht** (April 2026)
+**Status: v0.1.3 auf npm veröffentlicht** (April 2026)
+**GitHub:** https://github.com/krobipd/ioBroker.homewizard
+**npm:** https://www.npmjs.com/package/iobroker.homewizard
+**ioBroker Repository PR:** ioBroker/ioBroker.repositories#5749
 
 **Runtime-Dependencies:** `@iobroker/adapter-core`, `ws` (WebSocket), `bonjour-service` (mDNS Discovery)
 
@@ -169,14 +172,15 @@ Wie 1-Phase, plus pro Phase: `power_l1_w`...`l3_w`, `voltage_l1_v`...`l3_v`, `cu
 | `user:unauthorized` | Token ungültig (401) |
 | `user:no-storage` | Kein Speicherplatz für neue User |
 
-## Architektur (geplant)
+## Architektur
 
 ```
 src/
 ├── main.ts                  → Adapter-Klasse (Lifecycle, Pairing, Multi-Device)
 └── lib/
-    ├── types.ts             → Interfaces (Measurement, DeviceInfo, Config)
-    ├── discovery.ts         → mDNS Discovery (_hwenergy._tcp)
+    ├── types.ts             → Interfaces (DeviceConfig, DeviceConnection, Measurement)
+    ├── cacert.ts            → HomeWizard CA-Cert + shared HTTPS Agent (HW_AGENT)
+    ├── discovery.ts         → mDNS Discovery (_hwenergy._tcp), permanent laufend
     ├── homewizard-client.ts → HTTPS-Client (Token-Auth, REST-Endpoints)
     ├── websocket-client.ts  → WSS-Client (Echtzeit-Messwerte, Auto-Reconnect)
     └── state-manager.ts     → State CRUD + Cleanup
@@ -186,9 +190,18 @@ src/
 
 ### Multi-Device in einer Instanz (wie hueemu)
 - Pairing-Datenpunkt (`startPairing`) — User aktiviert, drückt Button am Gerät, Adapter legt Gerät automatisch an
-- Geräte-Discovery via mDNS (`_hwenergy._tcp`)
+- mDNS Discovery (`_hwenergy._tcp`) läuft **permanent** (nicht nur beim Pairing)
+- IP wird NICHT in Config gespeichert — kommt zur Laufzeit von mDNS
+- `DeviceConfig` (persistent): serial, token, productType, productName
+- `DeviceConnection` (runtime): ip (von mDNS), wsClient, pollTimer, reconnectTimer
 - Pro Gerät: eigene WebSocket-Verbindung + Token in encryptedNative
 - Neues Gerät: Pairing nochmal aktivieren, Button am neuen Gerät drücken, fertig
+
+### mDNS ≠ Daten-Transport
+- **mDNS** = Telefonbuch: Gerät meldet sich mit Name, IP, Port, Metadaten (TXT records)
+- **WebSocket** = Daten-Transport: Adapter verbindet sich aktiv zum Gerät per IP → WSS-Push ~1/s
+- mDNS liefert die IP, WebSocket nutzt die IP für die Datenverbindung
+- Bei IP-Änderung (DHCP): mDNS meldet neue IP → Adapter reconnected automatisch
 
 ### Pairing-Flow (Unterschied zu hueemu!)
 - **hueemu:** Server "drückt" Button selbst (Software-Datenpunkt)
@@ -273,11 +286,47 @@ homewizard.0.
 | System-Control | Minimal | Cloud, LED, API v1, Reboot, Identify |
 | Zukunft | Gas-Felder werden entfernt | Aktiv entwickelt (2.1.0, 2.2.0) |
 
+## Test-Abdeckung
+
+```
+test/
+├── testClient.ts       → HomeWizardApiError (JSON/non-JSON, status codes) (9 Tests)
+├── testDiscovery.ts    → mDNS Discovery (lifecycle, parseService, TXT) (16 Tests)
+├── testWebSocket.ts    → WebSocket (auth flow, messages, close) (13 Tests)
+├── testStateManager.ts → StateManager (prefix, measurement, system, battery, external) (22 Tests)
+└── testPackageFiles.ts → @iobroker/testing Package-Validierung (69 Tests)
+
+Total: 129 Tests (alle TypeScript)
+```
+
+## Versionshistorie
+
+| Version | Datum | Änderungen |
+|---------|-------|------------|
+| 0.1.3 | 2026-04-04 | IP aus Config entfernt, mDNS Discovery permanent, automatische IP-Updates |
+| 0.1.2 | 2026-04-04 | HomeWizard CA-Cert gebündelt, TLS-Validierung statt rejectUnauthorized |
+| 0.1.1 | 2026-04-04 | 129 Unit-Tests, Dependabot limit 15 |
+| 0.1.0 | 2026-04-04 | Initial release: API v2, WebSocket, mDNS, Pairing |
+
+## Befehle
+
+```bash
+npm run build            # Production build (esbuild + tsc type-check)
+npm run build:test       # Test build (tsc, output to build/)
+npm test                 # Build + run all tests
+npm run lint             # ESLint
+npm run check            # TypeScript type-check only
+```
+
+## TLS-Implementierung
+
+- HomeWizard CA-Cert ("Appliance Access CA", gültig bis 2031) in `src/lib/cacert.ts` gebündelt
+- Shared `https.Agent` mit `ca` + `rejectUnauthorized: true` + `checkServerIdentity: () => undefined`
+- Cert-Chain wird validiert, Hostname-Check übersprungen (Geräte-Certs nutzen `appliance/type/serial` als CN)
+- Gleicher Ansatz wie Home Assistant Integration (`python-homewizard-energy`)
+- Agent wird für HTTPS-Client UND WebSocket-Client wiederverwendet
+
 ## Noch zu klären
 
-- [ ] mDNS Discovery: `_hwenergy._tcp` — genaues Format und verfügbare TXT-Records prüfen
-- [ ] WebSocket: Verhalten bei Verbindungsverlust — sendet das Gerät ein Close-Frame?
-- [ ] Multi-Device Token-Speicherung: Array in native? Oder pro Gerät ein verschlüsselter Key?
-- [ ] Node.js 22 built-in WebSocket vs. `ws` Package — Kompatibilität mit Node 20 LTS?
-- [ ] Self-signed Cert: HomeWizard CA-Cert herunterladen und validieren vs. `rejectUnauthorized: false`?
+- [ ] WebSocket: Verhalten bei Verbindungsverlust — sendet das Gerät ein Close-Frame? (API-Doku schweigt dazu, kein Ping/Pong dokumentiert → Reconnect mit Backoff ist korrekt)
 - [ ] krobis P1 Meter: Welche Felder liefert der österreichische Zähler tatsächlich?
