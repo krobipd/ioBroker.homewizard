@@ -53,7 +53,7 @@ describe("HomeWizardDiscovery", () => {
         it("should log browse message on start", () => {
             discovery.start(() => {});
             const debugLogs = log._logs.filter((l) => l.level === "debug");
-            expect(debugLogs.some((l) => l.msg.includes("_hwenergy._tcp"))).to.be.true;
+            expect(debugLogs.some((l) => l.msg.includes("_homewizard._tcp"))).to.be.true;
         });
 
         it("should not throw on stop when not started", () => {
@@ -138,11 +138,11 @@ describe("HomeWizardDiscovery", () => {
             expect(result).to.be.null;
         });
 
-        it("should use type field as fallback for product_type", () => {
+        it("should use product_type from TXT record", () => {
             const service = {
                 name: "test",
                 addresses: ["192.168.1.1"],
-                txt: { type: "HWE-SKT" },
+                txt: { product_type: "HWE-SKT" },
             };
             const result = parseService(discovery, service);
             expect(result?.productType).to.equal("HWE-SKT");
