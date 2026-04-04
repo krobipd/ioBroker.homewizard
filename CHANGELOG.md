@@ -2,6 +2,10 @@
 
 ## **WORK IN PROGRESS**
 
+## 0.3.1 (2026-04-05)
+- Fix uncaught exception on device removal (WS_ERR_INVALID_OPCODE from late frames)
+- Use `terminate()` instead of `close()` for immediate WebSocket cleanup
+
 ## 0.3.0 (2026-04-05)
 - **Breaking:** Device config stored in device objects instead of adapter native (auto-migration)
 - No adapter restart on pairing or device removal

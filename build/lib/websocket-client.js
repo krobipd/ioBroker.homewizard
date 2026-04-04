@@ -137,9 +137,9 @@ class HomeWizardWebSocket {
   cleanup() {
     if (this.ws) {
       this.ws.removeAllListeners();
-      if (this.ws.readyState === import_ws.default.OPEN || this.ws.readyState === import_ws.default.CONNECTING) {
-        this.ws.close();
-      }
+      this.ws.on("error", () => {
+      });
+      this.ws.terminate();
       this.ws = null;
     }
   }

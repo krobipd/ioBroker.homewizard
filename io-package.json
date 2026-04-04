@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "news": {
+      "0.3.1": {
+        "en": "Fix uncaught exception on device removal (invalid WebSocket frame during close)",
+        "de": "Uncaught Exception beim Geraet entfernen behoben (ungueltiger WebSocket-Frame beim Schliessen)",
+        "ru": "Исправлено необработанное исключение при удалении устройства (недопустимый кадр WebSocket при закрытии)",
+        "pt": "Corrigida exceção não capturada ao remover dispositivo (frame WebSocket inválido durante fechamento)",
+        "nl": "Onafgevangen uitzondering bij verwijderen apparaat opgelost (ongeldig WebSocket-frame bij sluiten)",
+        "fr": "Correction d exception non capturée lors de la suppression d appareil (frame WebSocket invalide à la fermeture)",
+        "it": "Corretta eccezione non gestita alla rimozione del dispositivo (frame WebSocket non valido durante la chiusura)",
+        "es": "Corregida excepción no capturada al eliminar dispositivo (frame WebSocket inválido durante cierre)",
+        "pl": "Naprawiono nieprzechwycony wyjątek przy usuwaniu urządzenia (nieprawidłowa ramka WebSocket podczas zamykania)",
+        "uk": "Виправлено необроблений виняток при видаленні пристрою (недійсний кадр WebSocket при закритті)",
+        "zh-cn": "修复删除设备时的未捕获异常（关闭时无效的 WebSocket 帧）"
+      },
       "0.3.0": {
         "en": "Store device config in device objects (no adapter restart), fix datapoint issues, reconnect workflow",
         "de": "Gerätekonfiguration in Geräteobjekten gespeichert (kein Adapter-Neustart), Datenpunkt-Fixes, Reconnect-Workflow",

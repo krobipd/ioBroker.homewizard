@@ -134,6 +134,9 @@ homewizard.0.
 
 ## Changelog
 
+### 0.3.1 (2026-04-05)
+- Fix uncaught exception on device removal (invalid WebSocket frame during close)
+
 ### 0.3.0 (2026-04-05)
 - Store device config in device objects (no adapter restart on pairing/remove)
 - Fix datapoint issues (startPairing, pairingIp, button states)

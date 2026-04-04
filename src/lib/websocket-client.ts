@@ -148,12 +148,9 @@ export class HomeWizardWebSocket {
   private cleanup(): void {
     if (this.ws) {
       this.ws.removeAllListeners();
-      if (
-        this.ws.readyState === WebSocket.OPEN ||
-        this.ws.readyState === WebSocket.CONNECTING
-      ) {
-        this.ws.close();
-      }
+      // Prevent uncaught errors from frames received during close
+      this.ws.on("error", () => {});
+      this.ws.terminate();
       this.ws = null;
     }
   }
