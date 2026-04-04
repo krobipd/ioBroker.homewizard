@@ -59,7 +59,7 @@
     "prebuild": "rimraf build",
     "build:ts": "build-adapter ts",
     "build": "build-adapter ts",
-    "build:test": "tsc -p tsconfig.test.json",
+    "build:test": "rm -rf ./build && tsc -p tsconfig.test.json",
     "watch": "build-adapter ts --watch",
     "check": "tsc --noEmit",
     "test:package": "npm run build:test && mocha --exit \"build/test/testPackageFiles.js\"",

@@ -1,4 +1,4 @@
-import type WebSocket from "ws";
+import type { HomeWizardWebSocket } from "./websocket-client";
 
 /** HomeWizard adapter configuration stored in native */
 export interface AdapterConfig {
@@ -256,7 +256,7 @@ export interface DeviceConnection {
   /** Device config */
   config: DeviceConfig;
   /** WebSocket client instance (if connected) */
-  wsClient: WebSocket | null;
+  wsClient: HomeWizardWebSocket | null;
   /** Whether WS is authenticated */
   wsAuthenticated: boolean;
   /** REST fallback polling timer */

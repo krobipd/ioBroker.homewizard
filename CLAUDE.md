@@ -6,9 +6,9 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten von HomeWizard-Geräten (P1 Meter, kWh Meter, Plug-In Battery) via API v2 mit WebSocket-Push.
 
-**Status: In Planung** (April 2026)
+**Status: Code fertig, noch nicht veröffentlicht** (April 2026)
 
-**Keine extra Runtime-Dependencies geplant** — Node.js built-in `https` + `ws` (oder built-in WebSocket ab Node 22).
+**Runtime-Dependencies:** `@iobroker/adapter-core`, `ws` (WebSocket), `bonjour-service` (mDNS Discovery)
 
 ## HomeWizard API v2
 

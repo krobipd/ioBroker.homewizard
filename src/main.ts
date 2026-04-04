@@ -406,6 +406,7 @@ class HomeWizard extends utils.Adapter {
       },
     );
 
+    conn.wsClient = wsClient;
     wsClient.connect();
   }
 
