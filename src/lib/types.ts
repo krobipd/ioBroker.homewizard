@@ -16,6 +16,8 @@ export interface DeviceConfig {
   serial: string;
   /** Human-readable product name */
   productName: string;
+  /** Last known IP address (fallback when mDNS unavailable) */
+  ip?: string;
 }
 
 /** Response from GET /api */
@@ -43,7 +45,7 @@ export interface Measurement {
   /** Unique meter identifier */
   unique_id?: string;
   /** Protocol version */
-  protocol_version?: string;
+  protocol_version?: number;
   /** Meter model */
   meter_model?: string;
   /** Measurement timestamp */
@@ -233,8 +235,8 @@ export interface BatteryControl {
 export interface WsMessage {
   /** Message type */
   type: string;
-  /** Message data payload */
-  data?: Record<string, unknown>;
+  /** Message data payload (string for auth/subscribe, object for measurement) */
+  data?: unknown;
 }
 
 /** Device discovered via mDNS */

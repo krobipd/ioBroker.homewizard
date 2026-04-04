@@ -2,16 +2,21 @@
   "i18n": true,
   "type": "panel",
   "items": {
+    "_headerPairing": {
+      "type": "header",
+      "text": "headerPairing",
+      "size": 3
+    },
+    "_pairingInfo": {
+      "type": "staticText",
+      "text": "pairingInfo",
+      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
+      "style": { "fontSize": 14, "marginBottom": 16 }
+    },
     "_headerDevices": {
       "type": "header",
       "text": "headerDevices",
       "size": 3
-    },
-    "_devicesInfo": {
-      "type": "staticText",
-      "text": "devicesInfo",
-      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
-      "style": { "fontSize": 14, "marginBottom": 16 }
     },
     "devices": {
       "type": "table",
@@ -19,48 +24,39 @@
       "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
       "items": [
         {
-          "type": "text",
           "attr": "productName",
+          "type": "text",
           "title": "colProductName",
-          "width": "20%",
-          "readOnly": true
+          "filter": false,
+          "sort": false,
+          "readOnly": true,
+          "width": "30%"
         },
         {
-          "type": "text",
-          "attr": "productType",
-          "title": "colProductType",
-          "width": "15%",
-          "readOnly": true
-        },
-        {
-          "type": "text",
           "attr": "serial",
+          "type": "text",
           "title": "colSerial",
-          "width": "25%",
-          "readOnly": true
+          "filter": false,
+          "sort": false,
+          "readOnly": true,
+          "width": "30%"
         },
         {
+          "attr": "ip",
           "type": "text",
-          "attr": "token",
-          "title": "colToken",
-          "width": "20%",
-          "readOnly": true
+          "title": "colIp",
+          "filter": false,
+          "sort": false,
+          "placeholder": "mDNS",
+          "width": "30%"
         }
-      ],
-      "noDelete": false,
-      "noAdd": true
+      ]
     },
-    "_headerPairing": {
-      "newLine": true,
-      "type": "header",
-      "text": "headerPairing",
-      "size": 4
-    },
-    "_pairingInfo": {
+    "_devicesInfo": {
       "type": "staticText",
-      "text": "pairingInfo",
+      "text": "devicesInfo",
       "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
-      "style": { "fontSize": 14, "marginBottom": 16 }
+      "style": { "fontSize": 12, "marginBottom": 16, "color": "#888" }
     },
     "_supportHeader": {
       "newLine": true,

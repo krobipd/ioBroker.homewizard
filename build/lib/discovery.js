@@ -52,9 +52,9 @@ class HomeWizardDiscovery {
   start(callback) {
     this.stop();
     this.bonjour = new import_bonjour_service.default();
-    this.log.debug("mDNS: browsing for _hwenergy._tcp");
+    this.log.debug("mDNS: browsing for _homewizard._tcp (v2)");
     this.browser = this.bonjour.find(
-      { type: "hwenergy", protocol: "tcp" },
+      { type: "homewizard", protocol: "tcp" },
       (service) => {
         const device = this.parseService(service);
         if (device) {
@@ -83,16 +83,20 @@ class HomeWizardDiscovery {
    * @param service Bonjour service record
    */
   parseService(service) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f;
     const ip = (_a = service.addresses) == null ? void 0 : _a.find((addr) => addr.includes("."));
     if (!ip) {
       this.log.debug(`mDNS: no IPv4 address for ${service.name}`);
       return null;
     }
     const txt = service.txt;
-    const productType = (_c = (_b = txt == null ? void 0 : txt.product_type) != null ? _b : txt == null ? void 0 : txt.type) != null ? _c : "unknown";
-    const serial = (_e = (_d = txt == null ? void 0 : txt.serial) != null ? _d : service.name) != null ? _e : "unknown";
-    const name = (_g = (_f = txt == null ? void 0 : txt.product_name) != null ? _f : service.name) != null ? _g : productType;
+    const productType = (_b = txt == null ? void 0 : txt.product_type) != null ? _b : "unknown";
+    const serial = (_d = (_c = txt == null ? void 0 : txt.serial) != null ? _c : service.name) != null ? _d : "unknown";
+    const name = (_f = (_e = txt == null ? void 0 : txt.product_name) != null ? _e : service.name) != null ? _f : productType;
+    const apiVersion = txt == null ? void 0 : txt.api_version;
+    if (apiVersion) {
+      this.log.debug(`mDNS: TXT api_version=${apiVersion} serial=${serial}`);
+    }
     return { ip, productType, serial, name };
   }
 }

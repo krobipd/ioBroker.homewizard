@@ -314,9 +314,57 @@ const MEASUREMENT_STATE_DEFS = [
     unit: "A"
   },
   {
+    key: "apparent_current_l1_a",
+    id: "apparent_current_l1_a",
+    name: "Apparent current L1",
+    type: "number",
+    role: "value.current",
+    unit: "A"
+  },
+  {
+    key: "apparent_current_l2_a",
+    id: "apparent_current_l2_a",
+    name: "Apparent current L2",
+    type: "number",
+    role: "value.current",
+    unit: "A"
+  },
+  {
+    key: "apparent_current_l3_a",
+    id: "apparent_current_l3_a",
+    name: "Apparent current L3",
+    type: "number",
+    role: "value.current",
+    unit: "A"
+  },
+  {
     key: "reactive_current_a",
     id: "reactive_current_a",
     name: "Reactive current",
+    type: "number",
+    role: "value.current",
+    unit: "A"
+  },
+  {
+    key: "reactive_current_l1_a",
+    id: "reactive_current_l1_a",
+    name: "Reactive current L1",
+    type: "number",
+    role: "value.current",
+    unit: "A"
+  },
+  {
+    key: "reactive_current_l2_a",
+    id: "reactive_current_l2_a",
+    name: "Reactive current L2",
+    type: "number",
+    role: "value.current",
+    unit: "A"
+  },
+  {
+    key: "reactive_current_l3_a",
+    id: "reactive_current_l3_a",
+    name: "Reactive current L3",
     type: "number",
     role: "value.current",
     unit: "A"
@@ -330,6 +378,30 @@ const MEASUREMENT_STATE_DEFS = [
     unit: "VA"
   },
   {
+    key: "apparent_power_l1_va",
+    id: "apparent_power_l1_va",
+    name: "Apparent power L1",
+    type: "number",
+    role: "value.power",
+    unit: "VA"
+  },
+  {
+    key: "apparent_power_l2_va",
+    id: "apparent_power_l2_va",
+    name: "Apparent power L2",
+    type: "number",
+    role: "value.power",
+    unit: "VA"
+  },
+  {
+    key: "apparent_power_l3_va",
+    id: "apparent_power_l3_va",
+    name: "Apparent power L3",
+    type: "number",
+    role: "value.power",
+    unit: "VA"
+  },
+  {
     key: "reactive_power_var",
     id: "reactive_power_var",
     name: "Reactive power",
@@ -338,9 +410,54 @@ const MEASUREMENT_STATE_DEFS = [
     unit: "var"
   },
   {
+    key: "reactive_power_l1_var",
+    id: "reactive_power_l1_var",
+    name: "Reactive power L1",
+    type: "number",
+    role: "value.power",
+    unit: "var"
+  },
+  {
+    key: "reactive_power_l2_var",
+    id: "reactive_power_l2_var",
+    name: "Reactive power L2",
+    type: "number",
+    role: "value.power",
+    unit: "var"
+  },
+  {
+    key: "reactive_power_l3_var",
+    id: "reactive_power_l3_var",
+    name: "Reactive power L3",
+    type: "number",
+    role: "value.power",
+    unit: "var"
+  },
+  {
     key: "power_factor",
     id: "power_factor",
     name: "Power factor",
+    type: "number",
+    role: "value"
+  },
+  {
+    key: "power_factor_l1",
+    id: "power_factor_l1",
+    name: "Power factor L1",
+    type: "number",
+    role: "value"
+  },
+  {
+    key: "power_factor_l2",
+    id: "power_factor_l2",
+    name: "Power factor L2",
+    type: "number",
+    role: "value"
+  },
+  {
+    key: "power_factor_l3",
+    id: "power_factor_l3",
+    name: "Power factor L3",
     type: "number",
     role: "value"
   },
@@ -442,6 +559,13 @@ class StateManager {
       "value",
       false,
       "s"
+    );
+    await this.createState(
+      `${prefix}.remove`,
+      "Remove device",
+      "boolean",
+      "button",
+      true
     );
     await this.adapter.setStateAsync(`${prefix}.info.productName`, {
       val: config.productName,

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.1.3",
+    "version": "0.2.0",
     "news": {
+      "0.2.0": {
+        "en": "Fix WebSocket auth and mDNS service type, add editable IP field in Admin UI, manual IP pairing",
+        "de": "WebSocket-Auth und mDNS-Servicetyp korrigiert, editierbares IP-Feld in Admin UI, manuelles IP-Pairing",
+        "ru": "Исправлена авторизация WebSocket и тип mDNS-сервиса, добавлено редактируемое поле IP в Admin UI",
+        "pt": "Corrigida autenticação WebSocket e tipo de serviço mDNS, campo IP editável na Admin UI",
+        "nl": "WebSocket-auth en mDNS-servicetype gecorrigeerd, bewerkbaar IP-veld in Admin UI",
+        "fr": "Correction de l authentification WebSocket et du type de service mDNS, champ IP modifiable dans Admin UI",
+        "it": "Corretta autenticazione WebSocket e tipo servizio mDNS, campo IP modificabile nella Admin UI",
+        "es": "Corregida autenticación WebSocket y tipo de servicio mDNS, campo IP editable en Admin UI",
+        "pl": "Poprawiono autoryzację WebSocket i typ usługi mDNS, edytowalne pole IP w Admin UI",
+        "uk": "Виправлено авторизацію WebSocket та тип сервісу mDNS, редаговане поле IP в Admin UI",
+        "zh-cn": "修复 WebSocket 认证和 mDNS 服务类型，Admin UI 中添加可编辑的 IP 字段"
+      },
       "0.1.3": {
         "en": "Remove IP from config — devices are now discovered via mDNS at runtime",
         "de": "IP aus Konfiguration entfernt — Geräte werden jetzt per mDNS zur Laufzeit gefunden",

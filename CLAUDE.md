@@ -53,10 +53,10 @@
 ### WebSocket-Flow
 
 1. Connect: `wss://<IP>/api/ws`
-2. Gerät sendet: `{"type": "authorization_requested", "data": {"api_version": "2.0.0"}}`
-3. Adapter sendet (innerhalb 40s!): `{"type": "authorization", "data": {"token": "<TOKEN>"}}`
+2. Gerät sendet: `{"type": "authorization_requested"}`
+3. Adapter sendet (innerhalb 40s!): `{"type": "authorization", "data": "<TOKEN>"}`
 4. Gerät bestätigt: `{"type": "authorized"}`
-5. Adapter subscribed: `{"type": "subscribe", "data": {"topic": "measurement"}}`
+5. Adapter subscribed: `{"type": "subscribe", "data": "measurement"}`
 6. Gerät pusht ab jetzt Messwerte ~1x/Sekunde
 
 **Topics:** `*`, `device`, `user`, `measurement`, `system`, `batteries`
@@ -191,8 +191,8 @@ src/
 ### Multi-Device in einer Instanz (wie hueemu)
 - Pairing-Datenpunkt (`startPairing`) — User aktiviert, drückt Button am Gerät, Adapter legt Gerät automatisch an
 - mDNS Discovery (`_hwenergy._tcp`) läuft **permanent** (nicht nur beim Pairing)
-- IP wird NICHT in Config gespeichert — kommt zur Laufzeit von mDNS
-- `DeviceConfig` (persistent): serial, token, productType, productName
+- IP wird bei Pairing in Config gespeichert als Fallback (mDNS aktualisiert zur Laufzeit)
+- `DeviceConfig` (persistent): serial, token, productType, productName, ip (last known)
 - `DeviceConnection` (runtime): ip (von mDNS), wsClient, pollTimer, reconnectTimer
 - Pro Gerät: eigene WebSocket-Verbindung + Token in encryptedNative
 - Neues Gerät: Pairing nochmal aktivieren, Button am neuen Gerät drücken, fertig

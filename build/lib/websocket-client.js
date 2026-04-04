@@ -105,11 +105,11 @@ class HomeWizardWebSocket {
     switch (msg.type) {
       case "authorization_requested":
         this.callbacks.log.debug("WS auth requested, sending token");
-        this.send({ type: "authorization", data: { token: this.token } });
+        this.send({ type: "authorization", data: this.token });
         break;
       case "authorized":
         this.callbacks.log.debug("WS authorized, subscribing to measurement");
-        this.send({ type: "subscribe", data: { topic: "measurement" } });
+        this.send({ type: "subscribe", data: "measurement" });
         this.callbacks.onConnected();
         break;
       case "measurement":

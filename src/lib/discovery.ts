@@ -37,10 +37,10 @@ export class HomeWizardDiscovery {
     this.stop();
 
     this.bonjour = new Bonjour();
-    this.log.debug("mDNS: browsing for _hwenergy._tcp");
+    this.log.debug("mDNS: browsing for _homewizard._tcp (v2)");
 
     this.browser = this.bonjour.find(
-      { type: "hwenergy", protocol: "tcp" },
+      { type: "homewizard", protocol: "tcp" },
       (service: Service) => {
         const device = this.parseService(service);
         if (device) {
@@ -80,9 +80,14 @@ export class HomeWizardDiscovery {
 
     // TXT records contain product_type, serial, etc.
     const txt = service.txt as Record<string, string> | undefined;
-    const productType = txt?.product_type ?? txt?.type ?? "unknown";
+    const productType = txt?.product_type ?? "unknown";
     const serial = txt?.serial ?? service.name ?? "unknown";
     const name = txt?.product_name ?? service.name ?? productType;
+    const apiVersion = txt?.api_version;
+
+    if (apiVersion) {
+      this.log.debug(`mDNS: TXT api_version=${apiVersion} serial=${serial}`);
+    }
 
     return { ip, productType, serial, name };
   }

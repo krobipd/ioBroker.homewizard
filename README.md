@@ -134,26 +134,23 @@ homewizard.0.
 
 ## Changelog
 
+### 0.2.0 (2026-04-05)
+- Fix WebSocket auth format and mDNS service type (`_homewizard._tcp`)
+- Add editable IP column in Admin UI (empty = mDNS, set = fixed IP)
+- Add manual IP pairing for networks without mDNS
+- Add per-device remove button
+
 ### 0.1.3 (2026-04-04)
-- Remove IP from config — devices discovered via mDNS at runtime
-- mDNS discovery runs permanently, automatic IP updates on DHCP changes
+- mDNS discovery runs permanently, automatic IP updates
 
 ### 0.1.2 (2026-04-04)
 - Bundle HomeWizard CA certificate for proper TLS validation
-- Replace `rejectUnauthorized: false` with CA-based cert chain validation
 
 ### 0.1.1 (2026-04-04)
 - Add unit tests (129 tests)
-- Fix Dependabot config
 
 ### 0.1.0 (2026-04-04)
-- Initial release
-- HomeWizard API v2 with Bearer Token authentication
-- WebSocket push for real-time energy data
-- mDNS device discovery
-- Hue-style multi-device pairing
-- Battery control and system settings
-- REST fallback when WebSocket unavailable
+- Initial release with API v2, WebSocket push, mDNS discovery, multi-device pairing
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 
