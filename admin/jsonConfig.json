@@ -10,12 +10,13 @@
     "_devicesInfo": {
       "type": "staticText",
       "text": "devicesInfo",
+      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
       "style": { "fontSize": 14, "marginBottom": 16 }
     },
     "devices": {
       "type": "table",
       "label": "labelDevices",
-      "sm": 12,
+      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
       "items": [
         {
           "type": "text",
@@ -63,6 +64,7 @@
     "_pairingInfo": {
       "type": "staticText",
       "text": "pairingInfo",
+      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
       "style": { "fontSize": 14, "marginBottom": 16 }
     },
     "_supportHeader": {
