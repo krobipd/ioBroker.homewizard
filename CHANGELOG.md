@@ -2,6 +2,11 @@
 
 ## **WORK IN PROGRESS**
 
+## 0.3.4 (2026-04-05)
+- mDNS only active during pairing (not permanently at adapter start)
+- Always store device IP on pairing (no dependency on mDNS for normal operation)
+- Simplify discovery callback (pairing only, no IP tracking)
+
 ## 0.3.3 (2026-04-05)
 - Fix mDNS pairing: restart browser on pairing start (cached devices were not re-announced)
 - Improve log messages during pairing (clearer user instructions)

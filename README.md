@@ -154,6 +154,10 @@ homewizard.0.
 
 ## Changelog
 
+### 0.3.4 (2026-04-05)
+- mDNS only active during pairing, not permanently
+- Always store device IP on pairing
+
 ### 0.3.3 (2026-04-05)
 - Fix mDNS pairing not finding devices (browser restart on pairing start)
 - Improve log messages during pairing
@@ -179,9 +183,6 @@ homewizard.0.
 
 ### 0.1.2 (2026-04-04)
 - Bundle HomeWizard CA certificate for proper TLS validation
-
-### 0.1.1 (2026-04-04)
-- Add unit tests (129 tests)
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 

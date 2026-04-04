@@ -79,7 +79,7 @@ class HomeWizard extends utils.Adapter {
     const devices = await this.loadDevicesFromObjects();
     if (devices.length === 0) {
       this.log.info(
-        "No devices configured \u2014 press 'Start Pairing' to add a HomeWizard device"
+        "No devices configured \u2014 set 'startPairing' to true to add a device"
       );
       await this.setStateAsync("info.connection", { val: false, ack: true });
     }
@@ -103,10 +103,6 @@ class HomeWizard extends utils.Adapter {
         void this.initDevice(conn);
       }
     }
-    this.discovery = new import_discovery.HomeWizardDiscovery(this.log);
-    this.discovery.start((discovered) => {
-      this.onDeviceDiscovered(discovered);
-    });
     this.systemPollTimer = this.setInterval(() => {
       void this.pollAllSystemInfo();
     }, SYSTEM_POLL_MS);
@@ -182,64 +178,24 @@ class HomeWizard extends utils.Adapter {
     await this.stateManager.removeDevice(config);
   }
   /**
-   * Handle a discovered device from mDNS
+   * Handle a discovered device from mDNS (only active during pairing)
    *
    * @param discovered Discovered device info
    */
   onDeviceDiscovered(discovered) {
-    if (this.isPairing) {
-      const existing = Array.from(this.connections.values()).find(
-        (c) => c.config.serial === discovered.serial
-      );
-      if (!existing) {
-        if (!this.discoveredDuringPairing.find(
-          (d) => d.serial === discovered.serial
-        )) {
-          this.discoveredDuringPairing.push(discovered);
-          this.log.info(
-            `Found ${discovered.name} (${discovered.productType}) at ${discovered.ip} \u2014 press the button on the device to pair`
-          );
-        }
-        return;
-      }
-    }
-    for (const [, conn] of this.connections) {
-      if (conn.config.serial !== discovered.serial) {
-        continue;
-      }
-      if (conn.ip !== discovered.ip) {
-        const oldIp = conn.ip;
-        conn.ip = discovered.ip;
-        if (oldIp) {
-          this.log.debug(
-            `${conn.config.productName}: IP changed ${oldIp} \u2192 ${discovered.ip}`
-          );
-          if (conn.wsClient) {
-            conn.wsClient.close();
-            conn.wsClient = null;
-            conn.wsAuthenticated = false;
-            if (conn.reconnectTimer) {
-              this.clearTimeout(conn.reconnectTimer);
-              conn.reconnectTimer = void 0;
-            }
-            if (conn.pollTimer) {
-              this.clearInterval(conn.pollTimer);
-              conn.pollTimer = void 0;
-            }
-            conn.wsFailCount = 0;
-            conn.authFailCount = 0;
-            this.connectWebSocket(conn);
-          }
-        }
-      }
-      if (!conn.wsClient && !conn.reconnectTimer) {
-        this.log.debug(
-          `mDNS: found ${conn.config.productName} at ${discovered.ip}`
-        );
-        void this.initDevice(conn);
-      }
+    const existing = Array.from(this.connections.values()).find(
+      (c) => c.config.serial === discovered.serial
+    );
+    if (existing) {
       return;
     }
+    if (this.discoveredDuringPairing.find((d) => d.serial === discovered.serial)) {
+      return;
+    }
+    this.discoveredDuringPairing.push(discovered);
+    this.log.info(
+      `Found ${discovered.name} (${discovered.productType}) at ${discovered.ip} \u2014 press the button on the device to pair`
+    );
   }
   /**
    * Adapter stopping — MUST be synchronous
@@ -390,7 +346,7 @@ class HomeWizard extends utils.Adapter {
           productType: info.product_type,
           serial: info.serial,
           productName: info.product_name,
-          ...this.pairingManualIp ? { ip: this.pairingManualIp } : {}
+          ip: device.ip
         };
         await this.saveDeviceToObject(deviceConfig);
         await this.stateManager.createDeviceStates(deviceConfig);
@@ -429,6 +385,10 @@ class HomeWizard extends utils.Adapter {
     this.isPairing = false;
     this.pairingManualIp = "";
     this.discoveredDuringPairing = [];
+    if (this.discovery) {
+      this.discovery.stop();
+      this.discovery = null;
+    }
     if (this.pairingPollTimer) {
       this.clearInterval(this.pairingPollTimer);
       this.pairingPollTimer = void 0;

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "news": {
+      "0.3.4": {
+        "en": "mDNS only active during pairing, always store device IP, simplify discovery",
+        "de": "mDNS nur beim Pairing aktiv, Geraete-IP immer gespeichert, Discovery vereinfacht",
+        "ru": "mDNS активен только при сопряжении, IP устройства всегда сохраняется, упрощено обнаружение",
+        "pt": "mDNS ativo apenas durante emparelhamento, IP do dispositivo sempre armazenado, descoberta simplificada",
+        "nl": "mDNS alleen actief tijdens koppelen, apparaat-IP altijd opgeslagen, discovery vereenvoudigd",
+        "fr": "mDNS actif uniquement lors de l appairage, IP de l appareil toujours enregistree, decouverte simplifiee",
+        "it": "mDNS attivo solo durante l associazione, IP del dispositivo sempre salvato, scoperta semplificata",
+        "es": "mDNS solo activo durante emparejamiento, IP del dispositivo siempre guardada, descubrimiento simplificado",
+        "pl": "mDNS aktywne tylko podczas parowania, IP urzadzenia zawsze zapisywane, uproszczone wykrywanie",
+        "uk": "mDNS активний лише пiд час сполучення, IP пристрою завжди зберiгається, спрощене виявлення",
+        "zh-cn": "mDNS 仅在配对时活跃，始终存储设备 IP，简化发现流程"
+      },
       "0.3.3": {
         "en": "Fix mDNS pairing not finding devices, improve log messages during pairing",
         "de": "mDNS-Pairing findet Geraete wieder, verbesserte Log-Meldungen beim Pairing",
@@ -80,19 +93,6 @@
         "pl": "IP usunięto z konfiguracji — urządzenia są teraz wykrywane przez mDNS w czasie działania",
         "uk": "IP видалено з конфігурації — пристрої тепер виявляються через mDNS під час роботи",
         "zh-cn": "从配置中移除 IP — 设备现在通过 mDNS 在运行时发现"
-      },
-      "0.1.2": {
-        "en": "Bundle HomeWizard CA certificate for proper TLS validation instead of skipping verification",
-        "de": "HomeWizard CA-Zertifikat für korrekte TLS-Validierung gebündelt statt Überprüfung zu überspringen",
-        "ru": "Встроен CA-сертификат HomeWizard для корректной проверки TLS вместо пропуска верификации",
-        "pt": "Certificado CA HomeWizard incluído para validação TLS adequada em vez de ignorar verificação",
-        "nl": "HomeWizard CA-certificaat gebundeld voor correcte TLS-validatie in plaats van verificatie over te slaan",
-        "fr": "Certificat CA HomeWizard intégré pour une validation TLS correcte au lieu d'ignorer la vérification",
-        "it": "Certificato CA HomeWizard incluso per una corretta validazione TLS invece di saltare la verifica",
-        "es": "Certificado CA HomeWizard incluido para validación TLS correcta en lugar de omitir verificación",
-        "pl": "Dołączono certyfikat CA HomeWizard dla prawidłowej walidacji TLS zamiast pomijania weryfikacji",
-        "uk": "Додано CA-сертифікат HomeWizard для належної перевірки TLS замість пропуску верифікації",
-        "zh-cn": "捆绑 HomeWizard CA 证书进行正确的 TLS 验证，而非跳过验证"
       }
     },
     "titleLang": {

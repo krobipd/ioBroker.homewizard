@@ -81,7 +81,7 @@ class HomeWizard extends utils.Adapter {
     const devices = await this.loadDevicesFromObjects();
     if (devices.length === 0) {
       this.log.info(
-        "No devices configured — press 'Start Pairing' to add a HomeWizard device",
+        "No devices configured — set 'startPairing' to true to add a device",
       );
       await this.setStateAsync("info.connection", { val: false, ack: true });
     }
@@ -109,12 +109,6 @@ class HomeWizard extends utils.Adapter {
         void this.initDevice(conn);
       }
     }
-
-    // Start mDNS discovery (updates IP if device announces)
-    this.discovery = new HomeWizardDiscovery(this.log);
-    this.discovery.start((discovered) => {
-      this.onDeviceDiscovered(discovered);
-    });
 
     // Periodic system info poll
     this.systemPollTimer = this.setInterval(() => {
@@ -205,77 +199,30 @@ class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Handle a discovered device from mDNS
+   * Handle a discovered device from mDNS (only active during pairing)
    *
    * @param discovered Discovered device info
    */
   private onDeviceDiscovered(discovered: DiscoveredDevice): void {
-    // During pairing, collect new devices
-    if (this.isPairing) {
-      const existing = Array.from(this.connections.values()).find(
-        (c) => c.config.serial === discovered.serial,
-      );
-      if (!existing) {
-        if (
-          !this.discoveredDuringPairing.find(
-            (d) => d.serial === discovered.serial,
-          )
-        ) {
-          this.discoveredDuringPairing.push(discovered);
-          this.log.info(
-            `Found ${discovered.name} (${discovered.productType}) at ${discovered.ip} — press the button on the device to pair`,
-          );
-        }
-        return;
-      }
-    }
-
-    // Match against configured devices
-    for (const [, conn] of this.connections) {
-      if (conn.config.serial !== discovered.serial) {
-        continue;
-      }
-
-      // Update IP if changed
-      if (conn.ip !== discovered.ip) {
-        const oldIp = conn.ip;
-        conn.ip = discovered.ip;
-
-        if (oldIp) {
-          this.log.debug(
-            `${conn.config.productName}: IP changed ${oldIp} → ${discovered.ip}`,
-          );
-          // Close active WS so it reconnects with new IP
-          if (conn.wsClient) {
-            conn.wsClient.close();
-            conn.wsClient = null;
-            conn.wsAuthenticated = false;
-            // Cancel pending reconnect — we reconnect immediately
-            if (conn.reconnectTimer) {
-              this.clearTimeout(conn.reconnectTimer);
-              conn.reconnectTimer = undefined;
-            }
-            if (conn.pollTimer) {
-              this.clearInterval(conn.pollTimer);
-              conn.pollTimer = undefined;
-            }
-            conn.wsFailCount = 0;
-            conn.authFailCount = 0;
-            this.connectWebSocket(conn);
-          }
-        }
-      }
-
-      // Connect if not already connected
-      if (!conn.wsClient && !conn.reconnectTimer) {
-        this.log.debug(
-          `mDNS: found ${conn.config.productName} at ${discovered.ip}`,
-        );
-        void this.initDevice(conn);
-      }
-
+    // Skip already paired devices
+    const existing = Array.from(this.connections.values()).find(
+      (c) => c.config.serial === discovered.serial,
+    );
+    if (existing) {
       return;
     }
+
+    // Skip duplicates
+    if (
+      this.discoveredDuringPairing.find((d) => d.serial === discovered.serial)
+    ) {
+      return;
+    }
+
+    this.discoveredDuringPairing.push(discovered);
+    this.log.info(
+      `Found ${discovered.name} (${discovered.productType}) at ${discovered.ip} — press the button on the device to pair`,
+    );
   }
 
   /**
@@ -461,7 +408,7 @@ class HomeWizard extends utils.Adapter {
           productType: info.product_type,
           serial: info.serial,
           productName: info.product_name,
-          ...(this.pairingManualIp ? { ip: this.pairingManualIp } : {}),
+          ip: device.ip,
         };
 
         // Save to device object (no adapter restart!)
@@ -509,6 +456,12 @@ class HomeWizard extends utils.Adapter {
     this.isPairing = false;
     this.pairingManualIp = "";
     this.discoveredDuringPairing = [];
+
+    // Stop mDNS — only needed during pairing
+    if (this.discovery) {
+      this.discovery.stop();
+      this.discovery = null;
+    }
 
     if (this.pairingPollTimer) {
       this.clearInterval(this.pairingPollTimer);
