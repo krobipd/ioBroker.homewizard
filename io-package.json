@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "news": {
+      "0.4.1": {
+        "en": "Move measurement data into measurement/ channel, cleanup old datapoints on upgrade",
+        "de": "Messdaten in measurement/ Channel verschoben, alte Datenpunkte beim Upgrade aufgeraeumt",
+        "ru": "Данные измерений перемещены в канал measurement/, очистка старых точек данных при обновлении",
+        "pt": "Dados de medicao movidos para canal measurement/, limpeza de pontos de dados antigos na atualizacao",
+        "nl": "Meetgegevens verplaatst naar measurement/ kanaal, oude datapunten opgeruimd bij upgrade",
+        "fr": "Donnees de mesure deplacees dans le canal measurement/, nettoyage des anciens points de donnees lors de la mise a jour",
+        "it": "Dati di misurazione spostati nel canale measurement/, pulizia vecchi punti dati durante aggiornamento",
+        "es": "Datos de medicion movidos al canal measurement/, limpieza de puntos de datos antiguos al actualizar",
+        "pl": "Dane pomiarowe przeniesione do kanalu measurement/, czyszczenie starych punktow danych przy aktualizacji",
+        "uk": "Данi вимiрювань перемiщено в канал measurement/, очищення старих точок даних при оновленнi",
+        "zh-cn": "测量数据移至 measurement/ 通道，升级时清理旧数据点"
+      },
       "0.4.0": {
         "en": "Move measurement data into measurement/ channel, cleanup old datapoints, add online/offline status icon",
         "de": "Messdaten in measurement/ Channel verschoben, alte Datenpunkte aufgeraeumt, Online/Offline-Statusicon",
@@ -80,19 +93,6 @@
         "pl": "Naprawiono nieprzechwycony wyjątek przy usuwaniu urządzenia (nieprawidłowa ramka WebSocket podczas zamykania)",
         "uk": "Виправлено необроблений виняток при видаленні пристрою (недійсний кадр WebSocket при закритті)",
         "zh-cn": "修复删除设备时的未捕获异常（关闭时无效的 WebSocket 帧）"
-      },
-      "0.3.0": {
-        "en": "Store device config in device objects (no adapter restart), fix datapoint issues, reconnect workflow",
-        "de": "Gerätekonfiguration in Geräteobjekten gespeichert (kein Adapter-Neustart), Datenpunkt-Fixes, Reconnect-Workflow",
-        "ru": "Конфигурация устройств в объектах устройств (без перезапуска адаптера), исправления точек данных, workflow переподключения",
-        "pt": "Configuração de dispositivos em objetos de dispositivo (sem reiniciar adaptador), correções de pontos de dados, workflow de reconexão",
-        "nl": "Apparaatconfiguratie in apparaatobjecten (geen adapter herstart), datapunt-fixes, reconnect workflow",
-        "fr": "Configuration des appareils dans les objets d appareil (pas de redémarrage), corrections des points de données, workflow de reconnexion",
-        "it": "Configurazione dispositivi negli oggetti dispositivo (nessun riavvio adattatore), correzioni punti dati, workflow di riconnessione",
-        "es": "Configuración de dispositivos en objetos de dispositivo (sin reiniciar adaptador), correcciones de puntos de datos, workflow de reconexión",
-        "pl": "Konfiguracja urządzeń w obiektach urządzeń (bez restartu adaptera), poprawki punktów danych, workflow reconnect",
-        "uk": "Конфігурація пристроїв в об єктах пристроїв (без перезапуску адаптера), виправлення точок даних, workflow перепідключення",
-        "zh-cn": "设备配置存储在设备对象中（无需重启适配器），数据点修复，重连工作流"
       }
     },
     "titleLang": {

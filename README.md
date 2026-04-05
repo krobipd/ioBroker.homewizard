@@ -157,9 +157,11 @@ homewizard.0.
 
 ## Changelog
 
-### 0.4.0 (2026-04-05)
+### 0.4.1 (2026-04-05)
 - Move measurement data into `measurement/` channel for cleaner object tree
 - Cleanup logic removes old datapoints from device root on upgrade
+
+### 0.4.0 (2026-04-05)
 - Add online/offline status icon for devices (`statusStates`)
 
 ### 0.3.5 (2026-04-05)
@@ -178,10 +180,6 @@ homewizard.0.
 
 ### 0.3.1 (2026-04-05)
 - Fix uncaught exception on device removal (invalid WebSocket frame during close)
-
-### 0.3.0 (2026-04-05)
-- Store device config in device objects (no adapter restart on pairing/remove)
-- Reconnect workflow: IP change handling, auth backoff, error dedup
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 
