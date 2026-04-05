@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.3.4",
+    "version": "0.3.5",
     "news": {
+      "0.3.5": {
+        "en": "Fix log spam: error deduplication by category (not context), REST fallback stops on network errors, system poll only for connected devices",
+        "de": "Log-Spam behoben: Fehler-Deduplizierung nach Kategorie (nicht Kontext), REST-Fallback stoppt bei Netzwerkfehlern, System-Poll nur für verbundene Geräte",
+        "ru": "Исправлен спам в логах: дедупликация ошибок по категории (не контексту), REST-фоллбэк останавливается при сетевых ошибках, системный опрос только для подключённых устройств",
+        "pt": "Corrigido spam de log: deduplicação de erros por categoria (não contexto), REST fallback para em erros de rede, poll de sistema apenas para dispositivos conectados",
+        "nl": "Log-spam opgelost: foutdeduplicatie op categorie (niet context), REST-fallback stopt bij netwerkfouten, systeempoll alleen voor verbonden apparaten",
+        "fr": "Correction du spam de log: déduplication des erreurs par catégorie (pas contexte), REST fallback s arrête sur erreurs réseau, poll système uniquement pour appareils connectés",
+        "it": "Corretto spam dei log: deduplicazione errori per categoria (non contesto), REST fallback si ferma su errori di rete, poll sistema solo per dispositivi connessi",
+        "es": "Corregido spam de log: deduplicación de errores por categoría (no contexto), REST fallback se detiene en errores de red, poll de sistema solo para dispositivos conectados",
+        "pl": "Naprawiono spam w logach: deduplikacja błędów według kategorii (nie kontekstu), REST fallback zatrzymuje się przy błędach sieciowych, poll systemowy tylko dla podłączonych urządzeń",
+        "uk": "Виправлено спам у логах: дедуплікація помилок за категорією (не контекстом), REST fallback зупиняється при мережевих помилках, системний опитування тільки для підключених пристроїв",
+        "zh-cn": "修复日志刷屏：按类别（非上下文）去重错误，REST 回退在网络错误时停止，系统轮询仅针对已连接设备"
+      },
       "0.3.4": {
         "en": "mDNS only during pairing, automatic IP recovery on connection loss, offline detection",
         "de": "mDNS nur beim Pairing, automatische IP-Wiederherstellung bei Verbindungsverlust, Offline-Erkennung",
@@ -80,19 +93,6 @@
         "pl": "Poprawiono autoryzację WebSocket i typ usługi mDNS, edytowalne pole IP w Admin UI",
         "uk": "Виправлено авторизацію WebSocket та тип сервісу mDNS, редаговане поле IP в Admin UI",
         "zh-cn": "修复 WebSocket 认证和 mDNS 服务类型，Admin UI 中添加可编辑的 IP 字段"
-      },
-      "0.1.3": {
-        "en": "Remove IP from config — devices are now discovered via mDNS at runtime",
-        "de": "IP aus Konfiguration entfernt — Geräte werden jetzt per mDNS zur Laufzeit gefunden",
-        "ru": "IP удалён из конфигурации — устройства теперь обнаруживаются через mDNS во время работы",
-        "pt": "IP removido da configuração — dispositivos agora são descobertos via mDNS em tempo de execução",
-        "nl": "IP uit configuratie verwijderd — apparaten worden nu via mDNS tijdens runtime gevonden",
-        "fr": "IP supprimée de la configuration — les appareils sont maintenant découverts via mDNS à l exécution",
-        "it": "IP rimosso dalla configurazione — i dispositivi vengono ora scoperti tramite mDNS a runtime",
-        "es": "IP eliminada de la configuración — los dispositivos se descubren ahora vía mDNS en tiempo de ejecución",
-        "pl": "IP usunięto z konfiguracji — urządzenia są teraz wykrywane przez mDNS w czasie działania",
-        "uk": "IP видалено з конфігурації — пристрої тепер виявляються через mDNS під час роботи",
-        "zh-cn": "从配置中移除 IP — 设备现在通过 mDNS 在运行时发现"
       }
     },
     "titleLang": {

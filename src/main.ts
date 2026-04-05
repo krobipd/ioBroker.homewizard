@@ -700,7 +700,9 @@ class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Start REST polling as fallback when WebSocket is down
+   * Start REST polling as fallback when WebSocket is down.
+   * Stops automatically on network errors (device unreachable) —
+   * WS reconnect + IP recovery handle the recovery path.
    *
    * @param conn Device connection
    */
@@ -719,6 +721,12 @@ class HomeWizard extends utils.Adapter {
       } catch (err) {
         this.logDeviceError(conn, "rest", err);
         await this.stateManager.setDeviceConnected(conn.config, false);
+
+        // Stop REST polling on network errors — no point hammering unreachable device
+        if (this.classifyError(err) === "NETWORK" && conn.pollTimer) {
+          this.clearInterval(conn.pollTimer);
+          conn.pollTimer = undefined;
+        }
       }
       this.updateGlobalConnection();
     }, REST_POLL_MS);
@@ -727,8 +735,7 @@ class HomeWizard extends utils.Adapter {
   /** Poll system info for all connected devices */
   private async pollAllSystemInfo(): Promise<void> {
     for (const conn of this.connections.values()) {
-      // Only poll devices that have an IP and are connected or at least reachable
-      if (conn.ip && (conn.wsAuthenticated || conn.pollTimer)) {
+      if (conn.ip && conn.wsAuthenticated) {
         await this.pollSystemInfo(conn);
       }
     }
@@ -826,10 +833,44 @@ class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Log device error with deduplication
+   * Classify an error for deduplication and log-level decisions.
+   * Returns a stable category string regardless of error message details.
+   *
+   * @param err The error to classify
+   */
+  private classifyError(err: unknown): string {
+    if (err instanceof HomeWizardApiError) {
+      if (err.errorCode === "user:unauthorized") {
+        return "AUTH";
+      }
+      return `HTTP_${err.statusCode}`;
+    }
+    if (err instanceof Error) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (
+        code === "ECONNREFUSED" ||
+        code === "EHOSTUNREACH" ||
+        code === "ENOTFOUND" ||
+        code === "ECONNRESET" ||
+        code === "ENETUNREACH" ||
+        code === "EAI_AGAIN"
+      ) {
+        return "NETWORK";
+      }
+      if (code === "ETIMEDOUT" || err.message.includes("Timeout")) {
+        return "TIMEOUT";
+      }
+      return code || "UNKNOWN";
+    }
+    return "UNKNOWN";
+  }
+
+  /**
+   * Log device error with deduplication (based on error category, not context).
+   * First occurrence of a new error category logs as warn, repeats as debug.
    *
    * @param conn Device connection
-   * @param context Error context
+   * @param context Error context (for debug messages only)
    * @param err Error object
    */
   private logDeviceError(
@@ -837,23 +878,21 @@ class HomeWizard extends utils.Adapter {
     context: string,
     err: unknown,
   ): void {
-    const code =
-      err instanceof HomeWizardApiError
-        ? err.errorCode
-        : err instanceof Error
-          ? err.message
-          : "unknown";
-    const key = `${context}:${code}`;
+    const errorCode = this.classifyError(err);
+    const isRepeat = errorCode === conn.lastErrorCode;
+    conn.lastErrorCode = errorCode;
 
-    if (conn.lastErrorCode === key) {
-      // Same error as last time — debug only
+    if (isRepeat) {
       this.log.debug(
-        `${conn.config.productName} (${conn.ip}) ${context}: ${code}`,
+        `${conn.config.productName} ${context}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } else if (errorCode === "NETWORK") {
+      this.log.warn(
+        `${conn.config.productName}: device unreachable — will keep retrying`,
       );
     } else {
-      conn.lastErrorCode = key;
       this.log.warn(
-        `${conn.config.productName} (${conn.ip}) ${context}: ${err instanceof Error ? err.message : String(err)}`,
+        `${conn.config.productName} ${context}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }

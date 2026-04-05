@@ -154,13 +154,16 @@ homewizard.0.
 
 ## Changelog
 
+### 0.3.5 (2026-04-05)
+- Fix log spam: error deduplication by category, not by context
+- REST fallback stops on network errors, system poll only for connected devices
+
 ### 0.3.4 (2026-04-05)
 - mDNS only during pairing, automatic IP recovery on connection loss
 - Device marked offline when unreachable (no endless reconnect loop)
 
 ### 0.3.3 (2026-04-05)
 - Fix mDNS pairing not finding devices (browser restart on pairing start)
-- Improve log messages during pairing
 
 ### 0.3.2 (2026-04-05)
 - Improve Admin UI and README with detailed configuration guide
@@ -170,19 +173,10 @@ homewizard.0.
 
 ### 0.3.0 (2026-04-05)
 - Store device config in device objects (no adapter restart on pairing/remove)
-- Fix datapoint issues (startPairing, pairingIp, button states)
 - Reconnect workflow: IP change handling, auth backoff, error dedup
 
 ### 0.2.0 (2026-04-05)
-- Fix WebSocket auth format and mDNS service type (`_homewizard._tcp`)
-- Add editable IP column in Admin UI (empty = mDNS, set = fixed IP)
-- Add manual IP pairing for networks without mDNS
-
-### 0.1.3 (2026-04-04)
-- mDNS discovery runs permanently, automatic IP updates
-
-### 0.1.2 (2026-04-04)
-- Bundle HomeWizard CA certificate for proper TLS validation
+- Fix WebSocket auth format and mDNS service type, manual IP pairing
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 

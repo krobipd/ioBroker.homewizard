@@ -2,6 +2,12 @@
 
 ## **WORK IN PROGRESS**
 
+## 0.3.5 (2026-04-05)
+- Fix log spam: error deduplication by category (NETWORK/TIMEOUT/AUTH), not by context
+- REST fallback stops polling on network errors (no more hammering unreachable devices)
+- System poll only runs for WebSocket-connected devices
+- Error classification follows beszel/parcelapp pattern (`classifyError()`)
+
 ## 0.3.4 (2026-04-05)
 - mDNS only active during pairing (not permanently at adapter start)
 - Always store device IP on pairing (no dependency on mDNS for normal operation)
