@@ -6,7 +6,7 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.3.5 (April 2026)
+- **Version:** 0.4.0 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
@@ -44,6 +44,7 @@ src/lib/state-manager.ts → State CRUD + Cleanup
 6. **Device-Config in Device-Objekten** (seit v0.3.0) — Token mit `this.encrypt()`, KEIN adapter native → kein Restart bei Pairing/Remove
 7. **TLS mit CA-Cert** — HomeWizard CA gebündelt, Hostname-Check übersprungen (CN = `appliance/type/serial`)
 8. **Admin UI ohne Gerätetabelle** — Geräte im Objekte-Tab, nicht in Config
+9. **statusStates** (seit v0.4.0) — Device-Objekte haben `statusStates.onlineId` → grün/grau Icon im Objektbaum
 
 ## Error-Handling (seit v0.3.5)
 
@@ -86,11 +87,10 @@ test/testPackageFiles.ts → @iobroker/testing (69)
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
+| 0.4.0 | 2026-04-05 | statusStates Online-Icon, data/ mit Object-Dump |
 | 0.3.5 | 2026-04-05 | Fix Log-Spam: classifyError + Dedup nach Kategorie, REST stoppt bei NETWORK |
 | 0.3.4 | 2026-04-05 | mDNS nur bei Pairing, IP-Recovery, Offline-Erkennung |
-| 0.3.3 | 2026-04-05 | Fix mDNS-Pairing (Browser-Restart) |
 | 0.3.0 | 2026-04-05 | Device-Config in Objekten, Reconnect-Workflow, Button-Fixes |
-| 0.2.0 | 2026-04-05 | WS-Auth/mDNS-Fix, Admin-UI IP-Feld, manuelles Pairing |
 | 0.1.x | 2026-04-04 | Initial: API v2, WebSocket, mDNS, TLS, 129 Tests |
 
 ## Befehle
