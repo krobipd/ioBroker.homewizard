@@ -78,7 +78,7 @@ If mDNS is not available (e.g. different VLAN, Docker, or firewall blocking mult
 All paired devices are listed in the **Objects** tab under `homewizard.0`. Each device has its own folder (e.g. `hwe-p1_5c2fafaabbcc`) with measurement data, system settings, and device info.
 
 - **Remove a device:** Set its `remove` data point to `true` — the device and all data points are deleted immediately
-- **IP changes:** Handled automatically via mDNS. No manual action needed
+- **IP changes:** Detected automatically — after 3 failed reconnects, mDNS searches for the new IP. If not found, the device is marked offline
 
 ---
 
@@ -88,6 +88,7 @@ All paired devices are listed in the **Objects** tab under `homewizard.0`. Each 
 homewizard.0.
 ├── info.connection              — Overall connection status (bool)
 ├── startPairing                 — Activate pairing mode (button)
+├── pairingIp                    — Device IP for manual pairing (string)
 └── {productType}_{serial}/      — e.g. hwe-p1_5c2fafaabbcc
     ├── info/
     │   ├── productName          — Device name (string)
@@ -148,7 +149,7 @@ homewizard.0.
 - The adapter automatically reconnects with exponential backoff and falls back to REST polling
 
 ### Token invalid after factory reset
-- Remove the device from the adapter settings and pair again
+- Set the device's `remove` data point to `true`, then pair again
 
 ---
 
