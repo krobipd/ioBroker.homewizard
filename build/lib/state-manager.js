@@ -508,7 +508,12 @@ class StateManager {
     const prefix = this.devicePrefix(config);
     await this.adapter.extendObjectAsync(prefix, {
       type: "device",
-      common: { name: config.productName || config.productType },
+      common: {
+        name: config.productName || config.productType,
+        statusStates: {
+          onlineId: `${this.adapter.namespace}.${prefix}.info.connected`
+        }
+      },
       native: {}
     });
     await this.adapter.extendObjectAsync(`${prefix}.info`, {

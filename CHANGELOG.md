@@ -2,6 +2,10 @@
 
 ## **WORK IN PROGRESS**
 
+## 0.4.0 (2026-04-05)
+- Add online/offline status icon for devices in object tree (`statusStates`)
+- Add `data/` folder with example object dump (P1 Meter) for repository review
+
 ## 0.3.5 (2026-04-05)
 - Fix log spam: error deduplication by category (NETWORK/TIMEOUT/AUTH), not by context
 - REST fallback stops polling on network errors (no more hammering unreachable devices)

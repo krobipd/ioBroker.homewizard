@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.3.5",
+    "version": "0.4.0",
     "news": {
+      "0.4.0": {
+        "en": "Add online/offline status icon for devices in object tree, example object dump for repository review",
+        "de": "Online/Offline-Statusicon fuer Geraete im Objektbaum, Beispiel-Objektdump fuer Repository-Review",
+        "ru": "Иконка онлайн/офлайн статуса устройств в дереве объектов, пример дампа объектов для ревью репозитория",
+        "pt": "Icone de status online/offline para dispositivos na arvore de objetos, dump de objetos de exemplo para revisao",
+        "nl": "Online/offline statusicoon voor apparaten in objectboom, voorbeeld objectdump voor repository review",
+        "fr": "Icone de statut en ligne/hors ligne pour les appareils dans l arbre d objets, dump d objets d exemple pour la revue",
+        "it": "Icona stato online/offline per dispositivi nell albero oggetti, dump oggetti di esempio per la revisione",
+        "es": "Icono de estado online/offline para dispositivos en el arbol de objetos, dump de objetos de ejemplo para revision",
+        "pl": "Ikona statusu online/offline dla urzadzen w drzewie obiektow, przykladowy dump obiektow do przegladu repozytorium",
+        "uk": "Iконка статусу онлайн/офлайн для пристроiв у деревi об єктiв, приклад дампу об єктiв для ревью репозиторiю",
+        "zh-cn": "在对象树中为设备添加在线/离线状态图标，用于仓库审查的示例对象转储"
+      },
       "0.3.5": {
         "en": "Fix log spam: error deduplication by category (not context), REST fallback stops on network errors, system poll only for connected devices",
         "de": "Log-Spam behoben: Fehler-Deduplizierung nach Kategorie (nicht Kontext), REST-Fallback stoppt bei Netzwerkfehlern, System-Poll nur für verbundene Geräte",
@@ -80,19 +93,6 @@
         "pl": "Konfiguracja urządzeń w obiektach urządzeń (bez restartu adaptera), poprawki punktów danych, workflow reconnect",
         "uk": "Конфігурація пристроїв в об єктах пристроїв (без перезапуску адаптера), виправлення точок даних, workflow перепідключення",
         "zh-cn": "设备配置存储在设备对象中（无需重启适配器），数据点修复，重连工作流"
-      },
-      "0.2.0": {
-        "en": "Fix WebSocket auth and mDNS service type, add editable IP field in Admin UI, manual IP pairing",
-        "de": "WebSocket-Auth und mDNS-Servicetyp korrigiert, editierbares IP-Feld in Admin UI, manuelles IP-Pairing",
-        "ru": "Исправлена авторизация WebSocket и тип mDNS-сервиса, добавлено редактируемое поле IP в Admin UI",
-        "pt": "Corrigida autenticação WebSocket e tipo de serviço mDNS, campo IP editável na Admin UI",
-        "nl": "WebSocket-auth en mDNS-servicetype gecorrigeerd, bewerkbaar IP-veld in Admin UI",
-        "fr": "Correction de l authentification WebSocket et du type de service mDNS, champ IP modifiable dans Admin UI",
-        "it": "Corretta autenticazione WebSocket e tipo servizio mDNS, campo IP modificabile nella Admin UI",
-        "es": "Corregida autenticación WebSocket y tipo de servicio mDNS, campo IP editable en Admin UI",
-        "pl": "Poprawiono autoryzację WebSocket i typ usługi mDNS, edytowalne pole IP w Admin UI",
-        "uk": "Виправлено авторизацію WebSocket та тип сервісу mDNS, редаговане поле IP в Admin UI",
-        "zh-cn": "修复 WebSocket 认证和 mDNS 服务类型，Admin UI 中添加可编辑的 IP 字段"
       }
     },
     "titleLang": {

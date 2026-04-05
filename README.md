@@ -155,6 +155,10 @@ homewizard.0.
 
 ## Changelog
 
+### 0.4.0 (2026-04-05)
+- Add online/offline status icon for devices in object tree (`statusStates`)
+- Add example object dump for repository review
+
 ### 0.3.5 (2026-04-05)
 - Fix log spam: error deduplication by category, not by context
 - REST fallback stops on network errors, system poll only for connected devices
@@ -175,9 +179,6 @@ homewizard.0.
 ### 0.3.0 (2026-04-05)
 - Store device config in device objects (no adapter restart on pairing/remove)
 - Reconnect workflow: IP change handling, auth backoff, error dedup
-
-### 0.2.0 (2026-04-05)
-- Fix WebSocket auth format and mDNS service type, manual IP pairing
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 

@@ -1,0 +1,345 @@
+{
+  "homewizard.0.hwe-p1_5c2faf19b76e": {
+    "type": "device",
+    "common": {
+      "name": "P1 Meter"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e",
+    "native": {
+      "encryptedToken": "$/aes-192-cbc:00b53af546c6c611de569df6064a1db3:006471493429949d1bbea1e1f55bf7d25692ee26f3040a990699ccc7dacbd945d95a1511f1e462bc72ad65d677bbd4a9",
+      "productType": "HWE-P1",
+      "serial": "5c2faf19b76e",
+      "productName": "P1 Meter",
+      "ip": "10.47.88.210"
+    }
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.energy_export_kwh": {
+    "type": "state",
+    "common": {
+      "name": "Energy export total",
+      "type": "number",
+      "role": "value.energy",
+      "read": true,
+      "write": false,
+      "unit": "kWh"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.energy_export_kwh",
+    "native": {},
+    "val": 4.507,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.energy_export_t1_kwh": {
+    "type": "state",
+    "common": {
+      "name": "Energy export T1",
+      "type": "number",
+      "role": "value.energy",
+      "read": true,
+      "write": false,
+      "unit": "kWh"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.energy_export_t1_kwh",
+    "native": {},
+    "val": 4.507,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.energy_import_kwh": {
+    "type": "state",
+    "common": {
+      "name": "Energy import total",
+      "type": "number",
+      "role": "value.energy",
+      "read": true,
+      "write": false,
+      "unit": "kWh"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.energy_import_kwh",
+    "native": {},
+    "val": 45775.299,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.energy_import_t1_kwh": {
+    "type": "state",
+    "common": {
+      "name": "Energy import T1",
+      "type": "number",
+      "role": "value.energy",
+      "read": true,
+      "write": false,
+      "unit": "kWh"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.energy_import_t1_kwh",
+    "native": {},
+    "val": 45775.299,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.info": {
+    "type": "channel",
+    "common": {
+      "name": "Device Information"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.info",
+    "native": {}
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.info.connected": {
+    "type": "state",
+    "common": {
+      "name": "Device connected",
+      "type": "boolean",
+      "role": "indicator.reachable",
+      "read": true,
+      "write": false
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.info.connected",
+    "native": {},
+    "val": true,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.info.firmware": {
+    "type": "state",
+    "common": {
+      "name": "Firmware version",
+      "type": "string",
+      "role": "text",
+      "read": true,
+      "write": false
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.info.firmware",
+    "native": {},
+    "val": "6.0305",
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.info.productName": {
+    "type": "state",
+    "common": {
+      "name": "Product name",
+      "type": "string",
+      "role": "text",
+      "read": true,
+      "write": false
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.info.productName",
+    "native": {},
+    "val": "P1 Meter",
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.info.productType": {
+    "type": "state",
+    "common": {
+      "name": "Product type",
+      "type": "string",
+      "role": "text",
+      "read": true,
+      "write": false
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.info.productType",
+    "native": {},
+    "val": "HWE-P1",
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.info.uptime_s": {
+    "type": "state",
+    "common": {
+      "name": "Uptime",
+      "type": "number",
+      "role": "value",
+      "read": true,
+      "write": false,
+      "unit": "s"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.info.uptime_s",
+    "native": {},
+    "val": 43028,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.info.wifi_rssi_db": {
+    "type": "state",
+    "common": {
+      "name": "WiFi signal strength",
+      "type": "number",
+      "role": "value",
+      "read": true,
+      "write": false,
+      "unit": "dB"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.info.wifi_rssi_db",
+    "native": {},
+    "val": -80,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.meter_model": {
+    "type": "state",
+    "common": {
+      "name": "Meter model",
+      "type": "string",
+      "role": "text",
+      "read": true,
+      "write": false
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.meter_model",
+    "native": {},
+    "val": "HDLC_NO_OBIS",
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.power_w": {
+    "type": "state",
+    "common": {
+      "name": "Total power",
+      "type": "number",
+      "role": "value.power",
+      "read": true,
+      "write": false,
+      "unit": "W"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.power_w",
+    "native": {},
+    "val": 3652,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.remove": {
+    "type": "state",
+    "common": {
+      "name": "Remove device",
+      "type": "boolean",
+      "role": "button",
+      "read": false,
+      "write": true
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.remove",
+    "native": {},
+    "val": false,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.system": {
+    "type": "channel",
+    "common": {
+      "name": "System Settings"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.system",
+    "native": {}
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.system.api_v1_enabled": {
+    "type": "state",
+    "common": {
+      "name": "API v1 enabled",
+      "type": "boolean",
+      "role": "switch",
+      "read": true,
+      "write": true
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.system.api_v1_enabled",
+    "native": {},
+    "val": false,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.system.cloud_enabled": {
+    "type": "state",
+    "common": {
+      "name": "Cloud enabled",
+      "type": "boolean",
+      "role": "switch",
+      "read": true,
+      "write": true
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.system.cloud_enabled",
+    "native": {},
+    "val": false,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.system.identify": {
+    "type": "state",
+    "common": {
+      "name": "Identify (blink LED)",
+      "type": "boolean",
+      "role": "button",
+      "read": false,
+      "write": true
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.system.identify",
+    "native": {},
+    "val": false,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.system.reboot": {
+    "type": "state",
+    "common": {
+      "name": "Reboot device",
+      "type": "boolean",
+      "role": "button",
+      "read": false,
+      "write": true
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.system.reboot",
+    "native": {},
+    "val": false,
+    "ack": true
+  },
+  "homewizard.0.hwe-p1_5c2faf19b76e.system.status_led_brightness_pct": {
+    "type": "state",
+    "common": {
+      "name": "LED brightness",
+      "type": "number",
+      "role": "level",
+      "read": true,
+      "write": true,
+      "unit": "%"
+    },
+    "_id": "homewizard.0.hwe-p1_5c2faf19b76e.system.status_led_brightness_pct",
+    "native": {},
+    "val": 25,
+    "ack": true
+  },
+  "homewizard.0.info": {
+    "type": "channel",
+    "common": {
+      "name": "Adapter Information"
+    },
+    "_id": "homewizard.0.info",
+    "native": {}
+  },
+  "homewizard.0.info.connection": {
+    "type": "state",
+    "common": {
+      "name": "Connection status",
+      "type": "boolean",
+      "role": "indicator.connected",
+      "read": true,
+      "write": false,
+      "def": false
+    },
+    "_id": "homewizard.0.info.connection",
+    "native": {},
+    "val": true,
+    "ack": true
+  },
+  "homewizard.0.pairingIp": {
+    "type": "state",
+    "common": {
+      "name": "Device IP for manual pairing",
+      "type": "string",
+      "role": "text",
+      "read": true,
+      "write": true,
+      "def": ""
+    },
+    "_id": "homewizard.0.pairingIp",
+    "native": {},
+    "val": "",
+    "ack": true
+  },
+  "homewizard.0.startPairing": {
+    "type": "state",
+    "common": {
+      "name": "Start pairing mode",
+      "type": "boolean",
+      "role": "button",
+      "read": false,
+      "write": true,
+      "def": false
+    },
+    "_id": "homewizard.0.startPairing",
+    "native": {},
+    "val": false,
+    "ack": true
+  }
+}

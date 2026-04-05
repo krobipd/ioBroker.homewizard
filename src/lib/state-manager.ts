@@ -520,7 +520,12 @@ export class StateManager {
 
     await this.adapter.extendObjectAsync(prefix, {
       type: "device",
-      common: { name: config.productName || config.productType },
+      common: {
+        name: config.productName || config.productType,
+        statusStates: {
+          onlineId: `${this.adapter.namespace}.${prefix}.info.connected`,
+        },
+      } as ioBroker.DeviceCommon,
       native: {},
     });
 
