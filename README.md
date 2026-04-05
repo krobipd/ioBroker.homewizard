@@ -11,7 +11,7 @@
 
 <img src="https://raw.githubusercontent.com/krobipd/ioBroker.homewizard/main/admin/homewizard.svg" width="100" />
 
-Real-time energy monitoring from HomeWizard devices via API v2 with WebSocket push (~1 update/second).
+Real-time energy monitoring from [HomeWizard](https://www.homewizard.com) Energy devices via API v2 with WebSocket push (~1 update/second).
 
 ---
 
