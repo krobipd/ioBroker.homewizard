@@ -1,6 +1,8 @@
 # Changelog
 
-## **WORK IN PROGRESS**
+## 0.4.2 (2026-04-05)
+
+- Consistent donation labels and about text across all adapters
 
 ## 0.4.1 (2026-04-05)
 - Move measurement data into `measurement/` channel (cleaner object tree structure)

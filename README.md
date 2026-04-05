@@ -157,6 +157,9 @@ homewizard.0.
 
 ## Changelog
 
+### 0.4.2 (2026-04-05)
+- Consistent donation labels and about text across all adapters
+
 ### 0.4.1 (2026-04-05)
 - Move measurement data into `measurement/` channel for cleaner object tree
 - Cleanup logic removes old datapoints from device root on upgrade
@@ -177,9 +180,6 @@ homewizard.0.
 
 ### 0.3.2 (2026-04-05)
 - Improve Admin UI and README with detailed configuration guide
-
-### 0.3.1 (2026-04-05)
-- Fix uncaught exception on device removal (invalid WebSocket frame during close)
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 

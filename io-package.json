@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "news": {
+      "0.4.2": {
+        "en": "Consistent donation labels and about text across all adapters",
+        "de": "Einheitliche Spenden-Labels und Info-Texte über alle Adapter",
+        "ru": "Единообразные метки пожертвований и информационные тексты во всех адаптерах",
+        "pt": "Rótulos de doação e textos informativos consistentes em todos os adaptadores",
+        "nl": "Consistente donatielabels en infoteksten in alle adapters",
+        "fr": "Libellés de don et textes d'information cohérents dans tous les adaptateurs",
+        "it": "Etichette di donazione e testi informativi coerenti in tutti gli adattatori",
+        "es": "Etiquetas de donación y textos informativos consistentes en todos los adaptadores",
+        "pl": "Spójne etykiety darowizn i teksty informacyjne we wszystkich adapterach",
+        "uk": "Узгоджені мітки пожертв та інформаційні тексти у всіх адаптерах",
+        "zh-cn": "所有适配器中统一的捐赠标签和信息文本"
+      },
       "0.4.1": {
         "en": "Move measurement data into measurement/ channel, cleanup old datapoints on upgrade",
         "de": "Messdaten in measurement/ Channel verschoben, alte Datenpunkte beim Upgrade aufgeraeumt",
@@ -80,19 +93,6 @@
         "pl": "Ulepszono Admin UI i README ze szczegółowym przewodnikiem konfiguracji (wymagania, ręczne parowanie IP)",
         "uk": "Покращено Admin UI та README з детальним посібником з налаштування (передумови, ручне IP-сполучення)",
         "zh-cn": "改进 Admin UI 和 README，提供详细配置指南（前提条件、手动 IP 配对）"
-      },
-      "0.3.1": {
-        "en": "Fix uncaught exception on device removal (invalid WebSocket frame during close)",
-        "de": "Uncaught Exception beim Geraet entfernen behoben (ungueltiger WebSocket-Frame beim Schliessen)",
-        "ru": "Исправлено необработанное исключение при удалении устройства (недопустимый кадр WebSocket при закрытии)",
-        "pt": "Corrigida exceção não capturada ao remover dispositivo (frame WebSocket inválido durante fechamento)",
-        "nl": "Onafgevangen uitzondering bij verwijderen apparaat opgelost (ongeldig WebSocket-frame bij sluiten)",
-        "fr": "Correction d exception non capturée lors de la suppression d appareil (frame WebSocket invalide à la fermeture)",
-        "it": "Corretta eccezione non gestita alla rimozione del dispositivo (frame WebSocket non valido durante la chiusura)",
-        "es": "Corregida excepción no capturada al eliminar dispositivo (frame WebSocket inválido durante cierre)",
-        "pl": "Naprawiono nieprzechwycony wyjątek przy usuwaniu urządzenia (nieprawidłowa ramka WebSocket podczas zamykania)",
-        "uk": "Виправлено необроблений виняток при видаленні пристрою (недійсний кадр WebSocket при закритті)",
-        "zh-cn": "修复删除设备时的未捕获异常（关闭时无效的 WebSocket 帧）"
       }
     },
     "titleLang": {

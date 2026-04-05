@@ -6,7 +6,7 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.4.0 (April 2026)
+- **Version:** 0.4.1 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
@@ -88,7 +88,8 @@ test/testPackageFiles.ts → @iobroker/testing (69)
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
-| 0.4.0 | 2026-04-05 | measurement/ Channel, cleanupMovedStates, statusStates Online-Icon |
+| 0.4.1 | 2026-04-05 | Fix: measurement/ Channel + cleanupMovedStates (0.4.0 hatte nur statusStates) |
+| 0.4.0 | 2026-04-05 | statusStates Online-Icon für Geräte im Objektbaum |
 | 0.3.5 | 2026-04-05 | Fix Log-Spam: classifyError + Dedup nach Kategorie, REST stoppt bei NETWORK |
 | 0.3.4 | 2026-04-05 | mDNS nur bei Pairing, IP-Recovery, Offline-Erkennung |
 | 0.3.0 | 2026-04-05 | Device-Config in Objekten, Reconnect-Workflow, Button-Fixes |
