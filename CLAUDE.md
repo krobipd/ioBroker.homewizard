@@ -45,6 +45,7 @@ src/lib/state-manager.ts → State CRUD + Cleanup
 7. **TLS mit CA-Cert** — HomeWizard CA gebündelt, Hostname-Check übersprungen (CN = `appliance/type/serial`)
 8. **Admin UI ohne Gerätetabelle** — Geräte im Objekte-Tab, nicht in Config
 9. **statusStates** (seit v0.4.0) — Device-Objekte haben `statusStates.onlineId` → grün/grau Icon im Objektbaum
+10. **measurement/ Channel** (seit v0.4.0) — Messdaten unter `measurement/`, nicht lose im Device-Root. `cleanupMovedStates()` räumt alte Pfade auf
 
 ## Error-Handling (seit v0.3.5)
 
@@ -87,7 +88,7 @@ test/testPackageFiles.ts → @iobroker/testing (69)
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
-| 0.4.0 | 2026-04-05 | statusStates Online-Icon, data/ mit Object-Dump |
+| 0.4.0 | 2026-04-05 | measurement/ Channel, cleanupMovedStates, statusStates Online-Icon |
 | 0.3.5 | 2026-04-05 | Fix Log-Spam: classifyError + Dedup nach Kategorie, REST stoppt bei NETWORK |
 | 0.3.4 | 2026-04-05 | mDNS nur bei Pairing, IP-Recovery, Offline-Erkennung |
 | 0.3.0 | 2026-04-05 | Device-Config in Objekten, Reconnect-Workflow, Button-Fixes |
