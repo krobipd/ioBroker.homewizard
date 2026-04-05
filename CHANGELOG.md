@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 (2026-04-05)
+
+- Robust reconnect: adapter never gives up after WiFi loss — retries every 5 minutes indefinitely
+- Periodic mDNS IP recovery: re-scans for changed IP address approximately every hour (not just once)
+- Only WebSocket controls device online state — REST fallback delivers data but doesn't flip connected flag
+- Remove `ipRecoveryDone` field: reconnect no longer stops after failed IP recovery
+
 ## 0.4.2 (2026-04-05)
 
 - Consistent donation labels and about text across all adapters

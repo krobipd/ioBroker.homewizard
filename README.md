@@ -148,7 +148,7 @@ homewizard.0.
 
 ### WebSocket keeps disconnecting
 - Check WiFi signal strength (`info.wifi_rssi_db`) — consider moving the device closer to the router
-- The adapter automatically reconnects with exponential backoff and falls back to REST polling
+- The adapter never gives up: reconnects with exponential backoff (max 5 min), falls back to REST polling, and periodically retries mDNS in case the IP changed
 
 ### Token invalid after factory reset
 - Set the device's `remove` data point to `true`, then pair again
@@ -157,29 +157,27 @@ homewizard.0.
 
 ## Changelog
 
+### 0.5.0 (2026-04-05)
+- Robust reconnect: never give up after WiFi loss, retry every 5 minutes indefinitely
+- Periodic mDNS IP recovery (~hourly), only WebSocket controls online state
+
 ### 0.4.2 (2026-04-05)
 - Consistent donation labels and about text across all adapters
 
 ### 0.4.1 (2026-04-05)
 - Move measurement data into `measurement/` channel for cleaner object tree
-- Cleanup logic removes old datapoints from device root on upgrade
 
 ### 0.4.0 (2026-04-05)
 - Add online/offline status icon for devices (`statusStates`)
 
 ### 0.3.5 (2026-04-05)
 - Fix log spam: error deduplication by category, not by context
-- REST fallback stops on network errors, system poll only for connected devices
 
 ### 0.3.4 (2026-04-05)
 - mDNS only during pairing, automatic IP recovery on connection loss
-- Device marked offline when unreachable (no endless reconnect loop)
 
 ### 0.3.3 (2026-04-05)
 - Fix mDNS pairing not finding devices (browser restart on pairing start)
-
-### 0.3.2 (2026-04-05)
-- Improve Admin UI and README with detailed configuration guide
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 

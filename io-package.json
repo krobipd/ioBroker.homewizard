@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.4.2",
+    "version": "0.5.0",
     "news": {
+      "0.5.0": {
+        "en": "Robust reconnect: never give up after WiFi loss, periodic mDNS IP recovery, only WebSocket controls online state",
+        "de": "Robuster Reconnect: nie aufgeben nach WLAN-Ausfall, periodische mDNS IP-Suche, nur WebSocket steuert Online-Status",
+        "ru": "Надежное переподключение: не сдаваться после потери WiFi, периодический mDNS поиск IP, только WebSocket управляет статусом",
+        "pt": "Reconexão robusta: nunca desistir após perda de WiFi, recuperação periódica de IP via mDNS, apenas WebSocket controla estado online",
+        "nl": "Robuuste herverbinding: nooit opgeven na WiFi-verlies, periodieke mDNS IP-herstel, alleen WebSocket bepaalt online-status",
+        "fr": "Reconnexion robuste: ne jamais abandonner après perte WiFi, récupération IP mDNS périodique, seul WebSocket contrôle le statut en ligne",
+        "it": "Riconnessione robusta: mai arrendersi dopo perdita WiFi, recupero IP mDNS periodico, solo WebSocket controlla lo stato online",
+        "es": "Reconexión robusta: nunca rendirse tras pérdida de WiFi, recuperación IP mDNS periódica, solo WebSocket controla estado online",
+        "pl": "Niezawodne ponowne połączenie: nigdy nie rezygnować po utracie WiFi, okresowe odzyskiwanie IP przez mDNS, tylko WebSocket kontroluje status online",
+        "uk": "Надійне перепідключення: ніколи не здаватися після втрати WiFi, періодичне відновлення IP через mDNS, тільки WebSocket керує онлайн-статусом",
+        "zh-cn": "稳健重连：WiFi丢失后永不放弃，定期mDNS IP恢复，仅WebSocket控制在线状态"
+      },
       "0.4.2": {
         "en": "Consistent donation labels and about text across all adapters",
         "de": "Einheitliche Spenden-Labels und Info-Texte über alle Adapter",
@@ -80,19 +93,6 @@
         "pl": "Naprawiono wykrywanie mDNS podczas parowania, ulepszone komunikaty w logu",
         "uk": "Виправлено виявлення mDNS пiд час сполучення, покращенi повiдомлення в лозi",
         "zh-cn": "修复 mDNS 配对时未发现设备的问题，改进配对日志消息"
-      },
-      "0.3.2": {
-        "en": "Improve Admin UI and README with detailed configuration guide (prerequisites, manual IP pairing)",
-        "de": "Admin UI und README verbessert mit detaillierter Konfigurationsanleitung (Voraussetzungen, manuelles IP-Pairing)",
-        "ru": "Улучшен Admin UI и README с подробным руководством по настройке (предварительные требования, ручное IP-сопряжение)",
-        "pt": "Admin UI e README melhorados com guia de configuração detalhado (pré-requisitos, emparelhamento manual por IP)",
-        "nl": "Admin UI en README verbeterd met gedetailleerde configuratiegids (vereisten, handmatig IP-koppelen)",
-        "fr": "Admin UI et README améliorés avec guide de configuration détaillé (prérequis, appairage IP manuel)",
-        "it": "Admin UI e README migliorati con guida di configurazione dettagliata (prerequisiti, associazione IP manuale)",
-        "es": "Admin UI y README mejorados con guía de configuración detallada (requisitos, emparejamiento IP manual)",
-        "pl": "Ulepszono Admin UI i README ze szczegółowym przewodnikiem konfiguracji (wymagania, ręczne parowanie IP)",
-        "uk": "Покращено Admin UI та README з детальним посібником з налаштування (передумови, ручне IP-сполучення)",
-        "zh-cn": "改进 Admin UI 和 README，提供详细配置指南（前提条件、手动 IP 配对）"
       }
     },
     "titleLang": {

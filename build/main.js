@@ -35,6 +35,7 @@ const SYSTEM_POLL_MS = 6e4;
 const MAX_AUTH_FAILURES = 3;
 const WS_FAILURES_BEFORE_MDNS = 3;
 const IP_RECOVERY_TIMEOUT_MS = 6e4;
+const MDNS_RETRY_EVERY = 12;
 class HomeWizard extends utils.Adapter {
   stateManager;
   discovery = null;
@@ -99,8 +100,7 @@ class HomeWizard extends utils.Adapter {
         reconnectTimer: void 0,
         wsFailCount: 0,
         authFailCount: 0,
-        lastErrorCode: "",
-        ipRecoveryDone: false
+        lastErrorCode: ""
       };
       this.connections.set(key, conn);
       if (conn.ip) {
@@ -369,8 +369,7 @@ class HomeWizard extends utils.Adapter {
           reconnectTimer: void 0,
           wsFailCount: 0,
           authFailCount: 0,
-          lastErrorCode: "",
-          ipRecoveryDone: false
+          lastErrorCode: ""
         };
         this.connections.set(key, conn);
         void this.initDevice(conn);
@@ -447,17 +446,8 @@ class HomeWizard extends utils.Adapter {
       this.stopIpRecovery();
       for (const conn of this.connections.values()) {
         if (!conn.wsAuthenticated && conn.wsFailCount > 0) {
-          conn.ipRecoveryDone = true;
-          if (conn.reconnectTimer) {
-            this.clearTimeout(conn.reconnectTimer);
-            conn.reconnectTimer = void 0;
-          }
-          if (conn.pollTimer) {
-            this.clearInterval(conn.pollTimer);
-            conn.pollTimer = void 0;
-          }
           this.log.warn(
-            `${conn.config.productName}: device offline \u2014 check network or re-pair with new IP`
+            `${conn.config.productName}: device offline \u2014 will keep retrying every ${WS_RECONNECT_MAX_MS / 1e3}s`
           );
         }
       }
@@ -506,7 +496,7 @@ class HomeWizard extends utils.Adapter {
     if (conn.authFailCount >= MAX_AUTH_FAILURES) {
       return;
     }
-    if (conn.wsFailCount >= WS_FAILURES_BEFORE_MDNS && !conn.ipRecoveryDone) {
+    if (conn.wsFailCount >= WS_FAILURES_BEFORE_MDNS && (conn.wsFailCount - WS_FAILURES_BEFORE_MDNS) % MDNS_RETRY_EVERY === 0) {
       this.startIpRecovery();
     }
     const key = this.stateManager.devicePrefix(conn.config);
@@ -518,7 +508,6 @@ class HomeWizard extends utils.Adapter {
         conn.wsAuthenticated = true;
         conn.wsFailCount = 0;
         conn.authFailCount = 0;
-        conn.ipRecoveryDone = false;
         void this.stateManager.setDeviceConnected(conn.config, true);
         this.updateGlobalConnection();
         if (conn.pollTimer) {
@@ -593,16 +582,13 @@ class HomeWizard extends utils.Adapter {
       try {
         const data = await client.getMeasurement();
         await this.stateManager.updateMeasurement(conn.config, data);
-        await this.stateManager.setDeviceConnected(conn.config, true);
       } catch (err) {
         this.logDeviceError(conn, "rest", err);
-        await this.stateManager.setDeviceConnected(conn.config, false);
         if (this.classifyError(err) === "NETWORK" && conn.pollTimer) {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = void 0;
         }
       }
-      this.updateGlobalConnection();
     }, REST_POLL_MS);
   }
   /** Poll system info for all connected devices */

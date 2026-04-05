@@ -265,6 +265,4 @@ export interface DeviceConnection {
   authFailCount: number;
   /** Last error code for dedup */
   lastErrorCode: string;
-  /** Whether mDNS IP recovery was already attempted (prevents endless loop) */
-  ipRecoveryDone: boolean;
 }

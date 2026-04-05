@@ -28,6 +28,8 @@ const MAX_AUTH_FAILURES = 3;
 const WS_FAILURES_BEFORE_MDNS = 3;
 /** mDNS IP recovery timeout in milliseconds */
 const IP_RECOVERY_TIMEOUT_MS = 60_000;
+/** Retry mDNS every N WS failures after first attempt (~1 hour at 5 min cap) */
+const MDNS_RETRY_EVERY = 12;
 
 class HomeWizard extends utils.Adapter {
   private stateManager!: StateManager;
@@ -106,7 +108,6 @@ class HomeWizard extends utils.Adapter {
         wsFailCount: 0,
         authFailCount: 0,
         lastErrorCode: "",
-        ipRecoveryDone: false,
       };
       this.connections.set(key, conn);
 
@@ -440,7 +441,6 @@ class HomeWizard extends utils.Adapter {
           wsFailCount: 0,
           authFailCount: 0,
           lastErrorCode: "",
-          ipRecoveryDone: false,
         };
         this.connections.set(key, conn);
         void this.initDevice(conn);
@@ -531,26 +531,15 @@ class HomeWizard extends utils.Adapter {
       }
     });
 
-    // Stop after timeout — mark device offline, stop reconnecting
+    // Stop mDNS after timeout — WS reconnect continues with exponential backoff
     this.ipRecoveryTimer = this.setTimeout(() => {
       this.ipRecoveryTimer = undefined;
       this.stopIpRecovery();
 
-      // Mark all unreachable devices as offline
       for (const conn of this.connections.values()) {
         if (!conn.wsAuthenticated && conn.wsFailCount > 0) {
-          conn.ipRecoveryDone = true;
-          // Stop reconnect timer and REST fallback
-          if (conn.reconnectTimer) {
-            this.clearTimeout(conn.reconnectTimer);
-            conn.reconnectTimer = undefined;
-          }
-          if (conn.pollTimer) {
-            this.clearInterval(conn.pollTimer);
-            conn.pollTimer = undefined;
-          }
           this.log.warn(
-            `${conn.config.productName}: device offline — check network or re-pair with new IP`,
+            `${conn.config.productName}: device offline — will keep retrying every ${WS_RECONNECT_MAX_MS / 1000}s`,
           );
         }
       }
@@ -606,8 +595,11 @@ class HomeWizard extends utils.Adapter {
       return;
     }
 
-    // After repeated failures, try mDNS once to find a new IP
-    if (conn.wsFailCount >= WS_FAILURES_BEFORE_MDNS && !conn.ipRecoveryDone) {
+    // After repeated failures, try mDNS periodically to find a new IP
+    if (
+      conn.wsFailCount >= WS_FAILURES_BEFORE_MDNS &&
+      (conn.wsFailCount - WS_FAILURES_BEFORE_MDNS) % MDNS_RETRY_EVERY === 0
+    ) {
       this.startIpRecovery();
     }
 
@@ -621,7 +613,6 @@ class HomeWizard extends utils.Adapter {
         conn.wsAuthenticated = true;
         conn.wsFailCount = 0;
         conn.authFailCount = 0;
-        conn.ipRecoveryDone = false;
         void this.stateManager.setDeviceConnected(conn.config, true);
         this.updateGlobalConnection();
 
@@ -718,10 +709,8 @@ class HomeWizard extends utils.Adapter {
       try {
         const data = await client.getMeasurement();
         await this.stateManager.updateMeasurement(conn.config, data);
-        await this.stateManager.setDeviceConnected(conn.config, true);
       } catch (err) {
         this.logDeviceError(conn, "rest", err);
-        await this.stateManager.setDeviceConnected(conn.config, false);
 
         // Stop REST polling on network errors — no point hammering unreachable device
         if (this.classifyError(err) === "NETWORK" && conn.pollTimer) {
@@ -729,7 +718,6 @@ class HomeWizard extends utils.Adapter {
           conn.pollTimer = undefined;
         }
       }
-      this.updateGlobalConnection();
     }, REST_POLL_MS);
   }
 
