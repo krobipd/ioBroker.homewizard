@@ -9,7 +9,7 @@
   "headerPrerequisites": "Wymagania",
   "prerequisitesInfo": "Lokalne API musi być włączone na urządzeniu HomeWizard. Otwórz aplikację HomeWizard → Ustawienia → Liczniki → twoje urządzenie → Lokalne API → Włącz.",
   "supportHeader": "Wsparcie",
-  "aboutInfo": "Ten adapter jest darmowy i otwartoźródłowy. Jeśli uważasz go za przydatny, rozważ wsparcie rozwoju:",
-  "donateKofi": "Ko-fi",
-  "donatePaypal": "PayPal"
+  "aboutInfo": "Ten adapter jest darmowy i open source. Jeśli uważasz go za przydatny, rozważ wsparcie jego rozwoju małą darowizną.",
+  "donateKofi": "Wesprzyj na Ko-fi",
+  "donatePaypal": "Przekaż darowiznę przez PayPal"
 }

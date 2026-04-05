@@ -9,7 +9,7 @@
   "headerPrerequisites": "Prerequisites",
   "prerequisitesInfo": "The local API must be enabled on your HomeWizard device. Open the HomeWizard app → Settings → Meters → your device → Local API → Enable.",
   "supportHeader": "Support",
-  "aboutInfo": "This adapter is free and open source. If you find it useful, consider supporting the development:",
-  "donateKofi": "Ko-fi",
-  "donatePaypal": "PayPal"
+  "aboutInfo": "This adapter is free and open source. If you find it useful, please consider supporting its development with a small donation.",
+  "donateKofi": "Support on Ko-fi",
+  "donatePaypal": "Donate via PayPal"
 }

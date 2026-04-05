@@ -9,7 +9,7 @@
   "headerPrerequisites": "Prérequis",
   "prerequisitesInfo": "L'API locale doit être activée sur votre appareil HomeWizard. Ouvrez l'application HomeWizard → Paramètres → Compteurs → votre appareil → API Locale → Activer.",
   "supportHeader": "Soutien",
-  "aboutInfo": "Cet adaptateur est gratuit et open source. Si vous le trouvez utile, envisagez de soutenir le développement :",
-  "donateKofi": "Ko-fi",
-  "donatePaypal": "PayPal"
+  "aboutInfo": "Cet adaptateur est gratuit et open source. Si vous le trouvez utile, pensez à soutenir son développement avec un petit don.",
+  "donateKofi": "Soutenir sur Ko-fi",
+  "donatePaypal": "Faire un don via PayPal"
 }

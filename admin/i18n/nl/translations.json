@@ -9,7 +9,7 @@
   "headerPrerequisites": "Vereisten",
   "prerequisitesInfo": "De lokale API moet ingeschakeld zijn op je HomeWizard-apparaat. Open de HomeWizard-app → Instellingen → Meters → jouw apparaat → Lokale API → Inschakelen.",
   "supportHeader": "Ondersteuning",
-  "aboutInfo": "Deze adapter is gratis en open source. Als je het nuttig vindt, overweeg dan de ontwikkeling te steunen:",
-  "donateKofi": "Ko-fi",
-  "donatePaypal": "PayPal"
+  "aboutInfo": "Deze adapter is gratis en open source. Als je hem nuttig vindt, overweeg dan de ontwikkeling te steunen met een kleine donatie.",
+  "donateKofi": "Steunen op Ko-fi",
+  "donatePaypal": "Doneren via PayPal"
 }
