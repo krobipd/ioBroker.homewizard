@@ -605,6 +605,14 @@ export class StateManager {
     data: Measurement,
   ): Promise<void> {
     const prefix = this.devicePrefix(config);
+    const mPrefix = `${prefix}.measurement`;
+
+    // Ensure measurement channel exists
+    await this.adapter.extendObjectAsync(mPrefix, {
+      type: "channel",
+      common: { name: "Measurement" },
+      native: {},
+    });
 
     // Main measurement values
     const fields = MEASUREMENT_STATE_DEFS;
@@ -616,7 +624,7 @@ export class StateManager {
         !Array.isArray(rawValue)
       ) {
         await this.ensureAndSet(
-          `${prefix}.${def.id}`,
+          `${mPrefix}.${def.id}`,
           def.name,
           def.type,
           def.role,
@@ -628,14 +636,14 @@ export class StateManager {
 
     // External meters (P1 gas/water/heat)
     if (data.external?.length) {
-      await this.adapter.extendObjectAsync(`${prefix}.external`, {
+      await this.adapter.extendObjectAsync(`${mPrefix}.external`, {
         type: "channel",
         common: { name: "External Meters" },
         native: {},
       });
 
       for (const ext of data.external) {
-        const extId = `${prefix}.external.${sanitize(ext.type)}_${sanitize(ext.unique_id)}`;
+        const extId = `${mPrefix}.external.${sanitize(ext.type)}_${sanitize(ext.unique_id)}`;
         await this.adapter.extendObjectAsync(extId, {
           type: "channel",
           common: { name: ext.type },
@@ -854,6 +862,30 @@ export class StateManager {
   async removeDevice(config: DeviceConfig): Promise<void> {
     const prefix = this.devicePrefix(config);
     await this.adapter.delObjectAsync(prefix, { recursive: true });
+  }
+
+  /**
+   * Remove measurement states from old locations (pre-v0.4.0: device root instead of measurement/ channel)
+   *
+   * @param config Device configuration
+   */
+  async cleanupMovedStates(config: DeviceConfig): Promise<void> {
+    const prefix = this.devicePrefix(config);
+
+    // Old paths: states were at device root, now under measurement/
+    const oldIds: string[] = [];
+    for (const def of MEASUREMENT_STATE_DEFS) {
+      oldIds.push(`${prefix}.${def.id}`);
+    }
+    // External was at device root too
+    oldIds.push(`${prefix}.external`);
+
+    for (const id of oldIds) {
+      if (await this.adapter.getObjectAsync(id)) {
+        await this.adapter.delObjectAsync(id, { recursive: true });
+        this.adapter.log.debug(`Removed obsolete state: ${id}`);
+      }
+    }
   }
 
   /**

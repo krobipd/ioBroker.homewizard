@@ -14,9 +14,12 @@ interface StateValue {
 }
 
 interface MockAdapter {
+    namespace: string;
     objects: Map<string, ObjectDef>;
     states: Map<string, StateValue>;
+    log: { debug: (msg: string) => void };
     extendObjectAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
+    getObjectAsync: (id: string) => Promise<ObjectDef | null>;
     setStateAsync: (id: string, state: StateValue) => Promise<void>;
     delObjectAsync: (id: string, opts?: { recursive: boolean }) => Promise<void>;
 }
@@ -26,8 +29,10 @@ function createMockAdapter(): MockAdapter {
     const states = new Map<string, StateValue>();
 
     return {
+        namespace: "homewizard.0",
         objects,
         states,
+        log: { debug: (): void => {} },
         extendObjectAsync: async (id: string, obj: Partial<ObjectDef>): Promise<void> => {
             const existing = objects.get(id) || { type: "", common: {}, native: {} };
             objects.set(id, {
@@ -35,6 +40,9 @@ function createMockAdapter(): MockAdapter {
                 common: { ...existing.common, ...(obj.common || {}) },
                 native: { ...existing.native, ...(obj.native || {}) },
             });
+        },
+        getObjectAsync: async (id: string): Promise<ObjectDef | null> => {
+            return objects.get(id) || null;
         },
         setStateAsync: async (id: string, state: StateValue): Promise<void> => {
             states.set(id, state);
@@ -171,24 +179,24 @@ describe("StateManager", () => {
             };
             await manager.updateMeasurement(testDevice, data);
 
-            const power = adapter.states.get("hwe-p1_aabbccddeeff.power_w");
+            const power = adapter.states.get("hwe-p1_aabbccddeeff.measurement.power_w");
             expect(power?.val).to.equal(1234);
             expect(power?.ack).to.be.true;
 
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.power_l1_w")?.val).to.equal(400);
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.power_l2_w")?.val).to.equal(500);
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.power_l3_w")?.val).to.equal(334);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.power_l1_w")?.val).to.equal(400);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.power_l2_w")?.val).to.equal(500);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.power_l3_w")?.val).to.equal(334);
         });
 
         it("should create state objects with correct roles and units", async () => {
             const data: Measurement = { power_w: 100, voltage_l1_v: 230.5 };
             await manager.updateMeasurement(testDevice, data);
 
-            const powerObj = adapter.objects.get("hwe-p1_aabbccddeeff.power_w");
+            const powerObj = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.power_w");
             expect(powerObj?.common.role).to.equal("value.power");
             expect(powerObj?.common.unit).to.equal("W");
 
-            const voltObj = adapter.objects.get("hwe-p1_aabbccddeeff.voltage_l1_v");
+            const voltObj = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.voltage_l1_v");
             expect(voltObj?.common.role).to.equal("value.voltage");
             expect(voltObj?.common.unit).to.equal("V");
         });
@@ -197,8 +205,8 @@ describe("StateManager", () => {
             const data: Measurement = { power_w: 100 };
             await manager.updateMeasurement(testDevice, data);
 
-            expect(adapter.states.has("hwe-p1_aabbccddeeff.power_w")).to.be.true;
-            expect(adapter.states.has("hwe-p1_aabbccddeeff.power_l1_w")).to.be.false;
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.power_w")).to.be.true;
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.power_l1_w")).to.be.false;
         });
 
         it("should handle energy import/export values", async () => {
@@ -210,10 +218,10 @@ describe("StateManager", () => {
             };
             await manager.updateMeasurement(testDevice, data);
 
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.energy_import_kwh")?.val).to.equal(12345.678);
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.energy_export_kwh")?.val).to.equal(9876.543);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.energy_import_kwh")?.val).to.equal(12345.678);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.energy_export_kwh")?.val).to.equal(9876.543);
 
-            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.energy_import_kwh");
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.energy_import_kwh");
             expect(obj?.common.unit).to.equal("kWh");
             expect(obj?.common.role).to.equal("value.energy");
         });
@@ -226,9 +234,9 @@ describe("StateManager", () => {
             };
             await manager.updateMeasurement(testDevice, data);
 
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.quality.voltage_sag_l1_count")?.val).to.equal(3);
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.quality.voltage_swell_l2_count")?.val).to.equal(1);
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.quality.power_fail_count")?.val).to.equal(5);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.quality.voltage_sag_l1_count")?.val).to.equal(3);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.quality.voltage_swell_l2_count")?.val).to.equal(1);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.quality.power_fail_count")?.val).to.equal(5);
         });
 
         it("should handle battery-specific fields", async () => {
@@ -238,8 +246,8 @@ describe("StateManager", () => {
             };
             await manager.updateMeasurement(testDevice, data);
 
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.state_of_charge_pct")?.val).to.equal(85);
-            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.state_of_charge_pct");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.state_of_charge_pct")?.val).to.equal(85);
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.state_of_charge_pct");
             expect(obj?.common.role).to.equal("value.battery");
             expect(obj?.common.unit).to.equal("%");
         });
@@ -260,17 +268,17 @@ describe("StateManager", () => {
             await manager.updateMeasurement(testDevice, data);
 
             // External channel
-            const extChannel = adapter.objects.get("hwe-p1_aabbccddeeff.external");
+            const extChannel = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.external");
             expect(extChannel?.type).to.equal("channel");
 
             // Gas meter channel
-            const gasChannel = adapter.objects.get("hwe-p1_aabbccddeeff.external.gas_meter_gas001");
+            const gasChannel = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.external.gas_meter_gas001");
             expect(gasChannel?.type).to.equal("channel");
 
             // Values
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.external.gas_meter_gas001.value")?.val).to.equal(1234.567);
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.external.gas_meter_gas001.unit")?.val).to.equal("m3");
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.external.gas_meter_gas001.timestamp")?.val).to.equal("2026-04-04T12:00:00");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.external.gas_meter_gas001.value")?.val).to.equal(1234.567);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.external.gas_meter_gas001.unit")?.val).to.equal("m3");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.external.gas_meter_gas001.timestamp")?.val).to.equal("2026-04-04T12:00:00");
         });
 
         it("should handle multiple external meters", async () => {
@@ -282,8 +290,8 @@ describe("StateManager", () => {
             };
             await manager.updateMeasurement(testDevice, data);
 
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.external.gas_meter_gas1.value")?.val).to.equal(100);
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.external.water_meter_water1.value")?.val).to.equal(50);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.external.gas_meter_gas1.value")?.val).to.equal(100);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.external.water_meter_water1.value")?.val).to.equal(50);
         });
 
         it("should handle empty measurement", async () => {
@@ -301,9 +309,9 @@ describe("StateManager", () => {
             };
             await manager.updateMeasurement(testDevice, data);
 
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.meter_model")?.val).to.equal("Landis+Gyr E350");
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.timestamp")?.val).to.equal("2026-04-04T12:00:00");
-            expect(adapter.states.get("hwe-p1_aabbccddeeff.tariff")?.val).to.equal(2);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.meter_model")?.val).to.equal("Landis+Gyr E350");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.timestamp")?.val).to.equal("2026-04-04T12:00:00");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.tariff")?.val).to.equal(2);
         });
     });
 

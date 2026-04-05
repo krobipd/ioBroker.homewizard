@@ -94,6 +94,7 @@ class HomeWizard extends utils.Adapter {
     // Create connection entries for all configured devices
     for (const device of devices) {
       const key = this.stateManager.devicePrefix(device);
+      await this.stateManager.cleanupMovedStates(device);
       await this.stateManager.createDeviceStates(device);
       const conn: DeviceConnection = {
         config: device,

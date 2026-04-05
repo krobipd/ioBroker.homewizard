@@ -88,6 +88,7 @@ class HomeWizard extends utils.Adapter {
     }
     for (const device of devices) {
       const key = this.stateManager.devicePrefix(device);
+      await this.stateManager.cleanupMovedStates(device);
       await this.stateManager.createDeviceStates(device);
       const conn = {
         config: device,

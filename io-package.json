@@ -4,17 +4,17 @@
     "version": "0.4.0",
     "news": {
       "0.4.0": {
-        "en": "Add online/offline status icon for devices in object tree, example object dump for repository review",
-        "de": "Online/Offline-Statusicon fuer Geraete im Objektbaum, Beispiel-Objektdump fuer Repository-Review",
-        "ru": "Иконка онлайн/офлайн статуса устройств в дереве объектов, пример дампа объектов для ревью репозитория",
-        "pt": "Icone de status online/offline para dispositivos na arvore de objetos, dump de objetos de exemplo para revisao",
-        "nl": "Online/offline statusicoon voor apparaten in objectboom, voorbeeld objectdump voor repository review",
-        "fr": "Icone de statut en ligne/hors ligne pour les appareils dans l arbre d objets, dump d objets d exemple pour la revue",
-        "it": "Icona stato online/offline per dispositivi nell albero oggetti, dump oggetti di esempio per la revisione",
-        "es": "Icono de estado online/offline para dispositivos en el arbol de objetos, dump de objetos de ejemplo para revision",
-        "pl": "Ikona statusu online/offline dla urzadzen w drzewie obiektow, przykladowy dump obiektow do przegladu repozytorium",
-        "uk": "Iконка статусу онлайн/офлайн для пристроiв у деревi об єктiв, приклад дампу об єктiв для ревью репозиторiю",
-        "zh-cn": "在对象树中为设备添加在线/离线状态图标，用于仓库审查的示例对象转储"
+        "en": "Move measurement data into measurement/ channel, cleanup old datapoints, add online/offline status icon",
+        "de": "Messdaten in measurement/ Channel verschoben, alte Datenpunkte aufgeraeumt, Online/Offline-Statusicon",
+        "ru": "Данные измерений перемещены в канал measurement/, очистка старых точек данных, иконка онлайн/офлайн статуса",
+        "pt": "Dados de medicao movidos para canal measurement/, limpeza de pontos de dados antigos, icone de status online/offline",
+        "nl": "Meetgegevens verplaatst naar measurement/ kanaal, oude datapunten opgeruimd, online/offline statusicoon",
+        "fr": "Donnees de mesure deplacees dans le canal measurement/, nettoyage des anciens points de donnees, icone de statut en ligne/hors ligne",
+        "it": "Dati di misurazione spostati nel canale measurement/, pulizia vecchi punti dati, icona stato online/offline",
+        "es": "Datos de medicion movidos al canal measurement/, limpieza de puntos de datos antiguos, icono de estado online/offline",
+        "pl": "Dane pomiarowe przeniesione do kanalu measurement/, czyszczenie starych punktow danych, ikona statusu online/offline",
+        "uk": "Данi вимiрювань перемiщено в канал measurement/, очищення старих точок даних, iконка статусу онлайн/офлайн",
+        "zh-cn": "测量数据移至 measurement/ 通道，清理旧数据点，添加在线/离线状态图标"
       },
       "0.3.5": {
         "en": "Fix log spam: error deduplication by category (not context), REST fallback stops on network errors, system poll only for connected devices",

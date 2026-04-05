@@ -97,26 +97,27 @@ homewizard.0.
     │   ├── connected            — WebSocket connection status (bool)
     │   ├── wifi_rssi_db         — WiFi signal strength (number, dB)
     │   └── uptime_s             — Device uptime (number, s)
-    ├── power_w                  — Total power (number, W)
-    ├── power_l1_w .. l3_w       — Power per phase (number, W)
-    ├── voltage_l1_v .. l3_v     — Voltage per phase (number, V)
-    ├── current_l1_a .. l3_a     — Current per phase (number, A)
-    ├── frequency_hz             — Grid frequency (number, Hz)
-    ├── energy_import_kwh        — Total import (number, kWh)
-    ├── energy_import_t1..t4_kwh — Import per tariff (number, kWh)
-    ├── energy_export_kwh        — Total export (number, kWh)
-    ├── energy_export_t1..t4_kwh — Export per tariff (number, kWh)
-    ├── tariff                   — Active tariff (number)
-    ├── quality/                 — Power quality counters
-    │   ├── voltage_sag_l1..l3_count
-    │   ├── voltage_swell_l1..l3_count
-    │   ├── power_fail_count
-    │   └── long_power_fail_count
-    ├── external/                — External meters (gas, water, heat)
-    │   └── {type}_{id}/
-    │       ├── value            — Meter reading (number)
-    │       ├── unit             — Unit (string)
-    │       └── timestamp        — Last update (string)
+    ├── measurement/             — Measurement data
+    │   ├── power_w              — Total power (number, W)
+    │   ├── power_l1_w .. l3_w   — Power per phase (number, W)
+    │   ├── voltage_l1_v .. l3_v — Voltage per phase (number, V)
+    │   ├── current_l1_a .. l3_a — Current per phase (number, A)
+    │   ├── frequency_hz         — Grid frequency (number, Hz)
+    │   ├── energy_import_kwh    — Total import (number, kWh)
+    │   ├── energy_import_t1..t4_kwh — Import per tariff (number, kWh)
+    │   ├── energy_export_kwh    — Total export (number, kWh)
+    │   ├── energy_export_t1..t4_kwh — Export per tariff (number, kWh)
+    │   ├── tariff               — Active tariff (number)
+    │   ├── quality/             — Power quality counters
+    │   │   ├── voltage_sag_l1..l3_count
+    │   │   ├── voltage_swell_l1..l3_count
+    │   │   ├── power_fail_count
+    │   │   └── long_power_fail_count
+    │   └── external/            — External meters (gas, water, heat)
+    │       └── {type}_{id}/
+    │           ├── value        — Meter reading (number)
+    │           ├── unit         — Unit (string)
+    │           └── timestamp    — Last update (string)
     ├── battery/                 — Battery control (if batteries connected)
     │   ├── mode                 — zero / to_full / standby (string, R/W)
     │   ├── permissions          — JSON array (string, R/W)
@@ -125,6 +126,7 @@ homewizard.0.
     │   ├── target_power_w       — Target power (number, W)
     │   ├── max_consumption_w    — Max consumption (number, W)
     │   └── max_production_w     — Max production (number, W)
+    ├── remove                   — Remove device (button)
     └── system/                  — System settings
         ├── cloud_enabled        — Cloud communication (bool, R/W)
         ├── status_led_brightness_pct — LED brightness 0-100 (number, R/W)
@@ -156,8 +158,9 @@ homewizard.0.
 ## Changelog
 
 ### 0.4.0 (2026-04-05)
-- Add online/offline status icon for devices in object tree (`statusStates`)
-- Add example object dump for repository review
+- Move measurement data into `measurement/` channel for cleaner object tree
+- Cleanup logic removes old datapoints from device root on upgrade
+- Add online/offline status icon for devices (`statusStates`)
 
 ### 0.3.5 (2026-04-05)
 - Fix log spam: error deduplication by category, not by context
