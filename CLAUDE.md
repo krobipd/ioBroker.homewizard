@@ -6,7 +6,7 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.4.2 (April 2026)
+- **Version:** 0.5.0 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
@@ -56,14 +56,16 @@ Folgt beszel/parcelapp Pattern:
 - **REST-Fallback stoppt** bei NETWORK-Error (kein Bombardieren unerreichbarer Geräte)
 - **System-Poll** nur für WS-verbundene Geräte
 
-## Reconnect-Workflow
+## Reconnect-Workflow (seit v0.5.0)
 
-1. WS disconnected → warn einmal → REST-Fallback + WS-Reconnect (exponential backoff)
+1. WS disconnected → warn einmal → REST-Fallback + WS-Reconnect (exponential backoff, max 5 min)
 2. REST bekommt NETWORK-Error → REST stoppt (WS-Reconnect läuft weiter)
 3. Nach 3 WS-Failures → mDNS IP-Recovery (60s Timeout)
 4. mDNS findet neue IP → Update + Reconnect
-5. mDNS findet nichts → Device offline, alle Timer stoppen
-6. Auth-Backoff: nach 3 Auth-Failures Stopp, warn "token invalid — re-pair"
+5. mDNS findet nichts → **WS-Reconnect läuft weiter** (alle 5 min), mDNS-Retry ~stündlich
+6. **Adapter gibt NIE auf** — designed für Geräte mit schlechtem WiFi (stundenlange Ausfälle)
+7. Auth-Backoff: nach 3 Auth-Failures Stopp, warn "token invalid — re-pair"
+8. **Nur WS steuert `info.connected`** — REST-Fallback liefert Daten, flippt aber nicht den Online-Status
 
 ## WebSocket-Cleanup-Pattern (seit v0.3.1)
 
@@ -88,6 +90,7 @@ test/testPackageFiles.ts → @iobroker/testing (69)
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
+| 0.5.0 | 2026-04-05 | Robuster Reconnect: nie aufgeben, periodische mDNS-Retry, nur WS steuert Online |
 | 0.4.2 | 2026-04-05 | Konsistente Donation-Labels über alle Adapter |
 | 0.4.1 | 2026-04-05 | Fix: measurement/ Channel + cleanupMovedStates (0.4.0 hatte nur statusStates) |
 | 0.4.0 | 2026-04-05 | statusStates Online-Icon für Geräte im Objektbaum |
