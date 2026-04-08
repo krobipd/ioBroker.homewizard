@@ -23,7 +23,7 @@ interface MeasurementStateDef {
 }
 
 /**
- * Sanitize a string for use as ioBroker object ID
+ * Sanitize a string for use as ioBroker object ID (see adapter.FORBIDDEN_CHARS).
  *
  * @param str Raw string to sanitize
  */

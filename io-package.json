@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.5.0",
+    "version": "0.5.1",
     "news": {
+      "0.5.1": {
+        "en": "Restore standard GitHub-based tests, remove CHANGELOG.md, add FORBIDDEN_CHARS reference",
+        "de": "Standard GitHub-Tests wiederhergestellt, CHANGELOG.md entfernt, FORBIDDEN_CHARS-Referenz hinzugefügt",
+        "ru": "Восстановлены стандартные тесты GitHub, удалён CHANGELOG.md, добавлена ссылка на FORBIDDEN_CHARS",
+        "pt": "Restaurados testes padrão do GitHub, removido CHANGELOG.md, adicionada referência FORBIDDEN_CHARS",
+        "nl": "Standaard GitHub-tests hersteld, CHANGELOG.md verwijderd, FORBIDDEN_CHARS-referentie toegevoegd",
+        "fr": "Tests GitHub standard restaurés, CHANGELOG.md supprimé, référence FORBIDDEN_CHARS ajoutée",
+        "it": "Ripristinati test GitHub standard, rimosso CHANGELOG.md, aggiunto riferimento FORBIDDEN_CHARS",
+        "es": "Restauradas pruebas estándar de GitHub, eliminado CHANGELOG.md, añadida referencia FORBIDDEN_CHARS",
+        "pl": "Przywrócono standardowe testy GitHub, usunięto CHANGELOG.md, dodano referencję FORBIDDEN_CHARS",
+        "uk": "Відновлено стандартні тести GitHub, видалено CHANGELOG.md, додано посилання на FORBIDDEN_CHARS",
+        "zh-cn": "恢复标准GitHub测试，删除CHANGELOG.md，添加FORBIDDEN_CHARS引用"
+      },
       "0.5.0": {
         "en": "Robust reconnect: never give up after WiFi loss, periodic mDNS IP recovery, only WebSocket controls online state",
         "de": "Robuster Reconnect: nie aufgeben nach WLAN-Ausfall, periodische mDNS IP-Suche, nur WebSocket steuert Online-Status",
@@ -80,19 +93,6 @@
         "pl": "mDNS tylko podczas parowania, automatyczne odzyskiwanie IP przy utracie polaczenia, wykrywanie offline",
         "uk": "mDNS лише пiд час сполучення, автоматичне вiдновлення IP при втратi з єднання, виявлення офлайн",
         "zh-cn": "mDNS 仅在配对时活跃，连接丢失时自动恢复 IP，离线检测"
-      },
-      "0.3.3": {
-        "en": "Fix mDNS pairing not finding devices, improve log messages during pairing",
-        "de": "mDNS-Pairing findet Geraete wieder, verbesserte Log-Meldungen beim Pairing",
-        "ru": "Исправлено обнаружение устройств через mDNS при сопряжении, улучшены сообщения в логе",
-        "pt": "Corrigida descoberta de dispositivos via mDNS durante emparelhamento, mensagens de log melhoradas",
-        "nl": "mDNS-koppeling vindt apparaten weer, verbeterde logberichten tijdens koppelen",
-        "fr": "Correction de la decouverte mDNS lors de l appairage, messages de log ameliores",
-        "it": "Corretta scoperta mDNS durante l associazione, messaggi di log migliorati",
-        "es": "Corregido descubrimiento mDNS durante emparejamiento, mensajes de log mejorados",
-        "pl": "Naprawiono wykrywanie mDNS podczas parowania, ulepszone komunikaty w logu",
-        "uk": "Виправлено виявлення mDNS пiд час сполучення, покращенi повiдомлення в лозi",
-        "zh-cn": "修复 mDNS 配对时未发现设备的问题，改进配对日志消息"
       }
     },
     "titleLang": {

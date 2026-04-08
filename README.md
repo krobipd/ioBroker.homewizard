@@ -157,6 +157,9 @@ homewizard.0.
 
 ## Changelog
 
+### 0.5.1 (2026-04-08)
+- Restore standard GitHub-based tests, remove CHANGELOG.md, add FORBIDDEN_CHARS reference
+
 ### 0.5.0 (2026-04-05)
 - Robust reconnect: never give up after WiFi loss, retry every 5 minutes indefinitely
 - Periodic mDNS IP recovery (~hourly), only WebSocket controls online state
@@ -170,16 +173,7 @@ homewizard.0.
 ### 0.4.0 (2026-04-05)
 - Add online/offline status icon for devices (`statusStates`)
 
-### 0.3.5 (2026-04-05)
-- Fix log spam: error deduplication by category, not by context
-
-### 0.3.4 (2026-04-05)
-- mDNS only during pairing, automatic IP recovery on connection loss
-
-### 0.3.3 (2026-04-05)
-- Fix mDNS pairing not finding devices (browser restart on pairing start)
-
-Older changelog: [CHANGELOG.md](CHANGELOG.md)
+Older changelog: [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
 
 ---
 
