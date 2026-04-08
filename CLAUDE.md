@@ -6,7 +6,7 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.5.0 (April 2026)
+- **Version:** 0.5.1 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
@@ -82,14 +82,16 @@ Energy Socket + Watermeter nur v1 → noch nicht unterstützt.
 test/testClient.ts       → API-Error-Handling (9)
 test/testDiscovery.ts    → mDNS (16)
 test/testWebSocket.ts    → WebSocket-Flow (13)
-test/testStateManager.ts → States + Buttons (23)
-test/testPackageFiles.ts → @iobroker/testing (69)
+test/testStateManager.ts → States + Buttons (35)
+test/package.js          → @iobroker/testing Package-Tests (57)
+test/integration.js      → @iobroker/testing Integration-Tests (plain JS)
 ```
 
 ## Versionshistorie
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
+| 0.5.1 | 2026-04-08 | Review-Fixes: Standard-Tests (plain JS), CHANGELOG.md entfernt, FORBIDDEN_CHARS-Ref |
 | 0.5.0 | 2026-04-05 | Robuster Reconnect: nie aufgeben, periodische mDNS-Retry, nur WS steuert Online |
 | 0.4.2 | 2026-04-05 | Konsistente Donation-Labels über alle Adapter |
 | 0.4.1 | 2026-04-05 | Fix: measurement/ Channel + cleanupMovedStates (0.4.0 hatte nur statusStates) |
