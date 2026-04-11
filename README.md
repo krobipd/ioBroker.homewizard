@@ -100,7 +100,9 @@ homewizard.0.
     ├── measurement/             — Measurement data
     │   ├── power_w              — Total power (number, W)
     │   ├── power_l1_w .. l3_w   — Power per phase (number, W)
+    │   ├── voltage_v            — Voltage single-phase (number, V)
     │   ├── voltage_l1_v .. l3_v — Voltage per phase (number, V)
+    │   ├── current_a            — Current single-phase (number, A)
     │   ├── current_l1_a .. l3_a — Current per phase (number, A)
     │   ├── frequency_hz         — Grid frequency (number, Hz)
     │   ├── energy_import_kwh    — Total import (number, kWh)
@@ -108,6 +110,12 @@ homewizard.0.
     │   ├── energy_export_kwh    — Total export (number, kWh)
     │   ├── energy_export_t1..t4_kwh — Export per tariff (number, kWh)
     │   ├── tariff               — Active tariff (number)
+    │   ├── state_of_charge_pct  — Battery charge level (number, %)
+    │   ├── cycles               — Battery charge cycles (number)
+    │   ├── average_power_15m_w  — 15-min average power (number, W, Belgium)
+    │   ├── monthly_power_peak_w — Monthly power peak (number, W, Belgium)
+    │   ├── meter_model          — Meter model identifier (string)
+    │   ├── timestamp            — Measurement timestamp (string)
     │   ├── quality/             — Power quality counters
     │   │   ├── voltage_sag_l1..l3_count
     │   │   ├── voltage_swell_l1..l3_count
@@ -135,7 +143,7 @@ homewizard.0.
         └── identify             — Blink LED (button)
 ```
 
-> States are created dynamically based on what the device reports. Not all devices have all states.
+> States are created dynamically based on what the device reports. Not all devices have all states. kWh meters additionally provide apparent/reactive current, apparent/reactive power, and power factor states.
 
 ---
 
