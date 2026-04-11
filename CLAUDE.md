@@ -25,13 +25,14 @@
 ## Architektur
 
 ```
-src/main.ts              → Adapter (Lifecycle, Pairing, Multi-Device, Reconnect)
-src/lib/types.ts         → Interfaces
-src/lib/cacert.ts        → HomeWizard CA-Cert + shared HTTPS Agent
-src/lib/discovery.ts     → mDNS (_homewizard._tcp), nur bei Pairing/IP-Recovery
+src/main.ts                  → Adapter (Lifecycle, Pairing, Multi-Device, Reconnect)
+src/lib/types.ts             → Interfaces
+src/lib/connection-utils.ts  → classifyError, createDeviceConnection (pure, testbar)
+src/lib/cacert.ts            → HomeWizard CA-Cert + shared HTTPS Agent
+src/lib/discovery.ts         → mDNS (_homewizard._tcp), nur bei Pairing/IP-Recovery
 src/lib/homewizard-client.ts → HTTPS-Client (REST)
 src/lib/websocket-client.ts  → WSS-Client (Echtzeit)
-src/lib/state-manager.ts → State CRUD + Cleanup
+src/lib/state-manager.ts     → State CRUD + Cleanup
 ```
 
 ## Design-Entscheidungen
@@ -92,11 +93,12 @@ Info-Log: "connection stabilized — using normal reconnect"
 P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630), Battery (HWE-BAT).
 Energy Socket + Watermeter nur v1 → noch nicht unterstützt.
 
-## Tests (130)
+## Tests (150)
 
 ```
 test/testClient.ts       → API-Error-Handling (9)
 test/testDiscovery.ts    → mDNS (16)
+test/testMain.ts         → classifyError, createDeviceConnection (20)
 test/testWebSocket.ts    → WebSocket-Flow (13)
 test/testStateManager.ts → States + Buttons (35)
 test/package.js          → @iobroker/testing Package-Tests (57)

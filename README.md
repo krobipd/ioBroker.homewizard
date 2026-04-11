@@ -158,6 +158,12 @@ homewizard.0.
 
 ## Changelog
 
+### 0.6.1 (2026-04-12)
+- Code cleanup: extract testable connection-utils module (classifyError, createDeviceConnection)
+- Add 20 unit tests for error classification, connection factory, and unstable threshold
+- Fix ESLint warnings, remove unused devDependencies, remove duplicate scripts
+- Add `@typescript-eslint/no-floating-promises` lint rule
+
 ### 0.6.0 (2026-04-11)
 - Adaptive unstable mode: auto-detect devices with bad WiFi (e.g. P1 meter in basement)
 - Faster reconnect for unstable devices (60s max backoff instead of 5 min)
@@ -179,9 +185,6 @@ homewizard.0.
 
 ### 0.4.0 (2026-04-05)
 - Add online/offline status icon for devices (`statusStates`)
-
-### 0.3.5 (2026-04-05)
-- Fix log spam: error deduplication by category, REST fallback stops on network errors
 
 Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

@@ -22,6 +22,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var utils = __toESM(require("@iobroker/adapter-core"));
+var import_connection_utils = require("./lib/connection-utils");
 var import_discovery = require("./lib/discovery");
 var import_homewizard_client = require("./lib/homewizard-client");
 var import_state_manager = require("./lib/state-manager");
@@ -37,7 +38,6 @@ const WS_FAILURES_BEFORE_MDNS = 3;
 const IP_RECOVERY_TIMEOUT_MS = 6e4;
 const MDNS_RETRY_EVERY = 12;
 const STABLE_THRESHOLD_MS = 6e5;
-const UNSTABLE_DISCONNECT_THRESHOLD = 3;
 const WS_RECONNECT_MAX_UNSTABLE_MS = 6e4;
 const REST_POLL_UNSTABLE_MS = 3e4;
 class HomeWizard extends utils.Adapter {
@@ -95,19 +95,7 @@ class HomeWizard extends utils.Adapter {
       const key = this.stateManager.devicePrefix(device);
       await this.stateManager.cleanupMovedStates(device);
       await this.stateManager.createDeviceStates(device);
-      const conn = {
-        config: device,
-        ip: device.ip || "",
-        wsClient: null,
-        wsAuthenticated: false,
-        pollTimer: void 0,
-        reconnectTimer: void 0,
-        wsFailCount: 0,
-        authFailCount: 0,
-        lastErrorCode: "",
-        lastConnectedAt: 0,
-        recentDisconnects: 0
-      };
+      const conn = (0, import_connection_utils.createDeviceConnection)(device, device.ip || "");
       this.connections.set(key, conn);
       if (conn.ip) {
         this.log.debug(`Using stored IP ${conn.ip} for ${device.productName}`);
@@ -366,19 +354,7 @@ class HomeWizard extends utils.Adapter {
         await this.saveDeviceToObject(deviceConfig);
         await this.stateManager.createDeviceStates(deviceConfig);
         const key = this.stateManager.devicePrefix(deviceConfig);
-        const conn = {
-          config: deviceConfig,
-          ip: device.ip,
-          wsClient: null,
-          wsAuthenticated: false,
-          pollTimer: void 0,
-          reconnectTimer: void 0,
-          wsFailCount: 0,
-          authFailCount: 0,
-          lastErrorCode: "",
-          lastConnectedAt: 0,
-          recentDisconnects: 0
-        };
+        const conn = (0, import_connection_utils.createDeviceConnection)(deviceConfig, device.ip);
         this.connections.set(key, conn);
         void this.initDevice(conn);
         this.discoveredDuringPairing = this.discoveredDuringPairing.filter(
@@ -548,13 +524,13 @@ class HomeWizard extends utils.Adapter {
           const duration = Date.now() - conn.lastConnectedAt;
           if (duration < STABLE_THRESHOLD_MS) {
             conn.recentDisconnects++;
-            if (conn.recentDisconnects === UNSTABLE_DISCONNECT_THRESHOLD) {
+            if (conn.recentDisconnects === import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD) {
               this.log.info(
                 `${conn.config.productName}: unstable connection detected \u2014 using faster reconnect`
               );
             }
           } else {
-            if (conn.recentDisconnects >= UNSTABLE_DISCONNECT_THRESHOLD) {
+            if (conn.recentDisconnects >= import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD) {
               this.log.info(
                 `${conn.config.productName}: connection stabilized \u2014 using normal reconnect`
               );
@@ -618,7 +594,7 @@ class HomeWizard extends utils.Adapter {
         await this.stateManager.updateMeasurement(conn.config, data);
       } catch (err) {
         this.logDeviceError(conn, "rest", err);
-        if (!unstable && this.classifyError(err) === "NETWORK" && conn.pollTimer) {
+        if (!unstable && (0, import_connection_utils.classifyError)(err) === "NETWORK" && conn.pollTimer) {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = void 0;
         }
@@ -715,32 +691,7 @@ class HomeWizard extends utils.Adapter {
    * @param conn Device connection
    */
   isUnstable(conn) {
-    return conn.recentDisconnects >= UNSTABLE_DISCONNECT_THRESHOLD;
-  }
-  /**
-   * Classify an error for deduplication and log-level decisions.
-   * Returns a stable category string regardless of error message details.
-   *
-   * @param err The error to classify
-   */
-  classifyError(err) {
-    if (err instanceof import_homewizard_client.HomeWizardApiError) {
-      if (err.errorCode === "user:unauthorized") {
-        return "AUTH";
-      }
-      return `HTTP_${err.statusCode}`;
-    }
-    if (err instanceof Error) {
-      const code = err.code;
-      if (code === "ECONNREFUSED" || code === "EHOSTUNREACH" || code === "ENOTFOUND" || code === "ECONNRESET" || code === "ENETUNREACH" || code === "EAI_AGAIN") {
-        return "NETWORK";
-      }
-      if (code === "ETIMEDOUT" || err.message.includes("Timeout")) {
-        return "TIMEOUT";
-      }
-      return code || "UNKNOWN";
-    }
-    return "UNKNOWN";
+    return conn.recentDisconnects >= import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD;
   }
   /**
    * Log device error with deduplication (based on error category, not context).
@@ -751,7 +702,7 @@ class HomeWizard extends utils.Adapter {
    * @param err Error object
    */
   logDeviceError(conn, context, err) {
-    const errorCode = this.classifyError(err);
+    const errorCode = (0, import_connection_utils.classifyError)(err);
     const isRepeat = errorCode === conn.lastErrorCode;
     conn.lastErrorCode = errorCode;
     if (isRepeat) {

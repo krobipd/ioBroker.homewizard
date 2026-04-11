@@ -1,4 +1,9 @@
 import * as utils from "@iobroker/adapter-core";
+import {
+  classifyError,
+  createDeviceConnection,
+  UNSTABLE_DISCONNECT_THRESHOLD,
+} from "./lib/connection-utils";
 import { HomeWizardDiscovery } from "./lib/discovery";
 import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
 import { StateManager } from "./lib/state-manager";
@@ -32,8 +37,6 @@ const IP_RECOVERY_TIMEOUT_MS = 60_000;
 const MDNS_RETRY_EVERY = 12;
 /** Connection must last this long to count as "stable" */
 const STABLE_THRESHOLD_MS = 600_000;
-/** After this many short-lived connections, switch to unstable mode */
-const UNSTABLE_DISCONNECT_THRESHOLD = 3;
 /** Max reconnect delay for unstable devices */
 const WS_RECONNECT_MAX_UNSTABLE_MS = 60_000;
 /** REST fallback interval for unstable devices (slower, not stopped) */
@@ -106,19 +109,7 @@ class HomeWizard extends utils.Adapter {
       const key = this.stateManager.devicePrefix(device);
       await this.stateManager.cleanupMovedStates(device);
       await this.stateManager.createDeviceStates(device);
-      const conn: DeviceConnection = {
-        config: device,
-        ip: device.ip || "",
-        wsClient: null,
-        wsAuthenticated: false,
-        pollTimer: undefined,
-        reconnectTimer: undefined,
-        wsFailCount: 0,
-        authFailCount: 0,
-        lastErrorCode: "",
-        lastConnectedAt: 0,
-        recentDisconnects: 0,
-      };
+      const conn = createDeviceConnection(device, device.ip || "");
       this.connections.set(key, conn);
 
       // If we have a stored IP, connect immediately
@@ -441,19 +432,7 @@ class HomeWizard extends utils.Adapter {
 
         // Create connection and connect
         const key = this.stateManager.devicePrefix(deviceConfig);
-        const conn: DeviceConnection = {
-          config: deviceConfig,
-          ip: device.ip,
-          wsClient: null,
-          wsAuthenticated: false,
-          pollTimer: undefined,
-          reconnectTimer: undefined,
-          wsFailCount: 0,
-          authFailCount: 0,
-          lastErrorCode: "",
-          lastConnectedAt: 0,
-          recentDisconnects: 0,
-        };
+        const conn = createDeviceConnection(deviceConfig, device.ip);
         this.connections.set(key, conn);
         void this.initDevice(conn);
 
@@ -757,11 +736,7 @@ class HomeWizard extends utils.Adapter {
 
         // Stop REST polling on network errors for stable devices.
         // Unstable devices keep polling (slower) to minimize data gaps.
-        if (
-          !unstable &&
-          this.classifyError(err) === "NETWORK" &&
-          conn.pollTimer
-        ) {
+        if (!unstable && classifyError(err) === "NETWORK" && conn.pollTimer) {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = undefined;
         }
@@ -880,39 +855,6 @@ class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Classify an error for deduplication and log-level decisions.
-   * Returns a stable category string regardless of error message details.
-   *
-   * @param err The error to classify
-   */
-  private classifyError(err: unknown): string {
-    if (err instanceof HomeWizardApiError) {
-      if (err.errorCode === "user:unauthorized") {
-        return "AUTH";
-      }
-      return `HTTP_${err.statusCode}`;
-    }
-    if (err instanceof Error) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (
-        code === "ECONNREFUSED" ||
-        code === "EHOSTUNREACH" ||
-        code === "ENOTFOUND" ||
-        code === "ECONNRESET" ||
-        code === "ENETUNREACH" ||
-        code === "EAI_AGAIN"
-      ) {
-        return "NETWORK";
-      }
-      if (code === "ETIMEDOUT" || err.message.includes("Timeout")) {
-        return "TIMEOUT";
-      }
-      return code || "UNKNOWN";
-    }
-    return "UNKNOWN";
-  }
-
-  /**
    * Log device error with deduplication (based on error category, not context).
    * First occurrence of a new error category logs as warn, repeats as debug.
    *
@@ -925,7 +867,7 @@ class HomeWizard extends utils.Adapter {
     context: string,
     err: unknown,
   ): void {
-    const errorCode = this.classifyError(err);
+    const errorCode = classifyError(err);
     const isRepeat = errorCode === conn.lastErrorCode;
     conn.lastErrorCode = errorCode;
 

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "news": {
+      "0.6.1": {
+        "en": "Code cleanup: extract testable connection-utils module, add 20 unit tests, fix ESLint warnings, remove unused dependencies",
+        "de": "Code-Bereinigung: testbares connection-utils Modul extrahiert, 20 Unit-Tests hinzugefügt, ESLint-Warnungen behoben, ungenutzte Abhängigkeiten entfernt",
+        "ru": "Очистка кода: выделен тестируемый модуль connection-utils, добавлено 20 юнит-тестов, исправлены предупреждения ESLint, удалены неиспользуемые зависимости",
+        "pt": "Limpeza de código: módulo connection-utils testável extraído, 20 testes unitários adicionados, avisos ESLint corrigidos, dependências não utilizadas removidas",
+        "nl": "Code-opschoning: testbare connection-utils module geëxtraheerd, 20 unit tests toegevoegd, ESLint-waarschuwingen opgelost, ongebruikte afhankelijkheden verwijderd",
+        "fr": "Nettoyage du code: module connection-utils testable extrait, 20 tests unitaires ajoutés, avertissements ESLint corrigés, dépendances inutilisées supprimées",
+        "it": "Pulizia del codice: modulo connection-utils testabile estratto, 20 test unitari aggiunti, avvisi ESLint corretti, dipendenze inutilizzate rimosse",
+        "es": "Limpieza de código: módulo connection-utils testable extraído, 20 pruebas unitarias añadidas, advertencias ESLint corregidas, dependencias no utilizadas eliminadas",
+        "pl": "Czyszczenie kodu: wyodrębniono testowalny moduł connection-utils, dodano 20 testów jednostkowych, naprawiono ostrzeżenia ESLint, usunięto nieużywane zależności",
+        "uk": "Очищення коду: виділено тестований модуль connection-utils, додано 20 юніт-тестів, виправлено попередження ESLint, видалено невикористані залежності",
+        "zh-cn": "代码清理：提取可测试的connection-utils模块，添加20个单元测试，修复ESLint警告，移除未使用的依赖"
+      },
       "0.6.0": {
         "en": "Adaptive unstable mode: auto-detect devices with bad WiFi, faster reconnect (60s vs 5min), persistent REST fallback",
         "de": "Adaptiver Unstable-Modus: Geräte mit schlechtem WLAN automatisch erkennen, schnellerer Reconnect (60s statt 5min), persistenter REST-Fallback",
@@ -80,32 +93,6 @@
         "pl": "Dane pomiarowe przeniesione do kanalu measurement/, czyszczenie starych punktow danych, ikona statusu online/offline",
         "uk": "Данi вимiрювань перемiщено в канал measurement/, очищення старих точок даних, iконка статусу онлайн/офлайн",
         "zh-cn": "测量数据移至 measurement/ 通道，清理旧数据点，添加在线/离线状态图标"
-      },
-      "0.3.5": {
-        "en": "Fix log spam: error deduplication by category (not context), REST fallback stops on network errors, system poll only for connected devices",
-        "de": "Log-Spam behoben: Fehler-Deduplizierung nach Kategorie (nicht Kontext), REST-Fallback stoppt bei Netzwerkfehlern, System-Poll nur für verbundene Geräte",
-        "ru": "Исправлен спам в логах: дедупликация ошибок по категории (не контексту), REST-фоллбэк останавливается при сетевых ошибках, системный опрос только для подключённых устройств",
-        "pt": "Corrigido spam de log: deduplicação de erros por categoria (não contexto), REST fallback para em erros de rede, poll de sistema apenas para dispositivos conectados",
-        "nl": "Log-spam opgelost: foutdeduplicatie op categorie (niet context), REST-fallback stopt bij netwerkfouten, systeempoll alleen voor verbonden apparaten",
-        "fr": "Correction du spam de log: déduplication des erreurs par catégorie (pas contexte), REST fallback s arrête sur erreurs réseau, poll système uniquement pour appareils connectés",
-        "it": "Corretto spam dei log: deduplicazione errori per categoria (non contesto), REST fallback si ferma su errori di rete, poll sistema solo per dispositivi connessi",
-        "es": "Corregido spam de log: deduplicación de errores por categoría (no contexto), REST fallback se detiene en errores de red, poll de sistema solo para dispositivos conectados",
-        "pl": "Naprawiono spam w logach: deduplikacja błędów według kategorii (nie kontekstu), REST fallback zatrzymuje się przy błędach sieciowych, poll systemowy tylko dla podłączonych urządzeń",
-        "uk": "Виправлено спам у логах: дедуплікація помилок за категорією (не контекстом), REST fallback зупиняється при мережевих помилках, системний опитування тільки для підключених пристроїв",
-        "zh-cn": "修复日志刷屏：按类别（非上下文）去重错误，REST 回退在网络错误时停止，系统轮询仅针对已连接设备"
-      },
-      "0.3.5": {
-        "en": "Fix log spam: error deduplication by category (not context), REST fallback stops on network errors, system poll only for connected devices",
-        "de": "Log-Spam behoben: Fehler-Deduplizierung nach Kategorie (nicht Kontext), REST-Fallback stoppt bei Netzwerkfehlern, System-Poll nur für verbundene Geräte",
-        "ru": "Исправлен спам в логах: дедупликация ошибок по категории (не контексту), REST-фоллбэк останавливается при сетевых ошибках, системный опрос только для подключённых устройств",
-        "pt": "Corrigido spam de log: deduplicação de erros por categoria (não contexto), REST fallback para em erros de rede, poll de sistema apenas para dispositivos conectados",
-        "nl": "Log-spam opgelost: foutdeduplicatie op categorie (niet context), REST-fallback stopt bij netwerkfouten, systeempoll alleen voor verbonden apparaten",
-        "fr": "Correction du spam de log: déduplication des erreurs par catégorie (pas contexte), REST fallback s arrête sur erreurs réseau, poll système uniquement pour appareils connectés",
-        "it": "Corretto spam dei log: deduplicazione errori per categoria (non contesto), REST fallback si ferma su errori di rete, poll sistema solo per dispositivi connessi",
-        "es": "Corregido spam de log: deduplicación de errores por categoría (no contexto), REST fallback se detiene en errores de red, poll de sistema solo para dispositivos conectados",
-        "pl": "Naprawiono spam w logach: deduplikacja błędów według kategorii (nie kontekstu), REST fallback zatrzymuje się przy błędach sieciowych, poll systemowy tylko dla podłączonych urządzeń",
-        "uk": "Виправлено спам у логах: дедуплікація помилок за категорією (не контекстом), REST fallback зупиняється при мережевих помилках, системний опи��ування тільки для підключених пристроїв",
-        "zh-cn": "修复日志刷屏：按类别（非上下文）去重错误，REST 回退在网络错误时停止，系统轮询仅针对已连接设备"
       }
     },
     "titleLang": {
