@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.5.1",
+    "version": "0.6.0",
     "news": {
+      "0.6.0": {
+        "en": "Adaptive unstable mode: auto-detect devices with bad WiFi, faster reconnect (60s vs 5min), persistent REST fallback",
+        "de": "Adaptiver Unstable-Modus: Geräte mit schlechtem WLAN automatisch erkennen, schnellerer Reconnect (60s statt 5min), persistenter REST-Fallback",
+        "ru": "Адаптивный нестабильный режим: автоопределение устройств с плохим WiFi, быстрое переподключение (60с вместо 5мин), постоянный REST-фоллбэк",
+        "pt": "Modo instável adaptativo: detecção automática de dispositivos com WiFi fraco, reconexão mais rápida (60s vs 5min), REST fallback persistente",
+        "nl": "Adaptieve instabiele modus: automatisch apparaten met slecht WiFi detecteren, snellere herverbinding (60s vs 5min), persistent REST-fallback",
+        "fr": "Mode instable adaptatif: détection auto des appareils avec mauvais WiFi, reconnexion plus rapide (60s vs 5min), REST fallback persistant",
+        "it": "Modalità instabile adattiva: rilevamento automatico dispositivi con WiFi scarso, riconnessione più rapida (60s vs 5min), REST fallback persistente",
+        "es": "Modo inestable adaptativo: detección automática de dispositivos con WiFi débil, reconexión más rápida (60s vs 5min), REST fallback persistente",
+        "pl": "Adaptacyjny tryb niestabilny: automatyczne wykrywanie urządzeń ze słabym WiFi, szybsze ponowne połączenie (60s vs 5min), trwały REST fallback",
+        "uk": "Адаптивний нестабільний режим: автовизначення ��ристроїв з поганим WiFi, швидше перепідключення (60с замість 5хв), постійний REST-фоллбек",
+        "zh-cn": "自适应不稳定模式：自动检测WiFi信号差��设备，更快重连（60秒vs5分钟），持久REST回退"
+      },
       "0.5.1": {
         "en": "Restore standard GitHub-based tests, remove CHANGELOG.md, add FORBIDDEN_CHARS reference",
         "de": "Standard GitHub-Tests wiederhergestellt, CHANGELOG.md entfernt, FORBIDDEN_CHARS-Referenz hinzugefügt",
@@ -81,18 +94,18 @@
         "uk": "Виправлено спам у логах: дедуплікація помилок за категорією (не контекстом), REST fallback зупиняється при мережевих помилках, системний опитування тільки для підключених пристроїв",
         "zh-cn": "修复日志刷屏：按类别（非上下文）去重错误，REST 回退在网络错误时停止，系统轮询仅针对已连接设备"
       },
-      "0.3.4": {
-        "en": "mDNS only during pairing, automatic IP recovery on connection loss, offline detection",
-        "de": "mDNS nur beim Pairing, automatische IP-Wiederherstellung bei Verbindungsverlust, Offline-Erkennung",
-        "ru": "mDNS только при сопряжении, автоматическое восстановление IP при потере связи, обнаружение офлайн",
-        "pt": "mDNS apenas durante emparelhamento, recuperacao automatica de IP na perda de conexao, deteccao offline",
-        "nl": "mDNS alleen tijdens koppelen, automatisch IP-herstel bij verbindingsverlies, offline-detectie",
-        "fr": "mDNS uniquement lors de l appairage, recuperation IP automatique en cas de perte de connexion, detection hors ligne",
-        "it": "mDNS solo durante associazione, recupero IP automatico alla perdita di connessione, rilevamento offline",
-        "es": "mDNS solo durante emparejamiento, recuperacion automatica de IP al perder conexion, deteccion offline",
-        "pl": "mDNS tylko podczas parowania, automatyczne odzyskiwanie IP przy utracie polaczenia, wykrywanie offline",
-        "uk": "mDNS лише пiд час сполучення, автоматичне вiдновлення IP при втратi з єднання, виявлення офлайн",
-        "zh-cn": "mDNS 仅在配对时活跃，连接丢失时自动恢复 IP，离线检测"
+      "0.3.5": {
+        "en": "Fix log spam: error deduplication by category (not context), REST fallback stops on network errors, system poll only for connected devices",
+        "de": "Log-Spam behoben: Fehler-Deduplizierung nach Kategorie (nicht Kontext), REST-Fallback stoppt bei Netzwerkfehlern, System-Poll nur für verbundene Geräte",
+        "ru": "Исправлен спам в логах: дедупликация ошибок по категории (не контексту), REST-фоллбэк останавливается при сетевых ошибках, системный опрос только для подключённых устройств",
+        "pt": "Corrigido spam de log: deduplicação de erros por categoria (não contexto), REST fallback para em erros de rede, poll de sistema apenas para dispositivos conectados",
+        "nl": "Log-spam opgelost: foutdeduplicatie op categorie (niet context), REST-fallback stopt bij netwerkfouten, systeempoll alleen voor verbonden apparaten",
+        "fr": "Correction du spam de log: déduplication des erreurs par catégorie (pas contexte), REST fallback s arrête sur erreurs réseau, poll système uniquement pour appareils connectés",
+        "it": "Corretto spam dei log: deduplicazione errori per categoria (non contesto), REST fallback si ferma su errori di rete, poll sistema solo per dispositivi connessi",
+        "es": "Corregido spam de log: deduplicación de errores por categoría (no contexto), REST fallback se detiene en errores de red, poll de sistema solo para dispositivos conectados",
+        "pl": "Naprawiono spam w logach: deduplikacja błędów według kategorii (nie kontekstu), REST fallback zatrzymuje się przy błędach sieciowych, poll systemowy tylko dla podłączonych urządzeń",
+        "uk": "Виправлено спам у логах: дедуплікація помилок за категорією (не контекстом), REST fallback зупиняється при мережевих помилках, системний опи��ування тільки для підключених пристроїв",
+        "zh-cn": "修复日志刷屏：按类别（非上下文）去重错误，REST 回退在网络错误时停止，系统轮询仅针对已连接设备"
       }
     },
     "titleLang": {

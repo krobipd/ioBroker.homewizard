@@ -6,7 +6,7 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.5.1 (April 2026)
+- **Version:** 0.6.0 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
@@ -67,6 +67,22 @@ Folgt beszel/parcelapp Pattern:
 7. Auth-Backoff: nach 3 Auth-Failures Stopp, warn "token invalid — re-pair"
 8. **Nur WS steuert `info.connected`** — REST-Fallback liefert Daten, flippt aber nicht den Online-Status
 
+## Adaptive Unstable-Mode (seit v0.6.0)
+
+Erkennt automatisch Geräte mit instabilem WiFi (z.B. P1 Meter im Kellerflur) und passt die Reconnect-Strategie pro Gerät an.
+
+**Erkennung:** Wenn ein Gerät sich verbindet und innerhalb von 10 Minuten (`STABLE_THRESHOLD_MS`) wieder disconnected, zählt das als "instabil". Nach 3 solchen kurzen Verbindungen (`UNSTABLE_DISCONNECT_THRESHOLD`) wechselt der Adapter in den Unstable-Modus für dieses Gerät.
+
+**Unstable-Modus (pro Gerät):**
+- Max WS-Backoff: **60s** statt 300s → schnellerer Reconnect
+- REST-Fallback: **30s Intervall** statt Stopp bei NETWORK-Error → weniger Datenlücken
+- Info-Log: "unstable connection detected — using faster reconnect"
+
+**Zurück zu Normal:** Bleibt das Gerät >10 Min stabil verbunden → `recentDisconnects` reset, normaler Modus.
+Info-Log: "connection stabilized — using normal reconnect"
+
+**Felder in DeviceConnection:** `lastConnectedAt` (Timestamp), `recentDisconnects` (Zähler)
+
 ## WebSocket-Cleanup-Pattern (seit v0.3.1)
 
 `removeAllListeners()` → `ws.on("error", () => {})` → `ws.terminate()` (nicht `ws.close()`).
@@ -91,6 +107,7 @@ test/integration.js      → @iobroker/testing Integration-Tests (plain JS)
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
+| 0.6.0 | 2026-04-11 | Adaptive Unstable-Mode: Auto-Erkennung schlechtes WiFi, schnellerer Reconnect (60s), persistenter REST-Fallback |
 | 0.5.1 | 2026-04-08 | Review-Fixes: Standard-Tests (plain JS), CHANGELOG.md entfernt, FORBIDDEN_CHARS-Ref |
 | 0.5.0 | 2026-04-05 | Robuster Reconnect: nie aufgeben, periodische mDNS-Retry, nur WS steuert Online |
 | 0.4.2 | 2026-04-05 | Konsistente Donation-Labels über alle Adapter |

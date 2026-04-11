@@ -265,4 +265,8 @@ export interface DeviceConnection {
   authFailCount: number;
   /** Last error code for dedup */
   lastErrorCode: string;
+  /** Timestamp when WS last connected (for stability tracking) */
+  lastConnectedAt: number;
+  /** Count of short-lived connections (< STABLE_THRESHOLD) */
+  recentDisconnects: number;
 }

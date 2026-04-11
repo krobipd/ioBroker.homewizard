@@ -148,7 +148,8 @@ homewizard.0.
 
 ### WebSocket keeps disconnecting
 - Check WiFi signal strength (`info.wifi_rssi_db`) — consider moving the device closer to the router
-- The adapter never gives up: reconnects with exponential backoff (max 5 min), falls back to REST polling, and periodically retries mDNS in case the IP changed
+- The adapter automatically detects unstable connections (e.g. P1 meter in a basement) and switches to faster reconnect (60s instead of 5 min) with persistent REST fallback
+- The adapter never gives up: reconnects with exponential backoff, falls back to REST polling, and periodically retries mDNS in case the IP changed
 
 ### Token invalid after factory reset
 - Set the device's `remove` data point to `true`, then pair again
@@ -156,6 +157,12 @@ homewizard.0.
 ---
 
 ## Changelog
+
+### 0.6.0 (2026-04-11)
+- Adaptive unstable mode: auto-detect devices with bad WiFi (e.g. P1 meter in basement)
+- Faster reconnect for unstable devices (60s max backoff instead of 5 min)
+- Persistent REST fallback for unstable devices (30s interval instead of stopping)
+- Automatic mode switch: stabilizes after 10 min connected, detects instability after 3 short-lived connections
 
 ### 0.5.1 (2026-04-08)
 - Restore standard GitHub-based tests, remove CHANGELOG.md, add FORBIDDEN_CHARS reference
@@ -173,7 +180,10 @@ homewizard.0.
 ### 0.4.0 (2026-04-05)
 - Add online/offline status icon for devices (`statusStates`)
 
-Older changelog: [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
+### 0.3.5 (2026-04-05)
+- Fix log spam: error deduplication by category, REST fallback stops on network errors
+
+Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
 ---
 

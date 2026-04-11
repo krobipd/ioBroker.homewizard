@@ -30,6 +30,14 @@ const WS_FAILURES_BEFORE_MDNS = 3;
 const IP_RECOVERY_TIMEOUT_MS = 60_000;
 /** Retry mDNS every N WS failures after first attempt (~1 hour at 5 min cap) */
 const MDNS_RETRY_EVERY = 12;
+/** Connection must last this long to count as "stable" */
+const STABLE_THRESHOLD_MS = 600_000;
+/** After this many short-lived connections, switch to unstable mode */
+const UNSTABLE_DISCONNECT_THRESHOLD = 3;
+/** Max reconnect delay for unstable devices */
+const WS_RECONNECT_MAX_UNSTABLE_MS = 60_000;
+/** REST fallback interval for unstable devices (slower, not stopped) */
+const REST_POLL_UNSTABLE_MS = 30_000;
 
 class HomeWizard extends utils.Adapter {
   private stateManager!: StateManager;
@@ -108,6 +116,8 @@ class HomeWizard extends utils.Adapter {
         wsFailCount: 0,
         authFailCount: 0,
         lastErrorCode: "",
+        lastConnectedAt: 0,
+        recentDisconnects: 0,
       };
       this.connections.set(key, conn);
 
@@ -441,6 +451,8 @@ class HomeWizard extends utils.Adapter {
           wsFailCount: 0,
           authFailCount: 0,
           lastErrorCode: "",
+          lastConnectedAt: 0,
+          recentDisconnects: 0,
         };
         this.connections.set(key, conn);
         void this.initDevice(conn);
@@ -511,10 +523,11 @@ class HomeWizard extends utils.Adapter {
           `${conn.config.productName}: found at new IP ${discovered.ip} (was ${conn.ip})`,
         );
 
-        // Update IP and persist
+        // Update IP and persist — reset stability (new network conditions)
         conn.ip = discovered.ip;
         conn.config.ip = discovered.ip;
         conn.wsFailCount = 0;
+        conn.recentDisconnects = 0;
         void this.saveDeviceToObject(conn.config);
 
         // Cancel pending reconnect and connect immediately
@@ -613,6 +626,7 @@ class HomeWizard extends utils.Adapter {
         conn.wsAuthenticated = true;
         conn.wsFailCount = 0;
         conn.authFailCount = 0;
+        conn.lastConnectedAt = Date.now();
         void this.stateManager.setDeviceConnected(conn.config, true);
         this.updateGlobalConnection();
 
@@ -634,7 +648,10 @@ class HomeWizard extends utils.Adapter {
 
         // Log restoration if we had errors before
         if (conn.lastErrorCode) {
-          this.log.info(`${conn.config.productName}: connection restored`);
+          const mode = this.isUnstable(conn) ? " (unstable mode)" : "";
+          this.log.info(
+            `${conn.config.productName}: connection restored${mode}`,
+          );
           conn.lastErrorCode = "";
         }
 
@@ -643,6 +660,27 @@ class HomeWizard extends utils.Adapter {
         );
       },
       onDisconnected: (error?: Error) => {
+        // Track connection stability
+        if (conn.lastConnectedAt > 0) {
+          const duration = Date.now() - conn.lastConnectedAt;
+          if (duration < STABLE_THRESHOLD_MS) {
+            conn.recentDisconnects++;
+            if (conn.recentDisconnects === UNSTABLE_DISCONNECT_THRESHOLD) {
+              this.log.info(
+                `${conn.config.productName}: unstable connection detected — using faster reconnect`,
+              );
+            }
+          } else {
+            // Was stable — reset counter
+            if (conn.recentDisconnects >= UNSTABLE_DISCONNECT_THRESHOLD) {
+              this.log.info(
+                `${conn.config.productName}: connection stabilized — using normal reconnect`,
+              );
+            }
+            conn.recentDisconnects = 0;
+          }
+        }
+
         conn.wsAuthenticated = false;
         conn.wsClient = null;
         void this.stateManager.setDeviceConnected(conn.config, false);
@@ -669,11 +707,14 @@ class HomeWizard extends utils.Adapter {
         // Start REST fallback
         this.startRestFallback(conn);
 
-        // Schedule reconnect with exponential backoff
+        // Schedule reconnect with exponential backoff (faster for unstable devices)
         conn.wsFailCount++;
+        const maxDelay = this.isUnstable(conn)
+          ? WS_RECONNECT_MAX_UNSTABLE_MS
+          : WS_RECONNECT_MAX_MS;
         const delay = Math.min(
           WS_RECONNECT_BASE_MS * Math.pow(2, conn.wsFailCount - 1),
-          WS_RECONNECT_MAX_MS,
+          maxDelay,
         );
         this.log.debug(
           `${key}: WS reconnect in ${delay / 1000}s (attempt ${conn.wsFailCount})`,
@@ -693,8 +734,8 @@ class HomeWizard extends utils.Adapter {
 
   /**
    * Start REST polling as fallback when WebSocket is down.
-   * Stops automatically on network errors (device unreachable) —
-   * WS reconnect + IP recovery handle the recovery path.
+   * For stable devices: stops on network errors (WS reconnect handles recovery).
+   * For unstable devices: slows down instead of stopping to minimize data gaps.
    *
    * @param conn Device connection
    */
@@ -703,6 +744,8 @@ class HomeWizard extends utils.Adapter {
       return;
     }
 
+    const unstable = this.isUnstable(conn);
+    const interval = unstable ? REST_POLL_UNSTABLE_MS : REST_POLL_MS;
     const client = new HomeWizardClient(conn.ip, conn.config.token);
 
     conn.pollTimer = this.setInterval(async () => {
@@ -712,13 +755,18 @@ class HomeWizard extends utils.Adapter {
       } catch (err) {
         this.logDeviceError(conn, "rest", err);
 
-        // Stop REST polling on network errors — no point hammering unreachable device
-        if (this.classifyError(err) === "NETWORK" && conn.pollTimer) {
+        // Stop REST polling on network errors for stable devices.
+        // Unstable devices keep polling (slower) to minimize data gaps.
+        if (
+          !unstable &&
+          this.classifyError(err) === "NETWORK" &&
+          conn.pollTimer
+        ) {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = undefined;
         }
       }
-    }, REST_POLL_MS);
+    }, interval);
   }
 
   /** Poll system info for all connected devices */
@@ -819,6 +867,16 @@ class HomeWizard extends utils.Adapter {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Whether a device has unstable connectivity (frequent short-lived connections).
+   * Unstable devices get faster reconnect and persistent REST fallback.
+   *
+   * @param conn Device connection
+   */
+  private isUnstable(conn: DeviceConnection): boolean {
+    return conn.recentDisconnects >= UNSTABLE_DISCONNECT_THRESHOLD;
   }
 
   /**
