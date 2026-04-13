@@ -1,5 +1,8 @@
 # Older Changes
 
+## 0.4.0 (2026-04-05)
+- Add online/offline status icon for devices (`statusStates`)
+
 ## 0.3.5 (2026-04-05)
 - Fix log spam: error deduplication by category (not context), REST fallback stops on network errors, system poll only for connected devices
 

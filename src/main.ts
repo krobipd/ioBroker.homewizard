@@ -199,15 +199,6 @@ class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Remove device config from its device object
-   *
-   * @param config Device configuration to remove
-   */
-  private async removeDeviceFromObject(config: DeviceConfig): Promise<void> {
-    await this.stateManager.removeDevice(config);
-  }
-
-  /**
    * Handle a discovered device from mDNS (only active during pairing)
    *
    * @param discovered Discovered device info
@@ -240,34 +231,37 @@ class HomeWizard extends utils.Adapter {
    * @param callback Completion callback
    */
   private onUnload(callback: () => void): void {
-    if (this.pairingTimer) {
-      this.clearTimeout(this.pairingTimer);
-    }
-    if (this.pairingPollTimer) {
-      this.clearInterval(this.pairingPollTimer);
-    }
-    if (this.systemPollTimer) {
-      this.clearInterval(this.systemPollTimer);
-    }
-    if (this.ipRecoveryTimer) {
-      this.clearTimeout(this.ipRecoveryTimer);
-    }
-
-    this.discovery?.stop();
-
-    for (const conn of this.connections.values()) {
-      conn.wsClient?.close();
-      if (conn.pollTimer) {
-        this.clearInterval(conn.pollTimer);
+    try {
+      if (this.pairingTimer) {
+        this.clearTimeout(this.pairingTimer);
       }
-      if (conn.reconnectTimer) {
-        this.clearTimeout(conn.reconnectTimer);
+      if (this.pairingPollTimer) {
+        this.clearInterval(this.pairingPollTimer);
       }
-    }
-    this.connections.clear();
+      if (this.systemPollTimer) {
+        this.clearInterval(this.systemPollTimer);
+      }
+      if (this.ipRecoveryTimer) {
+        this.clearTimeout(this.ipRecoveryTimer);
+      }
 
-    void this.setState("info.connection", { val: false, ack: true });
-    callback();
+      this.discovery?.stop();
+
+      for (const conn of this.connections.values()) {
+        conn.wsClient?.close();
+        if (conn.pollTimer) {
+          this.clearInterval(conn.pollTimer);
+        }
+        if (conn.reconnectTimer) {
+          this.clearTimeout(conn.reconnectTimer);
+        }
+      }
+      this.connections.clear();
+
+      void this.setState("info.connection", { val: false, ack: true });
+    } finally {
+      callback();
+    }
   }
 
   /**
@@ -821,7 +815,7 @@ class HomeWizard extends utils.Adapter {
     this.connections.delete(key);
 
     // Delete device object and all states (no adapter restart!)
-    await this.removeDeviceFromObject(conn.config);
+    await this.stateManager.removeDevice(conn.config);
 
     this.updateGlobalConnection();
   }

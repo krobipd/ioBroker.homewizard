@@ -19,6 +19,7 @@ interface MockAdapter {
     states: Map<string, StateValue>;
     log: { debug: (msg: string) => void };
     extendObjectAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
+    setObjectNotExistsAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
     getObjectAsync: (id: string) => Promise<ObjectDef | null>;
     setStateAsync: (id: string, state: StateValue) => Promise<void>;
     delObjectAsync: (id: string, opts?: { recursive: boolean }) => Promise<void>;
@@ -39,6 +40,16 @@ function createMockAdapter(): MockAdapter {
                 type: obj.type || existing.type,
                 common: { ...existing.common, ...(obj.common || {}) },
                 native: { ...existing.native, ...(obj.native || {}) },
+            });
+        },
+        setObjectNotExistsAsync: async (id: string, obj: Partial<ObjectDef>): Promise<void> => {
+            if (objects.has(id)) {
+                return;
+            }
+            objects.set(id, {
+                type: obj.type || "",
+                common: obj.common || {},
+                native: obj.native || {},
             });
         },
         getObjectAsync: async (id: string): Promise<ObjectDef | null> => {

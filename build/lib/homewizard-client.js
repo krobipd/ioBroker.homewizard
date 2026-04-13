@@ -121,6 +121,7 @@ class HomeWizardClient {
         },
         (res) => {
           const chunks = [];
+          res.on("error", reject);
           res.on("data", (chunk) => chunks.push(chunk));
           res.on("end", () => {
             var _a;

@@ -111,6 +111,7 @@ export class HomeWizardClient {
         },
         (res) => {
           const chunks: Buffer[] = [];
+          res.on("error", reject);
           res.on("data", (chunk: Buffer) => chunks.push(chunk));
           res.on("end", () => {
             const data = Buffer.concat(chunks).toString();

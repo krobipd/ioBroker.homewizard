@@ -608,7 +608,7 @@ export class StateManager {
     const mPrefix = `${prefix}.measurement`;
 
     // Ensure measurement channel exists
-    await this.adapter.extendObjectAsync(mPrefix, {
+    await this.adapter.setObjectNotExistsAsync(mPrefix, {
       type: "channel",
       common: { name: "Measurement" },
       native: {},
@@ -636,7 +636,7 @@ export class StateManager {
 
     // External meters (P1 gas/water/heat)
     if (data.external?.length) {
-      await this.adapter.extendObjectAsync(`${mPrefix}.external`, {
+      await this.adapter.setObjectNotExistsAsync(`${mPrefix}.external`, {
         type: "channel",
         common: { name: "External Meters" },
         native: {},
@@ -644,7 +644,7 @@ export class StateManager {
 
       for (const ext of data.external) {
         const extId = `${mPrefix}.external.${sanitize(ext.type)}_${sanitize(ext.unique_id)}`;
-        await this.adapter.extendObjectAsync(extId, {
+        await this.adapter.setObjectNotExistsAsync(extId, {
           type: "channel",
           common: { name: ext.type },
           native: {},
@@ -703,7 +703,7 @@ export class StateManager {
     );
 
     // System control channel
-    await this.adapter.extendObjectAsync(`${prefix}.system`, {
+    await this.adapter.setObjectNotExistsAsync(`${prefix}.system`, {
       type: "channel",
       common: { name: "System Settings" },
       native: {},
@@ -760,7 +760,7 @@ export class StateManager {
   ): Promise<void> {
     const prefix = this.devicePrefix(config);
 
-    await this.adapter.extendObjectAsync(`${prefix}.battery`, {
+    await this.adapter.setObjectNotExistsAsync(`${prefix}.battery`, {
       type: "channel",
       common: { name: "Battery Control" },
       native: {},
@@ -925,7 +925,7 @@ export class StateManager {
     if (unit) {
       common.unit = unit;
     }
-    await this.adapter.extendObjectAsync(id, {
+    await this.adapter.setObjectNotExistsAsync(id, {
       type: "state",
       common: common as ioBroker.StateCommon,
       native: {},
@@ -939,7 +939,7 @@ export class StateManager {
    * @param name State name
    */
   private async createButton(id: string, name: string): Promise<void> {
-    await this.adapter.extendObjectAsync(id, {
+    await this.adapter.setObjectNotExistsAsync(id, {
       type: "state",
       common: {
         name,

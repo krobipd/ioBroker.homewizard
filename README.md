@@ -166,6 +166,12 @@ homewizard.0.
 
 ## Changelog
 
+### 0.6.2 (2026-04-13)
+- Fix hanging promise when response stream errors mid-transfer (`res.on("error")`)
+- Fix onUnload: wrap in try/finally so callback always fires (prevents adapter hang on shutdown)
+- Optimize state creation hot path: use `setObjectNotExistsAsync` instead of `extendObjectAsync` (~50 fewer object writes per second per device)
+- Remove unnecessary `removeDeviceFromObject` wrapper (DRY)
+
 ### 0.6.1 (2026-04-12)
 - Code cleanup: extract testable connection-utils module (classifyError, createDeviceConnection)
 - Add 20 unit tests for error classification, connection factory, and unstable threshold
@@ -190,9 +196,6 @@ homewizard.0.
 
 ### 0.4.1 (2026-04-05)
 - Move measurement data into `measurement/` channel for cleaner object tree
-
-### 0.4.0 (2026-04-05)
-- Add online/offline status icon for devices (`statusStates`)
 
 Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

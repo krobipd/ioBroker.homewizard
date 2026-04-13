@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "news": {
+      "0.6.2": {
+        "en": "Fix hanging promise on response stream error, safe onUnload with try/finally, optimize state creation hot path (setObjectNotExistsAsync), remove dead code",
+        "de": "Hängendes Promise bei Response-Stream-Fehler behoben, sicheres onUnload mit try/finally, State-Erstellung im Hot Path optimiert (setObjectNotExistsAsync), toten Code entfernt",
+        "ru": "Исправлен зависший промис при ошибке потока ответа, безопасный onUnload с try/finally, оптимизация создания состояний (setObjectNotExistsAsync), удалён мёртвый код",
+        "pt": "Corrigida promessa pendente em erro de stream de resposta, onUnload seguro com try/finally, otimização da criação de estados (setObjectNotExistsAsync), código morto removido",
+        "nl": "Vastlopende promise bij response stream fout opgelost, veilige onUnload met try/finally, state-creatie hot path geoptimaliseerd (setObjectNotExistsAsync), dode code verwijderd",
+        "fr": "Correction de la promesse bloquée lors d'une erreur de flux de réponse, onUnload sécurisé avec try/finally, optimisation du chemin critique de création d'états (setObjectNotExistsAsync), code mort supprimé",
+        "it": "Corretta promessa bloccata su errore stream di risposta, onUnload sicuro con try/finally, ottimizzazione percorso critico creazione stati (setObjectNotExistsAsync), codice morto rimosso",
+        "es": "Corregida promesa colgada en error de flujo de respuesta, onUnload seguro con try/finally, optimización de ruta crítica de creación de estados (setObjectNotExistsAsync), código muerto eliminado",
+        "pl": "Naprawiono zawieszającą się obietnicę przy błędzie strumienia odpowiedzi, bezpieczne onUnload z try/finally, optymalizacja ścieżki krytycznej tworzenia stanów (setObjectNotExistsAsync), usunięto martwy kod",
+        "uk": "Виправлено завислий проміс при помилці потоку відповіді, безпечний onUnload з try/finally, оптимізація критичного шляху створення станів (setObjectNotExistsAsync), видалено мертвий код",
+        "zh-cn": "修复响应流错误时挂起的Promise，使用try/finally保护onUnload，优化状态创建热路径（setObjectNotExistsAsync），移除死代码"
+      },
       "0.6.1": {
         "en": "Code cleanup: extract testable connection-utils module, add 20 unit tests, fix ESLint warnings, remove unused dependencies",
         "de": "Code-Bereinigung: testbares connection-utils Modul extrahiert, 20 Unit-Tests hinzugefügt, ESLint-Warnungen behoben, ungenutzte Abhängigkeiten entfernt",
@@ -80,19 +93,6 @@
         "pl": "Dane pomiarowe przeniesione do kanalu measurement/, czyszczenie starych punktow danych przy aktualizacji",
         "uk": "Данi вимiрювань перемiщено в канал measurement/, очищення старих точок даних при оновленнi",
         "zh-cn": "测量数据移至 measurement/ 通道，升级时清理旧数据点"
-      },
-      "0.4.0": {
-        "en": "Move measurement data into measurement/ channel, cleanup old datapoints, add online/offline status icon",
-        "de": "Messdaten in measurement/ Channel verschoben, alte Datenpunkte aufgeraeumt, Online/Offline-Statusicon",
-        "ru": "Данные измерений перемещены в канал measurement/, очистка старых точек данных, иконка онлайн/офлайн статуса",
-        "pt": "Dados de medicao movidos para canal measurement/, limpeza de pontos de dados antigos, icone de status online/offline",
-        "nl": "Meetgegevens verplaatst naar measurement/ kanaal, oude datapunten opgeruimd, online/offline statusicoon",
-        "fr": "Donnees de mesure deplacees dans le canal measurement/, nettoyage des anciens points de donnees, icone de statut en ligne/hors ligne",
-        "it": "Dati di misurazione spostati nel canale measurement/, pulizia vecchi punti dati, icona stato online/offline",
-        "es": "Datos de medicion movidos al canal measurement/, limpieza de puntos de datos antiguos, icono de estado online/offline",
-        "pl": "Dane pomiarowe przeniesione do kanalu measurement/, czyszczenie starych punktow danych, ikona statusu online/offline",
-        "uk": "Данi вимiрювань перемiщено в канал measurement/, очищення старих точок даних, iконка статусу онлайн/офлайн",
-        "zh-cn": "测量数据移至 measurement/ 通道，清理旧数据点，添加在线/离线状态图标"
       }
     },
     "titleLang": {
