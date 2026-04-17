@@ -6,7 +6,7 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.6.2 (April 2026)
+- **Version:** 0.6.3 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
@@ -93,14 +93,14 @@ Info-Log: "connection stabilized — using normal reconnect"
 P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630), Battery (HWE-BAT).
 Energy Socket + Watermeter nur v1 → noch nicht unterstützt.
 
-## Tests (150)
+## Tests (179)
 
 ```
 test/testClient.ts       → API-Error-Handling (9)
 test/testDiscovery.ts    → mDNS (16)
 test/testMain.ts         → classifyError, createDeviceConnection (20)
-test/testWebSocket.ts    → WebSocket-Flow (13)
-test/testStateManager.ts → States + Buttons (35)
+test/testWebSocket.ts    → WebSocket-Flow + envelope validation (19)
+test/testStateManager.ts → States + Buttons + boundary hardening (58)
 test/package.js          → @iobroker/testing Package-Tests (57)
 test/integration.js      → @iobroker/testing Integration-Tests (plain JS)
 ```
@@ -109,6 +109,7 @@ test/integration.js      → @iobroker/testing Integration-Tests (plain JS)
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
+| 0.6.3 | 2026-04-18 | API-Boundary-Härtung (WS + REST), Auth-Loop-Stopp bei ungültigem Token, Lazy external-Channel, 29 neue Edge-Case-Tests |
 | 0.6.2 | 2026-04-13 | Fix res.on("error"), onUnload try/finally, setObjectNotExistsAsync Hot Path, DRY removeDeviceFromObject |
 | 0.6.1 | 2026-04-12 | Code Cleanup: connection-utils Modul, 20 neue Tests, ESLint-Warnings fix, unused Deps entfernt |
 | 0.6.0 | 2026-04-11 | Adaptive Unstable-Mode: Auto-Erkennung schlechtes WiFi, schnellerer Reconnect (60s), persistenter REST-Fallback |

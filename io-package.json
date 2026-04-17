@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.6.2",
+    "version": "0.6.3",
     "news": {
+      "0.6.3": {
+        "en": "Harden WebSocket and REST input handling, stop endless reconnect on invalid token, avoid empty external channel",
+        "de": "WebSocket- und REST-Eingaben gehärtet, Endlos-Reconnect bei ungültigem Token gestoppt, leeren External-Channel vermieden",
+        "ru": "Усиленная обработка входных данных WebSocket и REST, остановка бесконечного переподключения при недействительном токене, избежание пустого external-канала",
+        "pt": "Tratamento reforçado de entradas WebSocket e REST, reconexão infinita com token inválido interrompida, canal external vazio evitado",
+        "nl": "Verstevigde afhandeling van WebSocket- en REST-invoer, eindeloze herverbinding bij ongeldig token gestopt, leeg external-kanaal voorkomen",
+        "fr": "Traitement renforcé des entrées WebSocket et REST, arrêt de la reconnexion infinie en cas de jeton invalide, canal external vide évité",
+        "it": "Gestione rafforzata degli input WebSocket e REST, riconnessione infinita su token non valido interrotta, canale external vuoto evitato",
+        "es": "Manejo reforzado de entradas WebSocket y REST, reconexión infinita con token inválido detenida, canal external vacío evitado",
+        "pl": "Wzmocnione przetwarzanie wejść WebSocket i REST, zatrzymano nieskończone ponowne łączenie przy nieprawidłowym tokenie, unikanie pustego kanału external",
+        "uk": "Посилена обробка вхідних даних WebSocket та REST, зупинено нескінченне перепідключення при недійсному токені, уникнення порожнього каналу external",
+        "zh-cn": "加固 WebSocket 和 REST 输入处理，令牌无效时停止无限重连，避免创建空的 external 通道"
+      },
       "0.6.2": {
         "en": "Fix hanging promise on response stream error, safe onUnload with try/finally, optimize state creation hot path (setObjectNotExistsAsync), remove dead code",
         "de": "Hängendes Promise bei Response-Stream-Fehler behoben, sicheres onUnload mit try/finally, State-Erstellung im Hot Path optimiert (setObjectNotExistsAsync), toten Code entfernt",
@@ -80,19 +93,6 @@
         "pl": "Spójne etykiety darowizn i teksty informacyjne we wszystkich adapterach",
         "uk": "Узгоджені мітки пожертв та інформаційні тексти у всіх адаптерах",
         "zh-cn": "所有适配器中统一的捐赠标签和信息文本"
-      },
-      "0.4.1": {
-        "en": "Move measurement data into measurement/ channel, cleanup old datapoints on upgrade",
-        "de": "Messdaten in measurement/ Channel verschoben, alte Datenpunkte beim Upgrade aufgeraeumt",
-        "ru": "Данные измерений перемещены в канал measurement/, очистка старых точек данных при обновлении",
-        "pt": "Dados de medicao movidos para canal measurement/, limpeza de pontos de dados antigos na atualizacao",
-        "nl": "Meetgegevens verplaatst naar measurement/ kanaal, oude datapunten opgeruimd bij upgrade",
-        "fr": "Donnees de mesure deplacees dans le canal measurement/, nettoyage des anciens points de donnees lors de la mise a jour",
-        "it": "Dati di misurazione spostati nel canale measurement/, pulizia vecchi punti dati durante aggiornamento",
-        "es": "Datos de medicion movidos al canal measurement/, limpieza de puntos de datos antiguos al actualizar",
-        "pl": "Dane pomiarowe przeniesione do kanalu measurement/, czyszczenie starych punktow danych przy aktualizacji",
-        "uk": "Данi вимiрювань перемiщено в канал measurement/, очищення старих точок даних при оновленнi",
-        "zh-cn": "测量数据移至 measurement/ 通道，升级时清理旧数据点"
       }
     },
     "titleLang": {

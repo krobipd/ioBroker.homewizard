@@ -45,8 +45,6 @@ Real-time energy monitoring from [HomeWizard](https://www.homewizard.com) Energy
 | kWh Meter 3-Phase | HWE-KWH3 / SDM630 | Yes | Yes (as controller) |
 | Plug-In Battery | HWE-BAT | Yes | Controlled via P1/kWh |
 
-> **Note:** Energy Socket (HWE-SKT) and Watermeter (HWE-WTR) only support API v1 and are not yet supported. Support will be added when HomeWizard releases API v2 for these devices.
-
 ---
 
 ## Configuration
@@ -114,6 +112,7 @@ homewizard.0.
     │   ├── cycles               — Battery charge cycles (number)
     │   ├── average_power_15m_w  — 15-min average power (number, W, Belgium)
     │   ├── monthly_power_peak_w — Monthly power peak (number, W, Belgium)
+    │   ├── monthly_power_peak_timestamp — Monthly peak timestamp (string)
     │   ├── meter_model          — Meter model identifier (string)
     │   ├── timestamp            — Measurement timestamp (string)
     │   ├── quality/             — Power quality counters
@@ -166,6 +165,11 @@ homewizard.0.
 
 ## Changelog
 
+### 0.6.3 (2026-04-18)
+- Harden WebSocket and REST input handling against unexpected API responses
+- Stop endless reconnect when the device token is invalid (fires once after 3 failed auth attempts)
+- Avoid creating an empty `external/` channel when a device reports no external meters
+
 ### 0.6.2 (2026-04-13)
 - Fix hanging promise when response stream errors mid-transfer (`res.on("error")`)
 - Fix onUnload: wrap in try/finally so callback always fires (prevents adapter hang on shutdown)
@@ -193,9 +197,6 @@ homewizard.0.
 
 ### 0.4.2 (2026-04-05)
 - Consistent donation labels and about text across all adapters
-
-### 0.4.1 (2026-04-05)
-- Move measurement data into `measurement/` channel for cleaner object tree
 
 Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

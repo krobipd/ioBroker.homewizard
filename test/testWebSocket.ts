@@ -143,6 +143,74 @@ describe("HomeWizardWebSocket", () => {
             ws.close();
         });
 
+        it("should warn on non-object root message (array)", () => {
+            const { callbacks, tracker } = createCallbackTracker();
+            const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+
+            callHandleMessage(ws, ["measurement"]);
+
+            const warnLogs = tracker.logs.filter((l) => l.level === "warn");
+            expect(warnLogs.some((l) => l.msg.includes("non-object"))).to.be.true;
+            ws.close();
+        });
+
+        it("should warn on root message as string", () => {
+            const { callbacks, tracker } = createCallbackTracker();
+            const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+
+            const raw = Buffer.from(JSON.stringify("just a string"));
+            (ws as unknown as { handleMessage: (raw: Buffer) => void }).handleMessage(raw);
+
+            const warnLogs = tracker.logs.filter((l) => l.level === "warn");
+            expect(warnLogs.some((l) => l.msg.includes("non-object"))).to.be.true;
+            ws.close();
+        });
+
+        it("should warn on message without string type", () => {
+            const { callbacks, tracker } = createCallbackTracker();
+            const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+
+            callHandleMessage(ws, { type: 42, data: {} });
+
+            const warnLogs = tracker.logs.filter((l) => l.level === "warn");
+            expect(warnLogs.some((l) => l.msg.includes("string type"))).to.be.true;
+            ws.close();
+        });
+
+        it("should warn on measurement with non-object data (string)", () => {
+            const { callbacks, tracker } = createCallbackTracker();
+            const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+
+            callHandleMessage(ws, { type: "measurement", data: "corrupt" });
+
+            expect(tracker.measurements).to.have.length(0);
+            const warnLogs = tracker.logs.filter((l) => l.level === "warn");
+            expect(warnLogs.some((l) => l.msg.includes("object payload"))).to.be.true;
+            ws.close();
+        });
+
+        it("should warn on measurement with array data", () => {
+            const { callbacks, tracker } = createCallbackTracker();
+            const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+
+            callHandleMessage(ws, { type: "measurement", data: [1, 2, 3] });
+
+            expect(tracker.measurements).to.have.length(0);
+            const warnLogs = tracker.logs.filter((l) => l.level === "warn");
+            expect(warnLogs.some((l) => l.msg.includes("object payload"))).to.be.true;
+            ws.close();
+        });
+
+        it("should warn on measurement with null data", () => {
+            const { callbacks, tracker } = createCallbackTracker();
+            const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+
+            callHandleMessage(ws, { type: "measurement", data: null });
+
+            expect(tracker.measurements).to.have.length(0);
+            ws.close();
+        });
+
         it("should handle unknown message types gracefully", () => {
             const { callbacks, tracker } = createCallbackTracker();
             const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);

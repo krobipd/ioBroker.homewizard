@@ -1,4 +1,10 @@
 import type * as utils from "@iobroker/adapter-core";
+import {
+  coerceBoolean,
+  coerceFiniteNumber,
+  coerceString,
+  isPlainObject,
+} from "./coerce";
 import type {
   BatteryControl,
   DeviceConfig,
@@ -604,6 +610,9 @@ export class StateManager {
     config: DeviceConfig,
     data: Measurement,
   ): Promise<void> {
+    if (!isPlainObject(data)) {
+      return;
+    }
     const prefix = this.devicePrefix(config);
     const mPrefix = `${prefix}.measurement`;
 
@@ -614,63 +623,90 @@ export class StateManager {
       native: {},
     });
 
-    // Main measurement values
-    const fields = MEASUREMENT_STATE_DEFS;
-    for (const def of fields) {
-      const rawValue = data[def.key as keyof Measurement];
-      if (
-        rawValue !== undefined &&
-        rawValue !== null &&
-        !Array.isArray(rawValue)
-      ) {
+    // Main measurement values — coerce per declared type
+    const record = data;
+    for (const def of MEASUREMENT_STATE_DEFS) {
+      const raw = record[def.key];
+      let coerced: number | string | null = null;
+      if (def.type === "number") {
+        coerced = coerceFiniteNumber(raw);
+      } else if (def.type === "string") {
+        coerced = coerceString(raw);
+      }
+      if (coerced !== null) {
         await this.ensureAndSet(
           `${mPrefix}.${def.id}`,
           def.name,
           def.type,
           def.role,
-          rawValue as ioBroker.StateValue,
+          coerced,
           def.unit,
         );
       }
     }
 
     // External meters (P1 gas/water/heat)
-    if (data.external?.length) {
-      await this.adapter.setObjectNotExistsAsync(`${mPrefix}.external`, {
-        type: "channel",
-        common: { name: "External Meters" },
-        native: {},
-      });
+    const external = record.external;
+    if (Array.isArray(external) && external.length > 0) {
+      let extChannelEnsured = false;
 
-      for (const ext of data.external) {
-        const extId = `${mPrefix}.external.${sanitize(ext.type)}_${sanitize(ext.unique_id)}`;
+      for (const rawExt of external) {
+        if (!isPlainObject(rawExt)) {
+          continue;
+        }
+        const type = coerceString(rawExt.type);
+        const uniqueId = coerceString(rawExt.unique_id);
+        if (!type || !uniqueId) {
+          continue;
+        }
+
+        const value = coerceFiniteNumber(rawExt.value);
+        const unit = coerceString(rawExt.unit);
+        const timestamp = coerceString(rawExt.timestamp);
+
+        if (!extChannelEnsured) {
+          await this.adapter.setObjectNotExistsAsync(`${mPrefix}.external`, {
+            type: "channel",
+            common: { name: "External Meters" },
+            native: {},
+          });
+          extChannelEnsured = true;
+        }
+
+        const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
         await this.adapter.setObjectNotExistsAsync(extId, {
           type: "channel",
-          common: { name: ext.type },
+          common: { name: type },
           native: {},
         });
-        await this.ensureAndSet(
-          `${extId}.value`,
-          "Value",
-          "number",
-          "value",
-          ext.value,
-          ext.unit,
-        );
-        await this.ensureAndSet(
-          `${extId}.unit`,
-          "Unit",
-          "string",
-          "text",
-          ext.unit,
-        );
-        await this.ensureAndSet(
-          `${extId}.timestamp`,
-          "Timestamp",
-          "string",
-          "date",
-          ext.timestamp,
-        );
+        if (value !== null) {
+          await this.ensureAndSet(
+            `${extId}.value`,
+            "Value",
+            "number",
+            "value",
+            value,
+            unit ?? undefined,
+          );
+        }
+        if (unit) {
+          await this.ensureAndSet(
+            `${extId}.unit`,
+            "Unit",
+            "string",
+            "text",
+            unit,
+          );
+        }
+        if (timestamp) {
+          await this.ensureAndSet(
+            `${extId}.timestamp`,
+            "Timestamp",
+            "string",
+            "date",
+            timestamp,
+          );
+        }
       }
     }
   }
@@ -682,25 +718,35 @@ export class StateManager {
    * @param system System info data
    */
   async updateSystem(config: DeviceConfig, system: SystemInfo): Promise<void> {
+    if (!isPlainObject(system)) {
+      return;
+    }
     const prefix = this.devicePrefix(config);
+    const record = system as Record<string, unknown>;
 
     // WiFi/uptime in info channel
-    await this.ensureAndSet(
-      `${prefix}.info.wifi_rssi_db`,
-      "WiFi signal strength",
-      "number",
-      "value",
-      system.wifi_rssi_db,
-      "dB",
-    );
-    await this.ensureAndSet(
-      `${prefix}.info.uptime_s`,
-      "Uptime",
-      "number",
-      "value",
-      system.uptime_s,
-      "s",
-    );
+    const rssi = coerceFiniteNumber(record.wifi_rssi_db);
+    if (rssi !== null) {
+      await this.ensureAndSet(
+        `${prefix}.info.wifi_rssi_db`,
+        "WiFi signal strength",
+        "number",
+        "value",
+        rssi,
+        "dB",
+      );
+    }
+    const uptime = coerceFiniteNumber(record.uptime_s);
+    if (uptime !== null) {
+      await this.ensureAndSet(
+        `${prefix}.info.uptime_s`,
+        "Uptime",
+        "number",
+        "value",
+        uptime,
+        "s",
+      );
+    }
 
     // System control channel
     await this.adapter.setObjectNotExistsAsync(`${prefix}.system`, {
@@ -709,32 +755,39 @@ export class StateManager {
       native: {},
     });
 
-    await this.ensureAndSet(
-      `${prefix}.system.cloud_enabled`,
-      "Cloud enabled",
-      "boolean",
-      "switch",
-      system.cloud_enabled,
-      undefined,
-      true,
-    );
-    await this.ensureAndSet(
-      `${prefix}.system.status_led_brightness_pct`,
-      "LED brightness",
-      "number",
-      "level",
-      system.status_led_brightness_pct,
-      "%",
-      true,
-    );
+    const cloudEnabled = coerceBoolean(record.cloud_enabled);
+    if (cloudEnabled !== null) {
+      await this.ensureAndSet(
+        `${prefix}.system.cloud_enabled`,
+        "Cloud enabled",
+        "boolean",
+        "switch",
+        cloudEnabled,
+        undefined,
+        true,
+      );
+    }
+    const ledPct = coerceFiniteNumber(record.status_led_brightness_pct);
+    if (ledPct !== null) {
+      await this.ensureAndSet(
+        `${prefix}.system.status_led_brightness_pct`,
+        "LED brightness",
+        "number",
+        "level",
+        ledPct,
+        "%",
+        true,
+      );
+    }
 
-    if (system.api_v1_enabled !== undefined) {
+    const apiV1 = coerceBoolean(record.api_v1_enabled);
+    if (apiV1 !== null) {
       await this.ensureAndSet(
         `${prefix}.system.api_v1_enabled`,
         "API v1 enabled",
         "boolean",
         "switch",
-        system.api_v1_enabled,
+        apiV1,
         undefined,
         true,
       );
@@ -758,7 +811,11 @@ export class StateManager {
     config: DeviceConfig,
     battery: BatteryControl,
   ): Promise<void> {
+    if (!isPlainObject(battery)) {
+      return;
+    }
     const prefix = this.devicePrefix(config);
+    const record = battery as Record<string, unknown>;
 
     await this.adapter.setObjectNotExistsAsync(`${prefix}.battery`, {
       type: "channel",
@@ -766,74 +823,84 @@ export class StateManager {
       native: {},
     });
 
-    await this.ensureAndSet(
-      `${prefix}.battery.mode`,
-      "Battery mode",
-      "string",
-      "text",
-      battery.mode,
-      undefined,
-      true,
-    );
-    if (battery.permissions !== undefined) {
+    const mode = coerceString(record.mode);
+    if (mode) {
+      await this.ensureAndSet(
+        `${prefix}.battery.mode`,
+        "Battery mode",
+        "string",
+        "text",
+        mode,
+        undefined,
+        true,
+      );
+    }
+    if (Array.isArray(record.permissions)) {
       await this.ensureAndSet(
         `${prefix}.battery.permissions`,
         "Battery permissions",
         "string",
         "json",
-        JSON.stringify(battery.permissions),
+        JSON.stringify(record.permissions),
         undefined,
         true,
       );
     }
-    if (battery.battery_count !== undefined) {
-      await this.ensureAndSet(
-        `${prefix}.battery.battery_count`,
-        "Connected batteries",
-        "number",
-        "value",
-        battery.battery_count,
-      );
-    }
-    if (battery.power_w !== undefined) {
-      await this.ensureAndSet(
-        `${prefix}.battery.power_w`,
-        "Battery power",
-        "number",
-        "value.power",
-        battery.power_w,
-        "W",
-      );
-    }
-    if (battery.target_power_w !== undefined) {
-      await this.ensureAndSet(
-        `${prefix}.battery.target_power_w`,
-        "Target power",
-        "number",
-        "value.power",
-        battery.target_power_w,
-        "W",
-      );
-    }
-    if (battery.max_consumption_w !== undefined) {
-      await this.ensureAndSet(
-        `${prefix}.battery.max_consumption_w`,
-        "Max consumption",
-        "number",
-        "value.power",
-        battery.max_consumption_w,
-        "W",
-      );
-    }
-    if (battery.max_production_w !== undefined) {
-      await this.ensureAndSet(
-        `${prefix}.battery.max_production_w`,
-        "Max production",
-        "number",
-        "value.power",
-        battery.max_production_w,
-        "W",
-      );
+
+    const numberFields: Array<{
+      key: string;
+      id: string;
+      name: string;
+      role: string;
+      unit?: string;
+    }> = [
+      {
+        key: "battery_count",
+        id: "battery_count",
+        name: "Connected batteries",
+        role: "value",
+      },
+      {
+        key: "power_w",
+        id: "power_w",
+        name: "Battery power",
+        role: "value.power",
+        unit: "W",
+      },
+      {
+        key: "target_power_w",
+        id: "target_power_w",
+        name: "Target power",
+        role: "value.power",
+        unit: "W",
+      },
+      {
+        key: "max_consumption_w",
+        id: "max_consumption_w",
+        name: "Max consumption",
+        role: "value.power",
+        unit: "W",
+      },
+      {
+        key: "max_production_w",
+        id: "max_production_w",
+        name: "Max production",
+        role: "value.power",
+        unit: "W",
+      },
+    ];
+    for (const field of numberFields) {
+      const coerced = coerceFiniteNumber(record[field.key]);
+      if (coerced !== null) {
+        await this.ensureAndSet(
+          `${prefix}.battery.${field.id}`,
+          field.name,
+          "number",
+          field.role,
+          coerced,
+          field.unit,
+        );
+      }
     }
   }
 

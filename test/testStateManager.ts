@@ -510,4 +510,180 @@ describe("StateManager", () => {
             }
         });
     });
+
+    describe("updateMeasurement — boundary hardening", () => {
+        it("silently drops non-object payload", async () => {
+            await manager.updateMeasurement(testDevice, null as unknown as Measurement);
+            await manager.updateMeasurement(testDevice, "junk" as unknown as Measurement);
+            await manager.updateMeasurement(testDevice, [] as unknown as Measurement);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.power_w")).to.be.false;
+        });
+
+        it("rejects NaN in number field", async () => {
+            await manager.updateMeasurement(testDevice, { power_w: NaN } as unknown as Measurement);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.power_w")).to.be.false;
+        });
+
+        it("rejects Infinity in number field", async () => {
+            await manager.updateMeasurement(testDevice, { power_w: Infinity } as unknown as Measurement);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.power_w")).to.be.false;
+        });
+
+        it("parses numeric string into number field", async () => {
+            await manager.updateMeasurement(testDevice, { power_w: "123.45" } as unknown as Measurement);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.power_w")?.val).to.equal(123.45);
+        });
+
+        it("rejects object for number field", async () => {
+            await manager.updateMeasurement(testDevice, { power_w: { val: 100 } } as unknown as Measurement);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.power_w")).to.be.false;
+        });
+
+        it("rejects number for string field (meter_model)", async () => {
+            await manager.updateMeasurement(testDevice, { meter_model: 42 } as unknown as Measurement);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.meter_model")).to.be.false;
+        });
+
+        it("rejects empty string for string field", async () => {
+            await manager.updateMeasurement(testDevice, { meter_model: "" } as Measurement);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.meter_model")).to.be.false;
+        });
+
+        it("accepts coexistent valid + invalid fields (writes only valid)", async () => {
+            await manager.updateMeasurement(testDevice, {
+                power_w: 100,
+                voltage_v: NaN,
+                current_a: "2.5",
+                frequency_hz: "not-a-number",
+            } as unknown as Measurement);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.power_w")?.val).to.equal(100);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.voltage_v")).to.be.false;
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.current_a")?.val).to.equal(2.5);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.frequency_hz")).to.be.false;
+        });
+
+        it("external: skips non-object entries", async () => {
+            await manager.updateMeasurement(testDevice, {
+                external: ["not-an-object", null, 42],
+            } as unknown as Measurement);
+            // No ext channels created
+            expect(adapter.objects.size).to.equal(1); // only measurement channel
+        });
+
+        it("external: skips entries without string type/unique_id", async () => {
+            await manager.updateMeasurement(testDevice, {
+                external: [
+                    { type: 42, unique_id: "x", value: 1, unit: "m3", timestamp: "2026-01-01" },
+                    { type: "gas_meter", unique_id: null, value: 1, unit: "m3", timestamp: "2026-01-01" },
+                ],
+            } as unknown as Measurement);
+            const extKeys = Array.from(adapter.objects.keys()).filter(k => k.includes(".external."));
+            expect(extKeys).to.have.length(0);
+        });
+
+        it("external: handles non-finite value (writes unit/timestamp only)", async () => {
+            await manager.updateMeasurement(testDevice, {
+                external: [
+                    { type: "gas_meter", unique_id: "abc", value: NaN, unit: "m3", timestamp: "2026-01-01" },
+                ],
+            } as unknown as Measurement);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.external.gas_meter_abc.value")).to.be.false;
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.external.gas_meter_abc.unit")?.val).to.equal("m3");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.external.gas_meter_abc.timestamp")?.val).to.equal("2026-01-01");
+        });
+
+        it("ignores empty external array", async () => {
+            await manager.updateMeasurement(testDevice, { external: [] } as unknown as Measurement);
+            const extKeys = Array.from(adapter.objects.keys()).filter(k => k.includes(".external"));
+            expect(extKeys).to.have.length(0);
+        });
+
+        it("ignores non-array external field", async () => {
+            await manager.updateMeasurement(testDevice, { external: "corrupted" } as unknown as Measurement);
+            const extKeys = Array.from(adapter.objects.keys()).filter(k => k.includes(".external"));
+            expect(extKeys).to.have.length(0);
+        });
+    });
+
+    describe("updateSystem — boundary hardening", () => {
+        it("silently drops non-object payload", async () => {
+            await manager.updateSystem(testDevice, null as unknown as SystemInfo);
+            await manager.updateSystem(testDevice, "garbage" as unknown as SystemInfo);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.info.wifi_rssi_db")).to.be.false;
+        });
+
+        it("rejects NaN rssi", async () => {
+            await manager.updateSystem(testDevice, {
+                wifi_rssi_db: NaN,
+                uptime_s: 100,
+                cloud_enabled: true,
+                status_led_brightness_pct: 50,
+                wifi_ssid: "x",
+            } as unknown as SystemInfo);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.info.wifi_rssi_db")).to.be.false;
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.info.uptime_s")?.val).to.equal(100);
+        });
+
+        it("rejects non-boolean cloud_enabled", async () => {
+            await manager.updateSystem(testDevice, {
+                wifi_rssi_db: -60,
+                uptime_s: 100,
+                cloud_enabled: "yes",
+                status_led_brightness_pct: 50,
+                wifi_ssid: "x",
+            } as unknown as SystemInfo);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.system.cloud_enabled")).to.be.false;
+        });
+
+        it("ignores api_v1_enabled when not boolean", async () => {
+            await manager.updateSystem(testDevice, {
+                wifi_rssi_db: -60,
+                uptime_s: 100,
+                cloud_enabled: true,
+                status_led_brightness_pct: 50,
+                wifi_ssid: "x",
+                api_v1_enabled: 1,
+            } as unknown as SystemInfo);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.system.api_v1_enabled")).to.be.false;
+        });
+
+        it("parses numeric string for led brightness", async () => {
+            await manager.updateSystem(testDevice, {
+                wifi_rssi_db: -60,
+                uptime_s: 100,
+                cloud_enabled: true,
+                status_led_brightness_pct: "75",
+                wifi_ssid: "x",
+            } as unknown as SystemInfo);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.system.status_led_brightness_pct")?.val).to.equal(75);
+        });
+    });
+
+    describe("updateBattery — boundary hardening", () => {
+        it("silently drops non-object payload", async () => {
+            await manager.updateBattery(testDevice, null as unknown as BatteryControl);
+            await manager.updateBattery(testDevice, undefined as unknown as BatteryControl);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.battery.mode")).to.be.false;
+        });
+
+        it("rejects non-string mode", async () => {
+            await manager.updateBattery(testDevice, { mode: 42 } as unknown as BatteryControl);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.battery.mode")).to.be.false;
+        });
+
+        it("rejects non-array permissions", async () => {
+            await manager.updateBattery(testDevice, { mode: "zero", permissions: "read" } as unknown as BatteryControl);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.battery.permissions")).to.be.false;
+        });
+
+        it("rejects NaN for battery_count", async () => {
+            await manager.updateBattery(testDevice, { mode: "zero", battery_count: NaN } as unknown as BatteryControl);
+            expect(adapter.states.has("hwe-p1_aabbccddeeff.battery.battery_count")).to.be.false;
+        });
+
+        it("accepts numeric string for power_w", async () => {
+            await manager.updateBattery(testDevice, { mode: "zero", power_w: "250" } as unknown as BatteryControl);
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.power_w")?.val).to.equal(250);
+        });
+    });
 });

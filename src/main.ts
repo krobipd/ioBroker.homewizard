@@ -728,6 +728,29 @@ class HomeWizard extends utils.Adapter {
       } catch (err) {
         this.logDeviceError(conn, "rest", err);
 
+        // Treat auth failures as a hard stop — token is bad, re-pair required.
+        if (
+          err instanceof HomeWizardApiError &&
+          err.errorCode === "user:unauthorized"
+        ) {
+          conn.authFailCount++;
+          if (conn.authFailCount >= MAX_AUTH_FAILURES) {
+            this.log.warn(
+              `${conn.config.productName}: token invalid — re-pair device to fix`,
+            );
+            if (conn.pollTimer) {
+              this.clearInterval(conn.pollTimer);
+              conn.pollTimer = undefined;
+            }
+            if (conn.reconnectTimer) {
+              this.clearTimeout(conn.reconnectTimer);
+              conn.reconnectTimer = undefined;
+            }
+            conn.wsClient?.close();
+          }
+          return;
+        }
+
         // Stop REST polling on network errors for stable devices.
         // Unstable devices keep polling (slower) to minimize data gaps.
         if (!unstable && classifyError(err) === "NETWORK" && conn.pollTimer) {

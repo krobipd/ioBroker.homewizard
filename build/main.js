@@ -584,11 +584,30 @@ class HomeWizard extends utils.Adapter {
     const interval = unstable ? REST_POLL_UNSTABLE_MS : REST_POLL_MS;
     const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token);
     conn.pollTimer = this.setInterval(async () => {
+      var _a;
       try {
         const data = await client.getMeasurement();
         await this.stateManager.updateMeasurement(conn.config, data);
       } catch (err) {
         this.logDeviceError(conn, "rest", err);
+        if (err instanceof import_homewizard_client.HomeWizardApiError && err.errorCode === "user:unauthorized") {
+          conn.authFailCount++;
+          if (conn.authFailCount >= MAX_AUTH_FAILURES) {
+            this.log.warn(
+              `${conn.config.productName}: token invalid \u2014 re-pair device to fix`
+            );
+            if (conn.pollTimer) {
+              this.clearInterval(conn.pollTimer);
+              conn.pollTimer = void 0;
+            }
+            if (conn.reconnectTimer) {
+              this.clearTimeout(conn.reconnectTimer);
+              conn.reconnectTimer = void 0;
+            }
+            (_a = conn.wsClient) == null ? void 0 : _a.close();
+          }
+          return;
+        }
         if (!unstable && (0, import_connection_utils.classifyError)(err) === "NETWORK" && conn.pollTimer) {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = void 0;

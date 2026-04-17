@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 import { HW_AGENT } from "./cacert";
-import type { Measurement, WsMessage } from "./types";
+import { isPlainObject } from "./coerce";
+import type { Measurement } from "./types";
 
 /** Callback interface for WebSocket events */
 export interface WsCallbacks {
@@ -101,34 +102,49 @@ export class HomeWizardWebSocket {
         : Array.isArray(raw)
           ? Buffer.concat(raw).toString("utf8")
           : "";
-    let msg: WsMessage;
+    let parsed: unknown;
     try {
-      msg = JSON.parse(text) as WsMessage;
+      parsed = JSON.parse(text);
     } catch {
       this.callbacks.log.warn(`WS invalid JSON: ${text.substring(0, 200)}`);
       return;
     }
 
-    switch (msg.type) {
+    if (!isPlainObject(parsed)) {
+      this.callbacks.log.warn(
+        `WS non-object message: ${text.substring(0, 200)}`,
+      );
+      return;
+    }
+
+    const type = parsed.type;
+    if (typeof type !== "string") {
+      this.callbacks.log.warn(`WS message without string type`);
+      return;
+    }
+
+    switch (type) {
       case "authorization_requested":
         this.callbacks.log.debug("WS auth requested, sending token");
-        this.send({ type: "authorization", data: this.token });
+        this.sendRaw({ type: "authorization", data: this.token });
         break;
 
       case "authorized":
         this.callbacks.log.debug("WS authorized, subscribing to measurement");
-        this.send({ type: "subscribe", data: "measurement" });
+        this.sendRaw({ type: "subscribe", data: "measurement" });
         this.callbacks.onConnected();
         break;
 
       case "measurement":
-        if (msg.data) {
-          this.callbacks.onMeasurement(msg.data as Measurement);
+        if (isPlainObject(parsed.data)) {
+          this.callbacks.onMeasurement(parsed.data as Measurement);
+        } else {
+          this.callbacks.log.warn(`WS measurement without object payload`);
         }
         break;
 
       default:
-        this.callbacks.log.debug(`WS message type: ${msg.type}`);
+        this.callbacks.log.debug(`WS message type: ${type}`);
         break;
     }
   }
@@ -136,9 +152,11 @@ export class HomeWizardWebSocket {
   /**
    * Send a message over WebSocket
    *
-   * @param msg Message to send
+   * @param msg Message envelope
+   * @param msg.type Message type identifier
+   * @param msg.data Optional payload
    */
-  private send(msg: WsMessage): void {
+  private sendRaw(msg: { type: string; data?: unknown }): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     }
