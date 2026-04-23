@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.6.3",
+    "version": "0.6.4",
     "news": {
+      "0.6.4": {
+        "en": "Proactive sync with parcelapp v0.2.14 learnings: tsconfig.test.json emits to build-test/ (prevents build/src + build/test duplicates), wrap async onReady and onStateChange with .catch(), declare pairingIp as instance object (11 languages) instead of dynamic creation in onReady",
+        "de": "Proaktive Übernahme der parcelapp v0.2.14 Learnings: tsconfig.test.json schreibt nach build-test/ (verhindert build/src + build/test Duplikate), async onReady und onStateChange mit .catch() gehärtet, pairingIp als instance object deklariert (11 Sprachen) statt dynamisch in onReady",
+        "ru": "Проактивная синхронизация с parcelapp v0.2.14: tsconfig.test.json собирает в build-test/ (предотвращает дубли build/src + build/test), async onReady и onStateChange обёрнуты в .catch(), pairingIp объявлен как instance object (11 языков) вместо динамического создания в onReady",
+        "pt": "Sincronização proativa com parcelapp v0.2.14: tsconfig.test.json emite para build-test/ (evita duplicados build/src + build/test), onReady e onStateChange assíncronos envolvidos em .catch(), pairingIp declarado como instance object (11 línguas) em vez de criação dinâmica em onReady",
+        "nl": "Proactieve synchronisatie met parcelapp v0.2.14: tsconfig.test.json schrijft naar build-test/ (voorkomt build/src + build/test duplicaten), async onReady en onStateChange omhuld met .catch(), pairingIp als instance object gedeclareerd (11 talen) in plaats van dynamische creatie in onReady",
+        "fr": "Synchronisation proactive avec parcelapp v0.2.14 : tsconfig.test.json émet vers build-test/ (évite les doublons build/src + build/test), onReady et onStateChange asynchrones protégés par .catch(), pairingIp déclaré comme instance object (11 langues) au lieu d'une création dynamique dans onReady",
+        "it": "Sincronizzazione proattiva con parcelapp v0.2.14: tsconfig.test.json emette in build-test/ (previene duplicati build/src + build/test), onReady e onStateChange asincroni protetti con .catch(), pairingIp dichiarato come instance object (11 lingue) invece della creazione dinamica in onReady",
+        "es": "Sincronización proactiva con parcelapp v0.2.14: tsconfig.test.json escribe en build-test/ (evita duplicados build/src + build/test), onReady y onStateChange asíncronos protegidos con .catch(), pairingIp declarado como instance object (11 idiomas) en lugar de creación dinámica en onReady",
+        "pl": "Proaktywna synchronizacja z parcelapp v0.2.14: tsconfig.test.json zapisuje do build-test/ (zapobiega duplikatom build/src + build/test), async onReady i onStateChange zabezpieczone .catch(), pairingIp zadeklarowany jako instance object (11 języków) zamiast dynamicznego tworzenia w onReady",
+        "uk": "Проактивна синхронізація з parcelapp v0.2.14: tsconfig.test.json збирає у build-test/ (запобігає дублям build/src + build/test), async onReady та onStateChange захищено .catch(), pairingIp оголошено як instance object (11 мов) замість динамічного створення в onReady",
+        "zh-cn": "主动采纳 parcelapp v0.2.14 经验：tsconfig.test.json 输出到 build-test/（避免 build/src + build/test 重复），异步 onReady 和 onStateChange 使用 .catch() 加固，pairingIp 声明为 instance object（11 种语言）而非在 onReady 中动态创建"
+      },
       "0.6.3": {
         "en": "Harden WebSocket and REST input handling, stop endless reconnect on invalid token, avoid empty external channel",
         "de": "WebSocket- und REST-Eingaben gehärtet, Endlos-Reconnect bei ungültigem Token gestoppt, leeren External-Channel vermieden",
@@ -80,19 +93,6 @@
         "pl": "Niezawodne ponowne połączenie: nigdy nie rezygnować po utracie WiFi, okresowe odzyskiwanie IP przez mDNS, tylko WebSocket kontroluje status online",
         "uk": "Надійне перепідключення: ніколи не здаватися після втрати WiFi, періодичне відновлення IP через mDNS, тільки WebSocket керує онлайн-статусом",
         "zh-cn": "稳健重连：WiFi丢失后永不放弃，定期mDNS IP恢复，仅WebSocket控制在线状态"
-      },
-      "0.4.2": {
-        "en": "Consistent donation labels and about text across all adapters",
-        "de": "Einheitliche Spenden-Labels und Info-Texte über alle Adapter",
-        "ru": "Единообразные метки пожертвований и информационные тексты во всех адаптерах",
-        "pt": "Rótulos de doação e textos informativos consistentes em todos os adaptadores",
-        "nl": "Consistente donatielabels en infoteksten in alle adapters",
-        "fr": "Libellés de don et textes d'information cohérents dans tous les adaptateurs",
-        "it": "Etichette di donazione e testi informativi coerenti in tutti gli adattatori",
-        "es": "Etiquetas de donación y textos informativos consistentes en todos los adaptadores",
-        "pl": "Spójne etykiety darowizn i teksty informacyjne we wszystkich adapterach",
-        "uk": "Узгоджені мітки пожертв та інформаційні тексти у всіх адаптерах",
-        "zh-cn": "所有适配器中统一的捐赠标签和信息文本"
       }
     },
     "titleLang": {

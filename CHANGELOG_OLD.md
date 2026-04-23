@@ -1,4 +1,17 @@
 # Older Changes
+## 0.5.1 (2026-04-08)
+- Restore standard GitHub-based tests, remove CHANGELOG.md, add FORBIDDEN_CHARS reference
+
+## 0.5.0 (2026-04-05)
+- Robust reconnect: never give up after WiFi loss, retry every 5 minutes indefinitely
+- Periodic mDNS IP recovery (~hourly), only WebSocket controls online state
+
+## 0.4.2 (2026-04-05)
+- Consistent donation labels and about text across all adapters
+
+Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
+
+---
 
 ## 0.4.1 (2026-04-05)
 - Move measurement data into `measurement/` channel for cleaner object tree

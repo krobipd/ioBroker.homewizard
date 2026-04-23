@@ -164,8 +164,7 @@ homewizard.0.
 ---
 
 ## Changelog
-
-### **WORK IN PROGRESS**
+### 0.6.4 (2026-04-23)
 - Separate test-build output (`build-test/`) from production `build/`, so `npm test` no longer risks leaving duplicated `build/src` + `build/test` trees in the published package.
 - Wrap async `onReady` and `onStateChange` handlers with `.catch()` to prevent unhandled promise rejections from SIGKILLing the adapter.
 - Declare `pairingIp` as an instance object (11-language name) instead of creating it dynamically in `onReady`.
@@ -192,20 +191,6 @@ homewizard.0.
 - Faster reconnect for unstable devices (60s max backoff instead of 5 min)
 - Persistent REST fallback for unstable devices (30s interval instead of stopping)
 - Automatic mode switch: stabilizes after 10 min connected, detects instability after 3 short-lived connections
-
-### 0.5.1 (2026-04-08)
-- Restore standard GitHub-based tests, remove CHANGELOG.md, add FORBIDDEN_CHARS reference
-
-### 0.5.0 (2026-04-05)
-- Robust reconnect: never give up after WiFi loss, retry every 5 minutes indefinitely
-- Periodic mDNS IP recovery (~hourly), only WebSocket controls online state
-
-### 0.4.2 (2026-04-05)
-- Consistent donation labels and about text across all adapters
-
-Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
-
----
 
 ## Support
 
