@@ -6,7 +6,7 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.6.3 (April 2026)
+- **Version:** 0.6.4 (WIP — parcelapp learnings: build-test, async .catch(), pairingIp instanceObject)
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
@@ -109,6 +109,7 @@ test/integration.js      → @iobroker/testing Integration-Tests (plain JS)
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
+| 0.6.4 (WIP) | 2026-04-23 | tsconfig.test.json → outDir `./build-test`, `.catch()`-Wrapper für onReady + onStateChange, `pairingIp` als instanceObject (11-sprachig) statt dynamic in onReady |
 | 0.6.3 | 2026-04-18 | API-Boundary-Härtung (WS + REST), Auth-Loop-Stopp bei ungültigem Token, Lazy external-Channel, 29 neue Edge-Case-Tests |
 | 0.6.2 | 2026-04-13 | Fix res.on("error"), onUnload try/finally, setObjectNotExistsAsync Hot Path, DRY removeDeviceFromObject |
 | 0.6.1 | 2026-04-12 | Code Cleanup: connection-utils Modul, 20 neue Tests, ESLint-Warnings fix, unused Deps entfernt |

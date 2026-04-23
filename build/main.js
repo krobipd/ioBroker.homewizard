@@ -40,6 +40,9 @@ const MDNS_RETRY_EVERY = 12;
 const STABLE_THRESHOLD_MS = 6e5;
 const WS_RECONNECT_MAX_UNSTABLE_MS = 6e4;
 const REST_POLL_UNSTABLE_MS = 3e4;
+function errText(err) {
+  return err instanceof Error ? err.message : String(err);
+}
 class HomeWizard extends utils.Adapter {
   stateManager;
   discovery = null;
@@ -54,25 +57,21 @@ class HomeWizard extends utils.Adapter {
   /** @param options Adapter options */
   constructor(options = {}) {
     super({ ...options, name: "homewizard" });
-    this.on("ready", () => this.onReady());
-    this.on("stateChange", (id, state) => this.onStateChange(id, state));
+    this.on("ready", () => {
+      this.onReady().catch(
+        (err) => this.log.error(`onReady failed: ${errText(err)}`)
+      );
+    });
+    this.on("stateChange", (id, state) => {
+      this.onStateChange(id, state).catch(
+        (err) => this.log.error(`stateChange failed: ${errText(err)}`)
+      );
+    });
     this.on("unload", (callback) => this.onUnload(callback));
   }
   /** Adapter started */
   async onReady() {
     this.stateManager = new import_state_manager.StateManager(this);
-    await this.extendObjectAsync("pairingIp", {
-      type: "state",
-      common: {
-        name: "Device IP for manual pairing",
-        type: "string",
-        role: "text",
-        read: true,
-        write: true,
-        def: ""
-      },
-      native: {}
-    });
     await this.setStateAsync("startPairing", { val: false, ack: true });
     await this.setStateAsync("pairingIp", { val: "", ack: true });
     await this.subscribeStatesAsync("startPairing");

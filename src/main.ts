@@ -42,6 +42,15 @@ const WS_RECONNECT_MAX_UNSTABLE_MS = 60_000;
 /** REST fallback interval for unstable devices (slower, not stopped) */
 const REST_POLL_UNSTABLE_MS = 30_000;
 
+/**
+ * Extract a log-friendly message from an unknown error value.
+ *
+ * @param err Value caught in a promise rejection (may or may not be an Error)
+ */
+function errText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 class HomeWizard extends utils.Adapter {
   private stateManager!: StateManager;
   private discovery: HomeWizardDiscovery | null = null;
@@ -57,8 +66,18 @@ class HomeWizard extends utils.Adapter {
   /** @param options Adapter options */
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
     super({ ...options, name: "homewizard" });
-    this.on("ready", () => this.onReady());
-    this.on("stateChange", (id, state) => this.onStateChange(id, state));
+    // Wrap async handlers with .catch() so a rejection can never become an
+    // unhandled promise rejection (→ SIGKILL → js-controller restart loop).
+    this.on("ready", () => {
+      this.onReady().catch((err: unknown) =>
+        this.log.error(`onReady failed: ${errText(err)}`),
+      );
+    });
+    this.on("stateChange", (id, state) => {
+      this.onStateChange(id, state).catch((err: unknown) =>
+        this.log.error(`stateChange failed: ${errText(err)}`),
+      );
+    });
     this.on("unload", (callback) => this.onUnload(callback));
   }
 
@@ -66,20 +85,7 @@ class HomeWizard extends utils.Adapter {
   private async onReady(): Promise<void> {
     this.stateManager = new StateManager(this);
 
-    // Create pairing states
-    await this.extendObjectAsync("pairingIp", {
-      type: "state",
-      common: {
-        name: "Device IP for manual pairing",
-        type: "string",
-        role: "text",
-        read: true,
-        write: true,
-        def: "",
-      },
-      native: {},
-    });
-
+    // `pairingIp` is declared in io-package.json instanceObjects — just reset state.
     // Reset pairing states on start (in case previous run was killed mid-pairing)
     await this.setStateAsync("startPairing", { val: false, ack: true });
     await this.setStateAsync("pairingIp", { val: "", ack: true });

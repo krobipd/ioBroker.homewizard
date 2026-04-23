@@ -203,6 +203,31 @@
         "def": false
       },
       "native": {}
+    },
+    {
+      "_id": "pairingIp",
+      "type": "state",
+      "common": {
+        "name": {
+          "en": "Device IP for manual pairing",
+          "de": "Geräte-IP für manuelles Pairing",
+          "ru": "IP-адрес устройства для ручного сопряжения",
+          "pt": "IP do dispositivo para emparelhamento manual",
+          "nl": "Apparaat-IP voor handmatig koppelen",
+          "fr": "IP de l'appareil pour l'appairage manuel",
+          "it": "IP del dispositivo per l'accoppiamento manuale",
+          "es": "IP del dispositivo para emparejamiento manual",
+          "pl": "IP urządzenia do ręcznego parowania",
+          "uk": "IP пристрою для ручного сполучення",
+          "zh-cn": "用于手动配对的设备 IP"
+        },
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": true,
+        "def": ""
+      },
+      "native": {}
     }
   ]
 }

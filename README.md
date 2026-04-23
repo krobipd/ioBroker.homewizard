@@ -165,6 +165,11 @@ homewizard.0.
 
 ## Changelog
 
+### **WORK IN PROGRESS**
+- Separate test-build output (`build-test/`) from production `build/`, so `npm test` no longer risks leaving duplicated `build/src` + `build/test` trees in the published package.
+- Wrap async `onReady` and `onStateChange` handlers with `.catch()` to prevent unhandled promise rejections from SIGKILLing the adapter.
+- Declare `pairingIp` as an instance object (11-language name) instead of creating it dynamically in `onReady`.
+
 ### 0.6.3 (2026-04-18)
 - Harden WebSocket and REST input handling against unexpected API responses
 - Stop endless reconnect when the device token is invalid (fires once after 3 failed auth attempts)
