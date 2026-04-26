@@ -30,7 +30,7 @@ Real-time energy monitoring from [HomeWizard](https://www.homewizard.com) Energy
 ## Requirements
 
 - **Node.js >= 20**
-- **ioBroker js-controller >= 7.0.0**
+- **ioBroker js-controller >= 6.0.11**
 - **ioBroker Admin >= 7.6.20**
 - **HomeWizard device with API v2 support** (firmware 4.x+ with local API enabled)
 
@@ -164,8 +164,7 @@ homewizard.0.
 ---
 
 ## Changelog
-
-### **WORK IN PROGRESS**
+### 0.6.5 (2026-04-26)
 - Process-level `unhandledRejection` / `uncaughtException` handlers added as last-line-of-defence against fire-and-forget rejections.
 - Stop shipping the `manual-review` release-script plugin — adapter-only consequence.
 - Audit-driven boilerplate sync with the other krobi adapters (`.vscode` json5 schemas, `tsconfig.test` looser test rules).
@@ -193,12 +192,6 @@ homewizard.0.
 - Add 20 unit tests for error classification, connection factory, and unstable threshold
 - Fix ESLint warnings, remove unused devDependencies, remove duplicate scripts
 - Add `@typescript-eslint/no-floating-promises` lint rule
-
-### 0.6.0 (2026-04-11)
-- Adaptive unstable mode: auto-detect devices with bad WiFi (e.g. P1 meter in basement)
-- Faster reconnect for unstable devices (60s max backoff instead of 5 min)
-- Persistent REST fallback for unstable devices (30s interval instead of stopping)
-- Automatic mode switch: stabilizes after 10 min connected, detects instability after 3 short-lived connections
 
 ## Support
 

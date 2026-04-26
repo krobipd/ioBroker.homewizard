@@ -1,4 +1,10 @@
 # Older Changes
+## 0.6.0 (2026-04-11)
+- Adaptive unstable mode: auto-detect devices with bad WiFi (e.g. P1 meter in basement)
+- Faster reconnect for unstable devices (60s max backoff instead of 5 min)
+- Persistent REST fallback for unstable devices (30s interval instead of stopping)
+- Automatic mode switch: stabilizes after 10 min connected, detects instability after 3 short-lived connections
+
 ## 0.5.1 (2026-04-08)
 - Restore standard GitHub-based tests, remove CHANGELOG.md, add FORBIDDEN_CHARS reference
 

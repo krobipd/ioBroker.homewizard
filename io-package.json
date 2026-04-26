@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.6.4",
+    "version": "0.6.5",
     "news": {
+      "0.6.5": {
+        "en": "Process-level unhandledRejection/uncaughtException handlers added as last-line-of-defence. Stop shipping the manual-review release-script plugin. Audit-driven boilerplate sync with the other krobi adapters. Min js-controller correction: was >=7.0.0, restored to repochecker-recommended >=6.0.11 (Source: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker bumped to ^7.1.1.",
+        "de": "Process-level unhandledRejection/uncaughtException-Handler als Last-Line-of-Defence hinzugefügt. Das manual-review-Release-Script-Plugin entfällt. Audit-getriebener Boilerplate-Sync gegenüber den anderen krobi-Adaptern. js-controller-Korrektur: war >=7.0.0, korrigiert auf Repochecker-recommended >=6.0.11 (Quelle: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker auf ^7.1.1 angehoben.",
+        "ru": "Process-level обробники unhandledRejection/uncaughtException додано як last-line-of-defence. Manual-review release-script plugin більше не постачається. Audit-керована синхронізація boilerplate з іншими krobi-адаптерами. Корекція js-controller: було >=7.0.0, відновлено на repochecker-recommended >=6.0.11 (Джерело: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker оновлено до ^7.1.1.",
+        "pt": "Handlers process-level unhandledRejection/uncaughtException adicionados como last-line-of-defence. O plugin manual-review do release-script foi removido. Sincronização de boilerplate orientada por audit com os outros adaptadores krobi. Correção js-controller: era >=7.0.0, restaurada para repochecker-recommended >=6.0.11 (Fonte: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker atualizado para ^7.1.1.",
+        "nl": "Process-level unhandledRejection/uncaughtException-handlers toegevoegd als last-line-of-defence. Het manual-review release-script plugin wordt niet meer meegeleverd. Audit-gestuurde boilerplate-sync met de andere krobi-adapters. js-controller-correctie: was >=7.0.0, hersteld naar repochecker-recommended >=6.0.11 (Bron: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker verhoogd naar ^7.1.1.",
+        "fr": "Handlers process-level unhandledRejection/uncaughtException ajoutés en last-line-of-defence. Le plugin manual-review du release-script n'est plus livré. Synchronisation boilerplate audit-driven avec les autres adaptateurs krobi. Correction js-controller: était >=7.0.0, restaurée à repochecker-recommended >=6.0.11 (Source: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker porté à ^7.1.1.",
+        "it": "Handler process-level unhandledRejection/uncaughtException aggiunti come last-line-of-defence. Il plugin manual-review del release-script non viene più distribuito. Sincronizzazione boilerplate audit-driven con gli altri adapter krobi. Correzione js-controller: era >=7.0.0, ripristinata a repochecker-recommended >=6.0.11 (Fonte: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker alzato a ^7.1.1.",
+        "es": "Handlers process-level unhandledRejection/uncaughtException añadidos como last-line-of-defence. El plugin manual-review del release-script ya no se incluye. Sincronización de boilerplate guiada por audit con los demás adaptadores krobi. Corrección js-controller: era >=7.0.0, restaurada a repochecker-recommended >=6.0.11 (Fuente: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker elevado a ^7.1.1.",
+        "pl": "Handlery process-level unhandledRejection/uncaughtException dodane jako last-line-of-defence. Plugin manual-review release-script nie jest już dostarczany. Synchronizacja boilerplate'u audit-driven z pozostałymi adapterami krobi. Korekcja js-controller: było >=7.0.0, przywrócono do repochecker-recommended >=6.0.11 (Źródło: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker podniesione do ^7.1.1.",
+        "uk": "Process-level обробники unhandledRejection/uncaughtException додано як last-line-of-defence. Manual-review release-script plugin більше не постачається. Audit-керована синхронізація boilerplate з іншими krobi-адаптерами. js-controller-корекція: було >=7.0.0, відновлено на repochecker-recommended >=6.0.11 (Джерело: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker оновлено до ^7.1.1.",
+        "zh-cn": "新增进程级 unhandledRejection/uncaughtException 处理器作为 last-line-of-defence。manual-review release-script 插件不再随包发布。与其他 krobi 适配器进行 audit 驱动的 boilerplate 同步。js-controller 更正：从 >=7.0.0 恢复为 repochecker 推荐的 >=6.0.11（来源：ioBroker.repochecker/lib/M1000_IOPackageJson.js）。@types/iobroker 升级至 ^7.1.1。"
+      },
       "0.6.4": {
         "en": "Proactive sync with parcelapp v0.2.14 learnings: tsconfig.test.json emits to build-test/ (prevents build/src + build/test duplicates), wrap async onReady and onStateChange with .catch(), declare pairingIp as instance object (11 languages) instead of dynamic creation in onReady",
         "de": "Proaktive Übernahme der parcelapp v0.2.14 Learnings: tsconfig.test.json schreibt nach build-test/ (verhindert build/src + build/test Duplikate), async onReady und onStateChange mit .catch() gehärtet, pairingIp als instance object deklariert (11 Sprachen) statt dynamisch in onReady",
@@ -80,19 +93,6 @@
         "pl": "Przywrócono standardowe testy GitHub, usunięto CHANGELOG.md, dodano referencję FORBIDDEN_CHARS",
         "uk": "Відновлено стандартні тести GitHub, видалено CHANGELOG.md, додано посилання на FORBIDDEN_CHARS",
         "zh-cn": "恢复标准GitHub测试，删除CHANGELOG.md，添加FORBIDDEN_CHARS引用"
-      },
-      "0.5.0": {
-        "en": "Robust reconnect: never give up after WiFi loss, periodic mDNS IP recovery, only WebSocket controls online state",
-        "de": "Robuster Reconnect: nie aufgeben nach WLAN-Ausfall, periodische mDNS IP-Suche, nur WebSocket steuert Online-Status",
-        "ru": "Надежное переподключение: не сдаваться после потери WiFi, периодический mDNS поиск IP, только WebSocket управляет статусом",
-        "pt": "Reconexão robusta: nunca desistir após perda de WiFi, recuperação periódica de IP via mDNS, apenas WebSocket controla estado online",
-        "nl": "Robuuste herverbinding: nooit opgeven na WiFi-verlies, periodieke mDNS IP-herstel, alleen WebSocket bepaalt online-status",
-        "fr": "Reconnexion robuste: ne jamais abandonner après perte WiFi, récupération IP mDNS périodique, seul WebSocket contrôle le statut en ligne",
-        "it": "Riconnessione robusta: mai arrendersi dopo perdita WiFi, recupero IP mDNS periodico, solo WebSocket controlla lo stato online",
-        "es": "Reconexión robusta: nunca rendirse tras pérdida de WiFi, recuperación IP mDNS periódica, solo WebSocket controla estado online",
-        "pl": "Niezawodne ponowne połączenie: nigdy nie rezygnować po utracie WiFi, okresowe odzyskiwanie IP przez mDNS, tylko WebSocket kontroluje status online",
-        "uk": "Надійне перепідключення: ніколи не здаватися після втрати WiFi, періодичне відновлення IP через mDNS, тільки WebSocket керує онлайн-статусом",
-        "zh-cn": "稳健重连：WiFi丢失后永不放弃，定期mDNS IP恢复，仅WebSocket控制在线状态"
       }
     },
     "titleLang": {
