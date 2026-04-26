@@ -62,6 +62,8 @@ class HomeWizard extends utils.Adapter {
   private isPairing = false;
   private pairingManualIp = "";
   private discoveredDuringPairing: DiscoveredDevice[] = [];
+  private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
+  private uncaughtExceptionHandler: ((err: Error) => void) | null = null;
 
   /** @param options Adapter options */
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
@@ -79,6 +81,18 @@ class HomeWizard extends utils.Adapter {
       );
     });
     this.on("unload", (callback) => this.onUnload(callback));
+
+    // Last-line-of-defence against unhandled rejections / sync throws from
+    // fire-and-forget paths. The per-handler wrappers cover documented async
+    // paths; this catches anything that slips past during refactors.
+    this.unhandledRejectionHandler = (reason: unknown) => {
+      this.log.error(`Unhandled rejection: ${errText(reason)}`);
+    };
+    this.uncaughtExceptionHandler = (err: Error) => {
+      this.log.error(`Uncaught exception: ${err.message}`);
+    };
+    process.on("unhandledRejection", this.unhandledRejectionHandler);
+    process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
 
   /** Adapter started */
@@ -263,6 +277,16 @@ class HomeWizard extends utils.Adapter {
         }
       }
       this.connections.clear();
+
+      // Detach process-level last-line-of-defence handlers
+      if (this.unhandledRejectionHandler) {
+        process.off("unhandledRejection", this.unhandledRejectionHandler);
+        this.unhandledRejectionHandler = null;
+      }
+      if (this.uncaughtExceptionHandler) {
+        process.off("uncaughtException", this.uncaughtExceptionHandler);
+        this.uncaughtExceptionHandler = null;
+      }
 
       void this.setState("info.connection", { val: false, ack: true });
     } finally {

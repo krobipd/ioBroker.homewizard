@@ -54,6 +54,8 @@ class HomeWizard extends utils.Adapter {
   isPairing = false;
   pairingManualIp = "";
   discoveredDuringPairing = [];
+  unhandledRejectionHandler = null;
+  uncaughtExceptionHandler = null;
   /** @param options Adapter options */
   constructor(options = {}) {
     super({ ...options, name: "homewizard" });
@@ -68,6 +70,14 @@ class HomeWizard extends utils.Adapter {
       );
     });
     this.on("unload", (callback) => this.onUnload(callback));
+    this.unhandledRejectionHandler = (reason) => {
+      this.log.error(`Unhandled rejection: ${errText(reason)}`);
+    };
+    this.uncaughtExceptionHandler = (err) => {
+      this.log.error(`Uncaught exception: ${err.message}`);
+    };
+    process.on("unhandledRejection", this.unhandledRejectionHandler);
+    process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
   /** Adapter started */
   async onReady() {
@@ -218,6 +228,14 @@ class HomeWizard extends utils.Adapter {
         }
       }
       this.connections.clear();
+      if (this.unhandledRejectionHandler) {
+        process.off("unhandledRejection", this.unhandledRejectionHandler);
+        this.unhandledRejectionHandler = null;
+      }
+      if (this.uncaughtExceptionHandler) {
+        process.off("uncaughtException", this.uncaughtExceptionHandler);
+        this.uncaughtExceptionHandler = null;
+      }
       void this.setState("info.connection", { val: false, ack: true });
     } finally {
       callback();
