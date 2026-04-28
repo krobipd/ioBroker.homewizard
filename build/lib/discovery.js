@@ -53,18 +53,13 @@ class HomeWizardDiscovery {
     this.stop();
     this.bonjour = new import_bonjour_service.default();
     this.log.debug("mDNS: browsing for _homewizard._tcp (v2)");
-    this.browser = this.bonjour.find(
-      { type: "homewizard", protocol: "tcp" },
-      (service) => {
-        const device = this.parseService(service);
-        if (device) {
-          this.log.debug(
-            `mDNS: found ${device.name} (${device.productType}) at ${device.ip}`
-          );
-          callback(device);
-        }
+    this.browser = this.bonjour.find({ type: "homewizard", protocol: "tcp" }, (service) => {
+      const device = this.parseService(service);
+      if (device) {
+        this.log.debug(`mDNS: found ${device.name} (${device.productType}) at ${device.ip}`);
+        callback(device);
       }
-    );
+    });
   }
   /** Stop scanning */
   stop() {

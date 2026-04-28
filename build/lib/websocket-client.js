@@ -104,9 +104,7 @@ class HomeWizardWebSocket {
       return;
     }
     if (!(0, import_coerce.isPlainObject)(parsed)) {
-      this.callbacks.log.warn(
-        `WS non-object message: ${text.substring(0, 200)}`
-      );
+      this.callbacks.log.warn(`WS non-object message: ${text.substring(0, 200)}`);
       return;
     }
     const type = parsed.type;

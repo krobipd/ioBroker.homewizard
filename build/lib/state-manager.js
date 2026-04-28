@@ -522,50 +522,12 @@ class StateManager {
       common: { name: "Device Information" },
       native: {}
     });
-    await this.createState(
-      `${prefix}.info.productName`,
-      "Product name",
-      "string",
-      "text",
-      false
-    );
-    await this.createState(
-      `${prefix}.info.productType`,
-      "Product type",
-      "string",
-      "text",
-      false
-    );
-    await this.createState(
-      `${prefix}.info.firmware`,
-      "Firmware version",
-      "string",
-      "text",
-      false
-    );
-    await this.createState(
-      `${prefix}.info.connected`,
-      "Device connected",
-      "boolean",
-      "indicator.reachable",
-      false
-    );
-    await this.createState(
-      `${prefix}.info.wifi_rssi_db`,
-      "WiFi signal strength",
-      "number",
-      "value",
-      false,
-      "dB"
-    );
-    await this.createState(
-      `${prefix}.info.uptime_s`,
-      "Uptime",
-      "number",
-      "value",
-      false,
-      "s"
-    );
+    await this.createState(`${prefix}.info.productName`, "Product name", "string", "text", false);
+    await this.createState(`${prefix}.info.productType`, "Product type", "string", "text", false);
+    await this.createState(`${prefix}.info.firmware`, "Firmware version", "string", "text", false);
+    await this.createState(`${prefix}.info.connected`, "Device connected", "boolean", "indicator.reachable", false);
+    await this.createState(`${prefix}.info.wifi_rssi_db`, "WiFi signal strength", "number", "value", false, "dB");
+    await this.createState(`${prefix}.info.uptime_s`, "Uptime", "number", "value", false, "s");
     await this.createButton(`${prefix}.remove`, "Remove device");
     await this.adapter.setStateAsync(`${prefix}.info.productName`, {
       val: config.productName,
@@ -603,14 +565,7 @@ class StateManager {
         coerced = (0, import_coerce.coerceString)(raw);
       }
       if (coerced !== null) {
-        await this.ensureAndSet(
-          `${mPrefix}.${def.id}`,
-          def.name,
-          def.type,
-          def.role,
-          coerced,
-          def.unit
-        );
+        await this.ensureAndSet(`${mPrefix}.${def.id}`, def.name, def.type, def.role, coerced, def.unit);
       }
     }
     const external = record.external;
@@ -643,32 +598,13 @@ class StateManager {
           native: {}
         });
         if (value !== null) {
-          await this.ensureAndSet(
-            `${extId}.value`,
-            "Value",
-            "number",
-            "value",
-            value,
-            unit != null ? unit : void 0
-          );
+          await this.ensureAndSet(`${extId}.value`, "Value", "number", "value", value, unit != null ? unit : void 0);
         }
         if (unit) {
-          await this.ensureAndSet(
-            `${extId}.unit`,
-            "Unit",
-            "string",
-            "text",
-            unit
-          );
+          await this.ensureAndSet(`${extId}.unit`, "Unit", "string", "text", unit);
         }
         if (timestamp) {
-          await this.ensureAndSet(
-            `${extId}.timestamp`,
-            "Timestamp",
-            "string",
-            "date",
-            timestamp
-          );
+          await this.ensureAndSet(`${extId}.timestamp`, "Timestamp", "string", "date", timestamp);
         }
       }
     }
@@ -687,25 +623,11 @@ class StateManager {
     const record = system;
     const rssi = (0, import_coerce.coerceFiniteNumber)(record.wifi_rssi_db);
     if (rssi !== null) {
-      await this.ensureAndSet(
-        `${prefix}.info.wifi_rssi_db`,
-        "WiFi signal strength",
-        "number",
-        "value",
-        rssi,
-        "dB"
-      );
+      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, "WiFi signal strength", "number", "value", rssi, "dB");
     }
     const uptime = (0, import_coerce.coerceFiniteNumber)(record.uptime_s);
     if (uptime !== null) {
-      await this.ensureAndSet(
-        `${prefix}.info.uptime_s`,
-        "Uptime",
-        "number",
-        "value",
-        uptime,
-        "s"
-      );
+      await this.ensureAndSet(`${prefix}.info.uptime_s`, "Uptime", "number", "value", uptime, "s");
     }
     await this.adapter.setObjectNotExistsAsync(`${prefix}.system`, {
       type: "channel",
@@ -749,10 +671,7 @@ class StateManager {
       );
     }
     await this.createButton(`${prefix}.system.reboot`, "Reboot device");
-    await this.createButton(
-      `${prefix}.system.identify`,
-      "Identify (blink LED)"
-    );
+    await this.createButton(`${prefix}.system.identify`, "Identify (blink LED)");
   }
   /**
    * Update battery control states
@@ -773,15 +692,7 @@ class StateManager {
     });
     const mode = (0, import_coerce.coerceString)(record.mode);
     if (mode) {
-      await this.ensureAndSet(
-        `${prefix}.battery.mode`,
-        "Battery mode",
-        "string",
-        "text",
-        mode,
-        void 0,
-        true
-      );
+      await this.ensureAndSet(`${prefix}.battery.mode`, "Battery mode", "string", "text", mode, void 0, true);
     }
     if (Array.isArray(record.permissions)) {
       await this.ensureAndSet(
@@ -833,14 +744,7 @@ class StateManager {
     for (const field of numberFields) {
       const coerced = (0, import_coerce.coerceFiniteNumber)(record[field.key]);
       if (coerced !== null) {
-        await this.ensureAndSet(
-          `${prefix}.battery.${field.id}`,
-          field.name,
-          "number",
-          field.role,
-          coerced,
-          field.unit
-        );
+        await this.ensureAndSet(`${prefix}.battery.${field.id}`, field.name, "number", field.role, coerced, field.unit);
       }
     }
   }

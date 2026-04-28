@@ -127,11 +127,7 @@ class HomeWizardClient {
             var _a;
             const data = Buffer.concat(chunks).toString();
             if (!res.statusCode || res.statusCode >= 400) {
-              const error = new HomeWizardApiError(
-                (_a = res.statusCode) != null ? _a : 0,
-                data,
-                `${method} ${path}`
-              );
+              const error = new HomeWizardApiError((_a = res.statusCode) != null ? _a : 0, data, `${method} ${path}`);
               reject(error);
               return;
             }
@@ -142,11 +138,7 @@ class HomeWizardClient {
             try {
               resolve(JSON.parse(data));
             } catch {
-              reject(
-                new Error(
-                  `Invalid JSON from ${method} ${path}: ${data.substring(0, 200)}`
-                )
-              );
+              reject(new Error(`Invalid JSON from ${method} ${path}: ${data.substring(0, 200)}`));
             }
           });
         }

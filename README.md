@@ -164,7 +164,7 @@ homewizard.0.
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 0.6.6 (2026-04-28)
 - Audit cleanup against the upstream `ioBroker.example/TypeScript` full standard:
   - Test setup migrated: tests now live next to source as `src/**/*.test.ts` and run directly via `ts-node/register`. Removed `tsconfig.test.json` + `build-test/`, added `test/mocharc.custom.json` + `test/mocha.setup.js` + `test/tsconfig.json` + `test/.eslintrc.json`
   - `@types/node` rolled back from `^25.6.0` to `^20.19.24` so type defs match `engines.node: ">=20"`
@@ -195,12 +195,6 @@ homewizard.0.
 - Fix onUnload: wrap in try/finally so callback always fires (prevents adapter hang on shutdown)
 - Optimize state creation hot path: use `setObjectNotExistsAsync` instead of `extendObjectAsync` (~50 fewer object writes per second per device)
 - Remove unnecessary `removeDeviceFromObject` wrapper (DRY)
-
-### 0.6.1 (2026-04-12)
-- Code cleanup: extract testable connection-utils module (classifyError, createDeviceConnection)
-- Add 20 unit tests for error classification, connection factory, and unstable threshold
-- Fix ESLint warnings, remove unused devDependencies, remove duplicate scripts
-- Add `@typescript-eslint/no-floating-promises` lint rule
 
 ## Support
 

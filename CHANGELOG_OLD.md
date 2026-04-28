@@ -1,4 +1,10 @@
 # Older Changes
+## 0.6.1 (2026-04-12)
+- Code cleanup: extract testable connection-utils module (classifyError, createDeviceConnection)
+- Add 20 unit tests for error classification, connection factory, and unstable threshold
+- Fix ESLint warnings, remove unused devDependencies, remove duplicate scripts
+- Add `@typescript-eslint/no-floating-promises` lint rule
+
 ## 0.6.0 (2026-04-11)
 - Adaptive unstable mode: auto-detect devices with bad WiFi (e.g. P1 meter in basement)
 - Faster reconnect for unstable devices (60s max backoff instead of 5 min)
