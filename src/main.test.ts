@@ -3,9 +3,9 @@ import {
   classifyError,
   createDeviceConnection,
   UNSTABLE_DISCONNECT_THRESHOLD,
-} from "../src/lib/connection-utils";
-import { HomeWizardApiError } from "../src/lib/homewizard-client";
-import type { DeviceConfig } from "../src/lib/types";
+} from "./lib/connection-utils";
+import { HomeWizardApiError } from "./lib/homewizard-client";
+import type { DeviceConfig } from "./lib/types";
 
 const testConfig: DeviceConfig = {
   token: "test",

@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import { HomeWizardDiscovery } from "../src/lib/discovery";
-import type { DiscoveredDevice } from "../src/lib/types";
+import { HomeWizardDiscovery } from "./discovery";
+import type { DiscoveredDevice } from "./types";
 
 interface LogEntry {
     level: string;

@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { HomeWizardApiError } from "../src/lib/homewizard-client";
+import { HomeWizardApiError } from "./homewizard-client";
 
 describe("HomeWizardApiError", () => {
     describe("JSON error body", () => {

@@ -1,18 +1,9 @@
 import * as utils from "@iobroker/adapter-core";
-import {
-  classifyError,
-  createDeviceConnection,
-  UNSTABLE_DISCONNECT_THRESHOLD,
-} from "./lib/connection-utils";
+import { classifyError, createDeviceConnection, UNSTABLE_DISCONNECT_THRESHOLD } from "./lib/connection-utils";
 import { HomeWizardDiscovery } from "./lib/discovery";
 import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
 import { StateManager } from "./lib/state-manager";
-import type {
-  DeviceConfig,
-  DeviceConnection,
-  DiscoveredDevice,
-  Measurement,
-} from "./lib/types";
+import type { DeviceConfig, DeviceConnection, DiscoveredDevice, Measurement } from "./lib/types";
 import { HomeWizardWebSocket } from "./lib/websocket-client";
 
 /** Pairing timeout in milliseconds (60 seconds) */
@@ -71,16 +62,12 @@ class HomeWizard extends utils.Adapter {
     // Wrap async handlers with .catch() so a rejection can never become an
     // unhandled promise rejection (→ SIGKILL → js-controller restart loop).
     this.on("ready", () => {
-      this.onReady().catch((err: unknown) =>
-        this.log.error(`onReady failed: ${errText(err)}`),
-      );
+      this.onReady().catch((err: unknown) => this.log.error(`onReady failed: ${errText(err)}`));
     });
     this.on("stateChange", (id, state) => {
-      this.onStateChange(id, state).catch((err: unknown) =>
-        this.log.error(`stateChange failed: ${errText(err)}`),
-      );
+      this.onStateChange(id, state).catch((err: unknown) => this.log.error(`stateChange failed: ${errText(err)}`));
     });
-    this.on("unload", (callback) => this.onUnload(callback));
+    this.on("unload", callback => this.onUnload(callback));
 
     // Last-line-of-defence against unhandled rejections / sync throws from
     // fire-and-forget paths. The per-handler wrappers cover documented async
@@ -118,9 +105,7 @@ class HomeWizard extends utils.Adapter {
     // Load devices from device objects (not from adapter config)
     const devices = await this.loadDevicesFromObjects();
     if (devices.length === 0) {
-      this.log.info(
-        "No devices configured — set 'startPairing' to true to add a device",
-      );
+      this.log.info("No devices configured — set 'startPairing' to true to add a device");
       await this.setStateAsync("info.connection", { val: false, ack: true });
     }
 
@@ -155,13 +140,9 @@ class HomeWizard extends utils.Adapter {
     const devices: DeviceConfig[] = [];
 
     // Also migrate from old adapter config if devices exist there
-    const oldDevices: DeviceConfig[] =
-      ((this.config as Record<string, unknown>).devices as DeviceConfig[]) ||
-      [];
+    const oldDevices: DeviceConfig[] = ((this.config as Record<string, unknown>).devices as DeviceConfig[]) || [];
     if (oldDevices.length > 0) {
-      this.log.debug(
-        `Migrating ${oldDevices.length} device(s) from adapter config to device objects`,
-      );
+      this.log.debug(`Migrating ${oldDevices.length} device(s) from adapter config to device objects`);
       for (const device of oldDevices) {
         await this.saveDeviceToObject(device);
       }
@@ -225,17 +206,13 @@ class HomeWizard extends utils.Adapter {
    */
   private onDeviceDiscovered(discovered: DiscoveredDevice): void {
     // Skip already paired devices
-    const existing = Array.from(this.connections.values()).find(
-      (c) => c.config.serial === discovered.serial,
-    );
+    const existing = Array.from(this.connections.values()).find(c => c.config.serial === discovered.serial);
     if (existing) {
       return;
     }
 
     // Skip duplicates
-    if (
-      this.discoveredDuringPairing.find((d) => d.serial === discovered.serial)
-    ) {
+    if (this.discoveredDuringPairing.find(d => d.serial === discovered.serial)) {
       return;
     }
 
@@ -300,10 +277,7 @@ class HomeWizard extends utils.Adapter {
    * @param id State ID
    * @param state State value
    */
-  private async onStateChange(
-    id: string,
-    state: ioBroker.State | null | undefined,
-  ): Promise<void> {
+  private async onStateChange(id: string, state: ioBroker.State | null | undefined): Promise<void> {
     if (!state || state.ack) {
       return;
     }
@@ -360,9 +334,7 @@ class HomeWizard extends utils.Adapter {
         await this.setStateAsync(id, { val: state.val, ack: true });
       }
     } catch (err) {
-      this.log.warn(
-        `Failed to set ${id}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      this.log.warn(`Failed to set ${id}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -407,7 +379,7 @@ class HomeWizard extends utils.Adapter {
       if (!this.discovery) {
         this.discovery = new HomeWizardDiscovery(this.log);
       }
-      this.discovery.start((discovered) => {
+      this.discovery.start(discovered => {
         this.onDeviceDiscovered(discovered);
       });
     }
@@ -420,9 +392,7 @@ class HomeWizard extends utils.Adapter {
     // Timeout pairing
     this.pairingTimer = this.setTimeout(() => {
       this.stopPairing();
-      this.log.info(
-        "Pairing mode automatically disabled after 60 seconds timeout",
-      );
+      this.log.info("Pairing mode automatically disabled after 60 seconds timeout");
     }, PAIRING_TIMEOUT_MS);
   }
 
@@ -461,9 +431,7 @@ class HomeWizard extends utils.Adapter {
         void this.initDevice(conn);
 
         // Remove from discovery list
-        this.discoveredDuringPairing = this.discoveredDuringPairing.filter(
-          (d) => d.serial !== info.serial,
-        );
+        this.discoveredDuringPairing = this.discoveredDuringPairing.filter(d => d.serial !== info.serial);
 
         this.stopPairing();
         this.updateGlobalConnection();
@@ -473,9 +441,7 @@ class HomeWizard extends utils.Adapter {
         if (err instanceof HomeWizardApiError && err.statusCode === 403) {
           continue;
         }
-        this.log.debug(
-          `Pairing poll error for ${device.ip}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        this.log.debug(`Pairing poll error for ${device.ip}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }
@@ -512,7 +478,7 @@ class HomeWizard extends utils.Adapter {
     this.log.info("Device unreachable — searching for new IP via mDNS");
 
     this.discovery = new HomeWizardDiscovery(this.log);
-    this.discovery.start((discovered) => {
+    this.discovery.start(discovered => {
       // Match against disconnected devices
       for (const conn of this.connections.values()) {
         if (conn.config.serial !== discovered.serial) {
@@ -522,9 +488,7 @@ class HomeWizard extends utils.Adapter {
           return; // Same IP or already connected
         }
 
-        this.log.info(
-          `${conn.config.productName}: found at new IP ${discovered.ip} (was ${conn.ip})`,
-        );
+        this.log.info(`${conn.config.productName}: found at new IP ${discovered.ip} (was ${conn.ip})`);
 
         // Update IP and persist — reset stability (new network conditions)
         conn.ip = discovered.ip;
@@ -641,9 +605,7 @@ class HomeWizard extends utils.Adapter {
 
         // Stop IP recovery if all devices are connected
         if (this.discovery && !this.isPairing) {
-          const allConnected = Array.from(this.connections.values()).every(
-            (c) => c.wsAuthenticated,
-          );
+          const allConnected = Array.from(this.connections.values()).every(c => c.wsAuthenticated);
           if (allConnected) {
             this.stopIpRecovery();
           }
@@ -652,15 +614,11 @@ class HomeWizard extends utils.Adapter {
         // Log restoration if we had errors before
         if (conn.lastErrorCode) {
           const mode = this.isUnstable(conn) ? " (unstable mode)" : "";
-          this.log.info(
-            `${conn.config.productName}: connection restored${mode}`,
-          );
+          this.log.info(`${conn.config.productName}: connection restored${mode}`);
           conn.lastErrorCode = "";
         }
 
-        this.log.debug(
-          `WebSocket connected to ${conn.config.productName} (${conn.ip})`,
-        );
+        this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
       },
       onDisconnected: (error?: Error) => {
         // Track connection stability
@@ -669,16 +627,12 @@ class HomeWizard extends utils.Adapter {
           if (duration < STABLE_THRESHOLD_MS) {
             conn.recentDisconnects++;
             if (conn.recentDisconnects === UNSTABLE_DISCONNECT_THRESHOLD) {
-              this.log.info(
-                `${conn.config.productName}: unstable connection detected — using faster reconnect`,
-              );
+              this.log.info(`${conn.config.productName}: unstable connection detected — using faster reconnect`);
             }
           } else {
             // Was stable — reset counter
             if (conn.recentDisconnects >= UNSTABLE_DISCONNECT_THRESHOLD) {
-              this.log.info(
-                `${conn.config.productName}: connection stabilized — using normal reconnect`,
-              );
+              this.log.info(`${conn.config.productName}: connection stabilized — using normal reconnect`);
             }
             conn.recentDisconnects = 0;
           }
@@ -694,15 +648,10 @@ class HomeWizard extends utils.Adapter {
         }
 
         // Check if this was an auth failure
-        if (
-          error instanceof HomeWizardApiError &&
-          error.errorCode === "user:unauthorized"
-        ) {
+        if (error instanceof HomeWizardApiError && error.errorCode === "user:unauthorized") {
           conn.authFailCount++;
           if (conn.authFailCount >= MAX_AUTH_FAILURES) {
-            this.log.warn(
-              `${conn.config.productName}: token invalid — re-pair device to fix`,
-            );
+            this.log.warn(`${conn.config.productName}: token invalid — re-pair device to fix`);
             return;
           }
         }
@@ -712,16 +661,9 @@ class HomeWizard extends utils.Adapter {
 
         // Schedule reconnect with exponential backoff (faster for unstable devices)
         conn.wsFailCount++;
-        const maxDelay = this.isUnstable(conn)
-          ? WS_RECONNECT_MAX_UNSTABLE_MS
-          : WS_RECONNECT_MAX_MS;
-        const delay = Math.min(
-          WS_RECONNECT_BASE_MS * Math.pow(2, conn.wsFailCount - 1),
-          maxDelay,
-        );
-        this.log.debug(
-          `${key}: WS reconnect in ${delay / 1000}s (attempt ${conn.wsFailCount})`,
-        );
+        const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
+        const delay = Math.min(WS_RECONNECT_BASE_MS * Math.pow(2, conn.wsFailCount - 1), maxDelay);
+        this.log.debug(`${key}: WS reconnect in ${delay / 1000}s (attempt ${conn.wsFailCount})`);
 
         conn.reconnectTimer = this.setTimeout(() => {
           conn.reconnectTimer = undefined;
@@ -759,15 +701,10 @@ class HomeWizard extends utils.Adapter {
         this.logDeviceError(conn, "rest", err);
 
         // Treat auth failures as a hard stop — token is bad, re-pair required.
-        if (
-          err instanceof HomeWizardApiError &&
-          err.errorCode === "user:unauthorized"
-        ) {
+        if (err instanceof HomeWizardApiError && err.errorCode === "user:unauthorized") {
           conn.authFailCount++;
           if (conn.authFailCount >= MAX_AUTH_FAILURES) {
-            this.log.warn(
-              `${conn.config.productName}: token invalid — re-pair device to fix`,
-            );
+            this.log.warn(`${conn.config.productName}: token invalid — re-pair device to fix`);
             if (conn.pollTimer) {
               this.clearInterval(conn.pollTimer);
               conn.pollTimer = undefined;
@@ -832,9 +769,7 @@ class HomeWizard extends utils.Adapter {
 
   /** Update global info.connection based on all device states */
   private updateGlobalConnection(): void {
-    const anyConnected = Array.from(this.connections.values()).some(
-      (c) => c.wsAuthenticated,
-    );
+    const anyConnected = Array.from(this.connections.values()).some(c => c.wsAuthenticated);
     void this.setStateAsync("info.connection", {
       val: anyConnected,
       ack: true,
@@ -853,9 +788,7 @@ class HomeWizard extends utils.Adapter {
     }
 
     const key = this.stateManager.devicePrefix(conn.config);
-    this.log.info(
-      `Removing device ${conn.config.productName} (${conn.config.serial})`,
-    );
+    this.log.info(`Removing device ${conn.config.productName} (${conn.config.serial})`);
 
     // Disconnect
     conn.wsClient?.close();
@@ -878,9 +811,7 @@ class HomeWizard extends utils.Adapter {
    *
    * @param stateId Full state ID
    */
-  private findConnectionForState(
-    stateId: string,
-  ): DeviceConnection | undefined {
+  private findConnectionForState(stateId: string): DeviceConnection | undefined {
     const localId = stateId.replace(`${this.namespace}.`, "");
     for (const conn of this.connections.values()) {
       const prefix = this.stateManager.devicePrefix(conn.config);
@@ -909,34 +840,23 @@ class HomeWizard extends utils.Adapter {
    * @param context Error context (for debug messages only)
    * @param err Error object
    */
-  private logDeviceError(
-    conn: DeviceConnection,
-    context: string,
-    err: unknown,
-  ): void {
+  private logDeviceError(conn: DeviceConnection, context: string, err: unknown): void {
     const errorCode = classifyError(err);
     const isRepeat = errorCode === conn.lastErrorCode;
     conn.lastErrorCode = errorCode;
 
     if (isRepeat) {
-      this.log.debug(
-        `${conn.config.productName} ${context}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      this.log.debug(`${conn.config.productName} ${context}: ${err instanceof Error ? err.message : String(err)}`);
     } else if (errorCode === "NETWORK") {
-      this.log.warn(
-        `${conn.config.productName}: device unreachable — will keep retrying`,
-      );
+      this.log.warn(`${conn.config.productName}: device unreachable — will keep retrying`);
     } else {
-      this.log.warn(
-        `${conn.config.productName} ${context}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      this.log.warn(`${conn.config.productName} ${context}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }
 
 if (require.main !== module) {
-  module.exports = (options: Partial<utils.AdapterOptions> | undefined) =>
-    new HomeWizard(options);
+  module.exports = (options: Partial<utils.AdapterOptions> | undefined) => new HomeWizard(options);
 } else {
   (() => new HomeWizard())();
 }

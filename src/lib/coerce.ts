@@ -51,8 +51,6 @@ export function coerceBoolean(value: unknown): boolean | null {
  *
  * @param value Unknown external value
  */
-export function isPlainObject(
-  value: unknown,
-): value is Record<string, unknown> {
+export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

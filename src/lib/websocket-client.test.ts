@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { HomeWizardWebSocket, type WsCallbacks } from "../src/lib/websocket-client";
+import { HomeWizardWebSocket, type WsCallbacks } from "./websocket-client";
 
 interface LogEntry {
     level: string;

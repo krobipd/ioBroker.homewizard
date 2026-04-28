@@ -111,9 +111,7 @@ export class HomeWizardWebSocket {
     }
 
     if (!isPlainObject(parsed)) {
-      this.callbacks.log.warn(
-        `WS non-object message: ${text.substring(0, 200)}`,
-      );
+      this.callbacks.log.warn(`WS non-object message: ${text.substring(0, 200)}`);
       return;
     }
 

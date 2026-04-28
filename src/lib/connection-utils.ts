@@ -10,10 +10,7 @@ export const UNSTABLE_DISCONNECT_THRESHOLD = 3;
  * @param config device configuration
  * @param ip device IP address
  */
-export function createDeviceConnection(
-  config: DeviceConfig,
-  ip: string,
-): DeviceConnection {
+export function createDeviceConnection(config: DeviceConfig, ip: string): DeviceConnection {
   return {
     config,
     ip,

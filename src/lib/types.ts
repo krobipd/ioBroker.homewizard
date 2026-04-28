@@ -177,12 +177,7 @@ export interface ExternalMeter {
   /** Unique meter identifier */
   unique_id: string;
   /** Meter type */
-  type:
-    | "gas_meter"
-    | "heat_meter"
-    | "warm_water_meter"
-    | "water_meter"
-    | "inlet_heat_meter";
+  type: "gas_meter" | "heat_meter" | "warm_water_meter" | "water_meter" | "inlet_heat_meter";
   /** Last reading timestamp */
   timestamp: string;
   /** Meter reading value */

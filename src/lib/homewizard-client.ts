@@ -1,12 +1,6 @@
 import * as https from "node:https";
 import { HW_AGENT } from "./cacert";
-import type {
-  BatteryControl,
-  DeviceInfo,
-  Measurement,
-  PairingResponse,
-  SystemInfo,
-} from "./types";
+import type { BatteryControl, DeviceInfo, Measurement, PairingResponse, SystemInfo } from "./types";
 
 /** HTTPS client for HomeWizard API v2 */
 export class HomeWizardClient {
@@ -73,9 +67,7 @@ export class HomeWizardClient {
    *
    * @param settings Battery control settings to update
    */
-  async setBatteries(
-    settings: Partial<BatteryControl>,
-  ): Promise<BatteryControl> {
+  async setBatteries(settings: Partial<BatteryControl>): Promise<BatteryControl> {
     return this.request<BatteryControl>("PUT", "/api/batteries", settings);
   }
 
@@ -109,18 +101,14 @@ export class HomeWizardClient {
           agent: HW_AGENT,
           timeout: 10_000,
         },
-        (res) => {
+        res => {
           const chunks: Buffer[] = [];
           res.on("error", reject);
           res.on("data", (chunk: Buffer) => chunks.push(chunk));
           res.on("end", () => {
             const data = Buffer.concat(chunks).toString();
             if (!res.statusCode || res.statusCode >= 400) {
-              const error = new HomeWizardApiError(
-                res.statusCode ?? 0,
-                data,
-                `${method} ${path}`,
-              );
+              const error = new HomeWizardApiError(res.statusCode ?? 0, data, `${method} ${path}`);
               reject(error);
               return;
             }
@@ -131,11 +119,7 @@ export class HomeWizardClient {
             try {
               resolve(JSON.parse(data) as T);
             } catch {
-              reject(
-                new Error(
-                  `Invalid JSON from ${method} ${path}: ${data.substring(0, 200)}`,
-                ),
-              );
+              reject(new Error(`Invalid JSON from ${method} ${path}: ${data.substring(0, 200)}`));
             }
           });
         },

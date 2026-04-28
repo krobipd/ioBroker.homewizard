@@ -21,10 +21,7 @@ export class HomeWizardDiscovery {
    * @param log.debug Debug log function
    * @param log.warn Warning log function
    */
-  constructor(log: {
-    debug: (msg: string) => void;
-    warn: (msg: string) => void;
-  }) {
+  constructor(log: { debug: (msg: string) => void; warn: (msg: string) => void }) {
     this.log = log;
   }
 
@@ -39,18 +36,13 @@ export class HomeWizardDiscovery {
     this.bonjour = new Bonjour();
     this.log.debug("mDNS: browsing for _homewizard._tcp (v2)");
 
-    this.browser = this.bonjour.find(
-      { type: "homewizard", protocol: "tcp" },
-      (service: Service) => {
-        const device = this.parseService(service);
-        if (device) {
-          this.log.debug(
-            `mDNS: found ${device.name} (${device.productType}) at ${device.ip}`,
-          );
-          callback(device);
-        }
-      },
-    );
+    this.browser = this.bonjour.find({ type: "homewizard", protocol: "tcp" }, (service: Service) => {
+      const device = this.parseService(service);
+      if (device) {
+        this.log.debug(`mDNS: found ${device.name} (${device.productType}) at ${device.ip}`);
+        callback(device);
+      }
+    });
   }
 
   /** Stop scanning */
@@ -72,7 +64,7 @@ export class HomeWizardDiscovery {
    */
   private parseService(service: Service): DiscoveredDevice | null {
     // IPv4 address
-    const ip = service.addresses?.find((addr) => addr.includes("."));
+    const ip = service.addresses?.find(addr => addr.includes("."));
     if (!ip) {
       this.log.debug(`mDNS: no IPv4 address for ${service.name}`);
       return null;

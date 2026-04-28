@@ -1,16 +1,6 @@
 import type * as utils from "@iobroker/adapter-core";
-import {
-  coerceBoolean,
-  coerceFiniteNumber,
-  coerceString,
-  isPlainObject,
-} from "./coerce";
-import type {
-  BatteryControl,
-  DeviceConfig,
-  Measurement,
-  SystemInfo,
-} from "./types";
+import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject } from "./coerce";
+import type { BatteryControl, DeviceConfig, Measurement, SystemInfo } from "./types";
 
 /** Measurement field to state definition mapping */
 interface MeasurementStateDef {
@@ -541,50 +531,12 @@ export class StateManager {
       native: {},
     });
 
-    await this.createState(
-      `${prefix}.info.productName`,
-      "Product name",
-      "string",
-      "text",
-      false,
-    );
-    await this.createState(
-      `${prefix}.info.productType`,
-      "Product type",
-      "string",
-      "text",
-      false,
-    );
-    await this.createState(
-      `${prefix}.info.firmware`,
-      "Firmware version",
-      "string",
-      "text",
-      false,
-    );
-    await this.createState(
-      `${prefix}.info.connected`,
-      "Device connected",
-      "boolean",
-      "indicator.reachable",
-      false,
-    );
-    await this.createState(
-      `${prefix}.info.wifi_rssi_db`,
-      "WiFi signal strength",
-      "number",
-      "value",
-      false,
-      "dB",
-    );
-    await this.createState(
-      `${prefix}.info.uptime_s`,
-      "Uptime",
-      "number",
-      "value",
-      false,
-      "s",
-    );
+    await this.createState(`${prefix}.info.productName`, "Product name", "string", "text", false);
+    await this.createState(`${prefix}.info.productType`, "Product type", "string", "text", false);
+    await this.createState(`${prefix}.info.firmware`, "Firmware version", "string", "text", false);
+    await this.createState(`${prefix}.info.connected`, "Device connected", "boolean", "indicator.reachable", false);
+    await this.createState(`${prefix}.info.wifi_rssi_db`, "WiFi signal strength", "number", "value", false, "dB");
+    await this.createState(`${prefix}.info.uptime_s`, "Uptime", "number", "value", false, "s");
 
     // Remove device button
     await this.createButton(`${prefix}.remove`, "Remove device");
@@ -606,10 +558,7 @@ export class StateManager {
    * @param config Device configuration
    * @param data Measurement data
    */
-  async updateMeasurement(
-    config: DeviceConfig,
-    data: Measurement,
-  ): Promise<void> {
+  async updateMeasurement(config: DeviceConfig, data: Measurement): Promise<void> {
     if (!isPlainObject(data)) {
       return;
     }
@@ -634,14 +583,7 @@ export class StateManager {
         coerced = coerceString(raw);
       }
       if (coerced !== null) {
-        await this.ensureAndSet(
-          `${mPrefix}.${def.id}`,
-          def.name,
-          def.type,
-          def.role,
-          coerced,
-          def.unit,
-        );
+        await this.ensureAndSet(`${mPrefix}.${def.id}`, def.name, def.type, def.role, coerced, def.unit);
       }
     }
 
@@ -680,32 +622,13 @@ export class StateManager {
           native: {},
         });
         if (value !== null) {
-          await this.ensureAndSet(
-            `${extId}.value`,
-            "Value",
-            "number",
-            "value",
-            value,
-            unit ?? undefined,
-          );
+          await this.ensureAndSet(`${extId}.value`, "Value", "number", "value", value, unit ?? undefined);
         }
         if (unit) {
-          await this.ensureAndSet(
-            `${extId}.unit`,
-            "Unit",
-            "string",
-            "text",
-            unit,
-          );
+          await this.ensureAndSet(`${extId}.unit`, "Unit", "string", "text", unit);
         }
         if (timestamp) {
-          await this.ensureAndSet(
-            `${extId}.timestamp`,
-            "Timestamp",
-            "string",
-            "date",
-            timestamp,
-          );
+          await this.ensureAndSet(`${extId}.timestamp`, "Timestamp", "string", "date", timestamp);
         }
       }
     }
@@ -727,25 +650,11 @@ export class StateManager {
     // WiFi/uptime in info channel
     const rssi = coerceFiniteNumber(record.wifi_rssi_db);
     if (rssi !== null) {
-      await this.ensureAndSet(
-        `${prefix}.info.wifi_rssi_db`,
-        "WiFi signal strength",
-        "number",
-        "value",
-        rssi,
-        "dB",
-      );
+      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, "WiFi signal strength", "number", "value", rssi, "dB");
     }
     const uptime = coerceFiniteNumber(record.uptime_s);
     if (uptime !== null) {
-      await this.ensureAndSet(
-        `${prefix}.info.uptime_s`,
-        "Uptime",
-        "number",
-        "value",
-        uptime,
-        "s",
-      );
+      await this.ensureAndSet(`${prefix}.info.uptime_s`, "Uptime", "number", "value", uptime, "s");
     }
 
     // System control channel
@@ -795,10 +704,7 @@ export class StateManager {
 
     // Action buttons
     await this.createButton(`${prefix}.system.reboot`, "Reboot device");
-    await this.createButton(
-      `${prefix}.system.identify`,
-      "Identify (blink LED)",
-    );
+    await this.createButton(`${prefix}.system.identify`, "Identify (blink LED)");
   }
 
   /**
@@ -807,10 +713,7 @@ export class StateManager {
    * @param config Device configuration
    * @param battery Battery control data
    */
-  async updateBattery(
-    config: DeviceConfig,
-    battery: BatteryControl,
-  ): Promise<void> {
+  async updateBattery(config: DeviceConfig, battery: BatteryControl): Promise<void> {
     if (!isPlainObject(battery)) {
       return;
     }
@@ -825,15 +728,7 @@ export class StateManager {
 
     const mode = coerceString(record.mode);
     if (mode) {
-      await this.ensureAndSet(
-        `${prefix}.battery.mode`,
-        "Battery mode",
-        "string",
-        "text",
-        mode,
-        undefined,
-        true,
-      );
+      await this.ensureAndSet(`${prefix}.battery.mode`, "Battery mode", "string", "text", mode, undefined, true);
     }
     if (Array.isArray(record.permissions)) {
       await this.ensureAndSet(
@@ -892,14 +787,7 @@ export class StateManager {
     for (const field of numberFields) {
       const coerced = coerceFiniteNumber(record[field.key]);
       if (coerced !== null) {
-        await this.ensureAndSet(
-          `${prefix}.battery.${field.id}`,
-          field.name,
-          "number",
-          field.role,
-          coerced,
-          field.unit,
-        );
+        await this.ensureAndSet(`${prefix}.battery.${field.id}`, field.name, "number", field.role, coerced, field.unit);
       }
     }
   }
@@ -910,10 +798,7 @@ export class StateManager {
    * @param config Device configuration
    * @param connected Connection status
    */
-  async setDeviceConnected(
-    config: DeviceConfig,
-    connected: boolean,
-  ): Promise<void> {
+  async setDeviceConnected(config: DeviceConfig, connected: boolean): Promise<void> {
     const prefix = this.devicePrefix(config);
     await this.adapter.setStateAsync(`${prefix}.info.connected`, {
       val: connected,

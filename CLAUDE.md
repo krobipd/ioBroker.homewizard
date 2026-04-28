@@ -6,11 +6,13 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.6.5 (2026-04-26 — process.on defense + Konsistenz-Cleanup + js-controller >=6.0.11)
+- **Version:** 0.6.6 (2026-04-28 — Audit-Cleanup gegen ioBroker.example/TypeScript-Vollstandard)
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
 - **Runtime-Deps:** `@iobroker/adapter-core`, `ws`, `bonjour-service`
+- **Test-Setup:** offizieller ioBroker.example/TypeScript-Standard — Tests unter `src/**/*.test.ts` direkt mit `ts-node/register`, kein separater Build (siehe globales `reference_iobroker_test_setup_standard`)
+- **`@types/node` an `engines.node`-Min gekoppelt:** `^20.x` weil `engines.node: ">=20"`. Dependabot ignoriert Major-Bumps
 
 ## API v2 Referenz
 

@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import { StateManager } from "../src/lib/state-manager";
-import type { DeviceConfig, Measurement, SystemInfo, BatteryControl } from "../src/lib/types";
+import { StateManager } from "./state-manager";
+import type { DeviceConfig, Measurement, SystemInfo, BatteryControl } from "./types";
 
 interface ObjectDef {
     type: string;
