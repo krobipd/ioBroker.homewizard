@@ -30,8 +30,8 @@ Real-time energy monitoring from [HomeWizard](https://www.homewizard.com) Energy
 ## Requirements
 
 - **Node.js >= 20**
-- **ioBroker js-controller >= 6.0.11**
-- **ioBroker Admin >= 7.6.20**
+- **ioBroker js-controller >= 7.0.7**
+- **ioBroker Admin >= 7.7.22**
 - **HomeWizard device with API v2 support** (firmware 4.x+ with local API enabled)
 
 ---
@@ -164,7 +164,7 @@ homewizard.0.
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 0.6.7 (2026-05-01)
 - Internal cleanup. No user-facing changes.
 - Documentation: rewrote release notes for v0.6.0–v0.6.6 in user-friendly style across all languages.
 
@@ -180,9 +180,6 @@ homewizard.0.
 
 ### 0.6.3 (2026-04-18)
 - WebSocket and REST input hardening. Stops endless reconnect when the device token is invalid.
-
-### 0.6.2 (2026-04-13)
-- Fix: hanging promise on response stream errors. Safer adapter shutdown.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

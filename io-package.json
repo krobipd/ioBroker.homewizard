@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.6.6",
+    "version": "0.6.7",
     "news": {
-      "NEXT": {
+      "0.6.7": {
         "en": "Documentation: rewrote release notes in user-friendly style across all languages.",
         "de": "Dokumentation: Release-Notes in alle Sprachen User-orientiert neu geschrieben.",
         "ru": "Документация: примечания к релизу переписаны в дружественном к пользователю стиле на всех языках.",
@@ -93,19 +93,6 @@
         "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
         "uk": "Внутрішнє прибирання. Без помітних для користувача змін.",
         "zh-cn": "内部清理。对用户无可见变化。"
-      },
-      "0.6.0": {
-        "en": "Adaptive unstable mode: devices with bad WiFi reconnect faster (60s) and use persistent REST fallback.",
-        "de": "Adaptiver Instabil-Modus: Geräte mit schlechtem WiFi reconnecten schneller (60s) und nutzen persistentes REST-Fallback.",
-        "ru": "Адаптивный нестабильный режим: устройства с плохим WiFi подключаются быстрее (60с) и используют постоянный REST fallback.",
-        "pt": "Modo instável adaptativo: dispositivos com WiFi ruim reconectam mais rápido (60s) e usam REST fallback persistente.",
-        "nl": "Adaptieve instabiele modus: apparaten met slecht WiFi reconnecten sneller (60s) en gebruiken persistente REST-fallback.",
-        "fr": "Mode instable adaptatif : les appareils avec mauvais WiFi se reconnectent plus rapidement (60s) et utilisent un REST fallback persistant.",
-        "it": "Modalità instabile adattiva: dispositivi con WiFi scadente si riconnettono più velocemente (60s) e usano REST fallback persistente.",
-        "es": "Modo inestable adaptativo: dispositivos con WiFi malo se reconectan más rápido (60s) y usan REST fallback persistente.",
-        "pl": "Adaptacyjny tryb niestabilny: urządzenia ze słabym WiFi reconnectują szybciej (60s) i korzystają z trwałego REST fallback.",
-        "uk": "Адаптивний нестабільний режим: пристрої з поганим WiFi підключаються швидше (60с) і використовують постійний REST fallback.",
-        "zh-cn": "自适应不稳定模式：WiFi 不良的设备重连更快（60秒），并使用持久 REST fallback。"
       }
     },
     "titleLang": {
@@ -170,12 +157,12 @@
     },
     "dependencies": [
       {
-        "js-controller": ">=6.0.11"
+        "js-controller": ">=7.0.7"
       }
     ],
     "globalDependencies": [
       {
-        "admin": ">=7.6.20"
+        "admin": ">=7.7.22"
       }
     ]
   },

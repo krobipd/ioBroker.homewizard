@@ -1,4 +1,7 @@
 # Older Changes
+## 0.6.2 (2026-04-13)
+- Fix: hanging promise on response stream errors. Safer adapter shutdown.
+
 ## 0.6.1 (2026-04-12)
 - Internal cleanup. No user-facing changes.
 
