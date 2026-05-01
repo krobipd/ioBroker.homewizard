@@ -1,88 +1,56 @@
 # Older Changes
 ## 0.6.1 (2026-04-12)
-- Code cleanup: extract testable connection-utils module (classifyError, createDeviceConnection)
-- Add 20 unit tests for error classification, connection factory, and unstable threshold
-- Fix ESLint warnings, remove unused devDependencies, remove duplicate scripts
-- Add `@typescript-eslint/no-floating-promises` lint rule
+- Internal cleanup. No user-facing changes.
 
 ## 0.6.0 (2026-04-11)
-- Adaptive unstable mode: auto-detect devices with bad WiFi (e.g. P1 meter in basement)
-- Faster reconnect for unstable devices (60s max backoff instead of 5 min)
-- Persistent REST fallback for unstable devices (30s interval instead of stopping)
-- Automatic mode switch: stabilizes after 10 min connected, detects instability after 3 short-lived connections
+- Adaptive unstable mode: devices with bad WiFi reconnect faster (60s) and use persistent REST fallback.
 
 ## 0.5.1 (2026-04-08)
-- Restore standard GitHub-based tests, remove CHANGELOG.md, add FORBIDDEN_CHARS reference
+- Internal cleanup. No user-facing changes.
 
 ## 0.5.0 (2026-04-05)
-- Robust reconnect: never give up after WiFi loss, retry every 5 minutes indefinitely
-- Periodic mDNS IP recovery (~hourly), only WebSocket controls online state
+- Robust reconnect: never gives up after WiFi loss, retries every 5 minutes. Periodic mDNS IP recovery (hourly).
 
 ## 0.4.2 (2026-04-05)
-- Consistent donation labels and about text across all adapters
-
-Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
+- Internal: consistent donation labels.
 
 ---
 
 ## 0.4.1 (2026-04-05)
-- Move measurement data into `measurement/` channel for cleaner object tree
+- Measurement data moved into `measurement/` channel (cleaner object tree).
 
 ## 0.4.0 (2026-04-05)
-- Add online/offline status icon for devices (`statusStates`)
+- Online/offline status icon for devices.
 
 ## 0.3.5 (2026-04-05)
-- Fix log spam: error deduplication by category (not context), REST fallback stops on network errors, system poll only for connected devices
+- Fix log spam: error deduplication by category. REST fallback stops on network errors.
 
 ## 0.3.4 (2026-04-05)
-- mDNS only active during pairing (not permanently at adapter start)
-- Always store device IP on pairing (no dependency on mDNS for normal operation)
-- Automatic IP recovery: after 3 failed reconnects, mDNS searches for new IP (one attempt, then offline)
-- Device marked offline with clear log message when unreachable and mDNS finds nothing
+- mDNS only active during pairing. Automatic IP recovery after 3 failed reconnects.
 
 ## 0.3.3 (2026-04-05)
-- Fix mDNS pairing: restart browser on pairing start (cached devices were not re-announced)
-- Improve log messages during pairing (clearer user instructions)
+- Fix mDNS pairing: restart browser on pairing start (cached devices were not re-announced).
 
 ## 0.3.2 (2026-04-05)
-- Improve Admin UI: structured sections for prerequisites, automatic/manual pairing, device management
-- Improve README: detailed configuration guide with prerequisites and manual IP pairing
+- Admin UI restructured. README updated with prerequisites and manual IP pairing.
 
 ## 0.3.1 (2026-04-05)
-- Fix uncaught exception on device removal (WS_ERR_INVALID_OPCODE from late frames)
-- Use `terminate()` instead of `close()` for immediate WebSocket cleanup
+- Fix: uncaught exception on device removal (late WebSocket frames).
 
 ## 0.3.0 (2026-04-05)
-- **Breaking:** Device config stored in device objects instead of adapter native (auto-migration)
-- No adapter restart on pairing or device removal
-- Fix `startPairing` not resetting to false after pairing
-- Fix `pairingIp` not clearing after use
-- Fix buttons (`remove`, `reboot`, `identify`) having null state and wrong `read:true`
-- Skip battery channel when no batteries connected (battery_count=0)
-- Close WebSocket on IP change (mDNS) and reconnect immediately with new IP
-- Auth backoff: stop reconnecting after 3 failed auth attempts
-- Error dedup: repeated errors logged as debug, connection restored as info
-- System poll only for connected devices
+- **Breaking:** Device config stored per device instead of adapter native. Auto-migration. No adapter restart on pairing or device removal. Auth backoff after 3 failed attempts.
 
 ## 0.2.0 (2026-04-05)
-- Fix WebSocket auth format (plain string token instead of object)
-- Fix mDNS service type (`_homewizard._tcp` for API v2 instead of `_hwenergy._tcp`)
-- Add editable IP column in Admin UI device table (empty = mDNS, set = fixed IP)
-- Add manual IP pairing via `pairingIp` data point for networks without mDNS
-- IP only stored in config when manually set (mDNS devices use automatic discovery)
-- Add per-device remove button data point
+- Fix WebSocket auth format and mDNS service type for API v2. Manual IP pairing for networks without mDNS.
 
 ## 0.1.3 (2026-04-04)
-- mDNS discovery runs permanently (not just during pairing)
-- Automatic IP updates when device IP changes (DHCP)
+- mDNS discovery now permanent. Automatic IP updates on DHCP changes.
 
 ## 0.1.2 (2026-04-04)
-- Bundle HomeWizard CA certificate for proper TLS validation
-- Shared HTTPS agent for all connections
+- HomeWizard CA certificate bundled for proper TLS validation.
 
 ## 0.1.1 (2026-04-04)
-- Add unit tests (129 tests)
-- Fix Dependabot config
+- Internal: 129 unit tests added.
 
 ## 0.1.0 (2026-04-04)
-- Initial release with API v2, WebSocket push, mDNS discovery, multi-device pairing
+- Initial release. API v2, WebSocket push, mDNS discovery, multi-device pairing.

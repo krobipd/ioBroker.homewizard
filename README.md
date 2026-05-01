@@ -164,37 +164,27 @@ homewizard.0.
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- Internal cleanup: added `format`/`format:check` scripts, master-sync for workflow + release-config.
+- Documentation: rewrote release notes for v0.6.0–v0.6.6 in user-friendly style across all languages.
+
 ### 0.6.6 (2026-04-28)
-- Audit cleanup against the upstream `ioBroker.example/TypeScript` full standard:
-  - Test setup migrated: tests now live next to source as `src/**/*.test.ts` and run directly via `ts-node/register`. Removed `tsconfig.test.json` + `build-test/`, added `test/mocharc.custom.json` + `test/mocha.setup.js` + `test/tsconfig.json` + `test/.eslintrc.json`
-  - `@types/node` rolled back from `^25.6.0` to `^20.19.24` so type defs match `engines.node: ">=20"`
-  - Dependabot now ignores major bumps for `@types/node`, `typescript`, `eslint`, `actions/checkout`, `actions/setup-node`
-  - `nyc` config + `coverage` script added
-  - `prettier.config.mjs` made explicit with project-style overrides (Spaces 2-wide, double quotes)
-  - Orphan `.github/auto-merge.yml` removed (active workflow is `automerge-dependabot.yml` using `gh pr merge`)
+- Internal cleanup. No user-facing changes.
 
 ### 0.6.5 (2026-04-26)
-- Process-level `unhandledRejection` / `uncaughtException` handlers added as last-line-of-defence against fire-and-forget rejections.
-- Stop shipping the `manual-review` release-script plugin — adapter-only consequence.
-- Audit-driven boilerplate sync with the other krobi adapters (`.vscode` json5 schemas, `tsconfig.test` looser test rules).
-- Min js-controller correction: was `>=7.0.0`, restored to repochecker-recommended `>=6.0.11` (Source: `ioBroker.repochecker/lib/M1000_IOPackageJson.js`).
-- `@types/iobroker` bumped to `^7.1.1`.
+- Crash defense: process-level error handlers.
+- Min `js-controller` restored to `>=6.0.11` (was incorrectly `>=7.0.0`).
 
 ### 0.6.4 (2026-04-23)
-- Separate test-build output (`build-test/`) from production `build/`, so `npm test` no longer risks leaving duplicated `build/src` + `build/test` trees in the published package.
-- Wrap async `onReady` and `onStateChange` handlers with `.catch()` to prevent unhandled promise rejections from SIGKILLing the adapter.
-- Declare `pairingIp` as an instance object (11-language name) instead of creating it dynamically in `onReady`.
+- Internal hardening. No user-facing changes.
 
 ### 0.6.3 (2026-04-18)
-- Harden WebSocket and REST input handling against unexpected API responses
-- Stop endless reconnect when the device token is invalid (fires once after 3 failed auth attempts)
-- Avoid creating an empty `external/` channel when a device reports no external meters
+- WebSocket and REST input hardening. Stops endless reconnect when the device token is invalid.
 
 ### 0.6.2 (2026-04-13)
-- Fix hanging promise when response stream errors mid-transfer (`res.on("error")`)
-- Fix onUnload: wrap in try/finally so callback always fires (prevents adapter hang on shutdown)
-- Optimize state creation hot path: use `setObjectNotExistsAsync` instead of `extendObjectAsync` (~50 fewer object writes per second per device)
-- Remove unnecessary `removeDeviceFromObject` wrapper (DRY)
+- Fix: hanging promise on response stream errors. Safer adapter shutdown.
+
+Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
 ## Support
 
