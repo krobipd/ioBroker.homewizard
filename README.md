@@ -165,7 +165,7 @@ homewizard.0.
 
 ## Changelog
 ### **WORK IN PROGRESS**
-- Internal cleanup: added `format`/`format:check` scripts, master-sync for workflow + release-config.
+- Internal cleanup. No user-facing changes.
 - Documentation: rewrote release notes for v0.6.0–v0.6.6 in user-friendly style across all languages.
 
 ### 0.6.6 (2026-04-28)
