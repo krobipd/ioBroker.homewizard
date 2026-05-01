@@ -899,7 +899,7 @@ export class StateManager {
         role: "button",
         read: false,
         write: true,
-      } as ioBroker.StateCommon,
+      },
       native: {},
     });
     await this.adapter.setStateAsync(id, { val: false, ack: true });

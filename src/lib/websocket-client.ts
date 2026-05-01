@@ -135,7 +135,7 @@ export class HomeWizardWebSocket {
 
       case "measurement":
         if (isPlainObject(parsed.data)) {
-          this.callbacks.onMeasurement(parsed.data as Measurement);
+          this.callbacks.onMeasurement(parsed.data);
         } else {
           this.callbacks.log.warn(`WS measurement without object payload`);
         }
