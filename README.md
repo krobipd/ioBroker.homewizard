@@ -167,6 +167,9 @@ homewizard.0.
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- Internal hardening: stricter number parsing for sensor inputs, parallel state writes, code split for testability, 38 new tests covering the HTTPS client. No user-facing changes.
+
 ### 0.7.1 (2026-05-06)
 - WiFi signal strength is now reported in dBm (was incorrectly labelled `dB`).
 - Faster state updates: existence checks for datapoints are cached after first creation, saving ~30 Redis lookups per second on a P1 Meter pushing 1 measurement/second.

@@ -5,9 +5,15 @@
  * NaN/Infinity/non-string values reaching ioBroker states.
  */
 
+// Strict decimal regex — only optional minus sign + digits + optional fractional part.
+// Rejects HEX (`0x...`), exponential (`1e3`), Infinity, NaN, leading/trailing whitespace.
+// hassemu (E8 in v1.9.0) hardened the same coerce-helper this way; consistency item D8.
+const DECIMAL_NUMBER_RE = /^-?\d+(\.\d+)?$/;
+
 /**
  * Coerce to a finite number or null.
- * Accepts numbers directly; parses numeric strings; rejects NaN/Infinity/other.
+ * Accepts numbers directly; parses strict decimal strings; rejects NaN, Infinity,
+ * HEX (`0x...`) and exponential notation (`1e3`).
  *
  * @param value Unknown external value
  */
@@ -15,7 +21,7 @@ export function coerceFiniteNumber(value: unknown): number | null {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
   }
-  if (typeof value === "string" && value.length > 0) {
+  if (typeof value === "string" && DECIMAL_NUMBER_RE.test(value)) {
     const n = Number(value);
     return Number.isFinite(n) ? n : null;
   }

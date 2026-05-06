@@ -479,6 +479,7 @@ class StateManager {
     const mPrefix = `${prefix}.measurement`;
     await this.ensureChannel(mPrefix, asName((0, import_i18n_states.tName)("measurement")));
     const record = data;
+    const writes = [];
     for (const def of MEASUREMENT_STATE_DEFS) {
       const raw = record[def.key];
       let coerced = null;
@@ -488,19 +489,22 @@ class StateManager {
         coerced = (0, import_coerce.coerceString)(raw);
       }
       if (coerced !== null) {
-        await this.ensureAndSet(
-          `${mPrefix}.${def.id}`,
-          (0, import_i18n_states.tName)(def.nameKey),
-          def.type,
-          def.role,
-          coerced,
-          def.unit,
-          void 0,
-          def.descKey ? (0, import_i18n_states.tDesc)(def.descKey) : void 0,
-          def.key === "tariff" ? tariffStates() : void 0
+        writes.push(
+          this.ensureAndSet(
+            `${mPrefix}.${def.id}`,
+            (0, import_i18n_states.tName)(def.nameKey),
+            def.type,
+            def.role,
+            coerced,
+            def.unit,
+            void 0,
+            def.descKey ? (0, import_i18n_states.tDesc)(def.descKey) : void 0,
+            def.key === "tariff" ? tariffStates() : void 0
+          )
         );
       }
     }
+    await Promise.all(writes);
     const external = record.external;
     if (Array.isArray(external) && external.length > 0) {
       for (const rawExt of external) {
@@ -518,22 +522,21 @@ class StateManager {
         await this.ensureChannel(`${mPrefix}.external`, asName((0, import_i18n_states.tName)("externalMeters")));
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
         await this.ensureChannel(extId, type);
+        const extWrites = [];
         if (value !== null) {
-          await this.ensureAndSet(
-            `${extId}.value`,
-            (0, import_i18n_states.tName)("externalValue"),
-            "number",
-            "value",
-            value,
-            unit != null ? unit : void 0
+          extWrites.push(
+            this.ensureAndSet(`${extId}.value`, (0, import_i18n_states.tName)("externalValue"), "number", "value", value, unit != null ? unit : void 0)
           );
         }
         if (unit) {
-          await this.ensureAndSet(`${extId}.unit`, (0, import_i18n_states.tName)("externalUnit"), "string", "text", unit);
+          extWrites.push(this.ensureAndSet(`${extId}.unit`, (0, import_i18n_states.tName)("externalUnit"), "string", "text", unit));
         }
         if (timestamp) {
-          await this.ensureAndSet(`${extId}.timestamp`, (0, import_i18n_states.tName)("externalTimestamp"), "string", "date", timestamp);
+          extWrites.push(
+            this.ensureAndSet(`${extId}.timestamp`, (0, import_i18n_states.tName)("externalTimestamp"), "string", "date", timestamp)
+          );
         }
+        await Promise.all(extWrites);
       }
     }
   }

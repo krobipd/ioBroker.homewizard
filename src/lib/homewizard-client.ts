@@ -6,14 +6,22 @@ import type { BatteryControl, DeviceInfo, Measurement, PairingResponse, SystemIn
 export class HomeWizardClient {
   private readonly ip: string;
   private readonly token: string;
+  private readonly agent: https.Agent;
+  /** Override target port — only used by tests against a local stub-server. */
+  private readonly port: number;
 
   /**
-   * @param ip Device IP address
-   * @param token Bearer token (empty string for pairing requests)
+   * @param ip      Device IP address
+   * @param token   Bearer token (empty string for pairing requests)
+   * @param options Optional overrides — primarily for unit tests against a local TLS stub.
+   * @param options.agent HTTPS agent to use; defaults to {@link HW_AGENT} (with HomeWizard CA pinning).
+   * @param options.port  Target port; defaults to 443.
    */
-  constructor(ip: string, token: string = "") {
+  constructor(ip: string, token: string = "", options: { agent?: https.Agent; port?: number } = {}) {
     this.ip = ip;
     this.token = token;
+    this.agent = options.agent ?? HW_AGENT;
+    this.port = options.port ?? 443;
   }
 
   /** Get device info (GET /api) */
@@ -94,11 +102,11 @@ export class HomeWizardClient {
       const req = https.request(
         {
           hostname: this.ip,
-          port: 443,
+          port: this.port,
           path,
           method,
           headers,
-          agent: HW_AGENT,
+          agent: this.agent,
           timeout: 10_000,
         },
         res => {

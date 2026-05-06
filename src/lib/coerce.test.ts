@@ -35,6 +35,29 @@ describe("coerceFiniteNumber", () => {
     expect(coerceFiniteNumber(null)).to.be.null;
     expect(coerceFiniteNumber(undefined)).to.be.null;
   });
+
+  it("rejects HEX strings (firmware drift / corrupted payload guard)", () => {
+    expect(coerceFiniteNumber("0x1FBB")).to.be.null;
+    expect(coerceFiniteNumber("0X10")).to.be.null;
+  });
+
+  it("rejects exponential notation strings", () => {
+    expect(coerceFiniteNumber("1e3")).to.be.null;
+    expect(coerceFiniteNumber("2.5E-3")).to.be.null;
+  });
+
+  it("rejects strings with leading/trailing whitespace or signs", () => {
+    expect(coerceFiniteNumber(" 42")).to.be.null;
+    expect(coerceFiniteNumber("42 ")).to.be.null;
+    expect(coerceFiniteNumber("+42")).to.be.null;
+    expect(coerceFiniteNumber(".5")).to.be.null;
+    expect(coerceFiniteNumber("5.")).to.be.null;
+  });
+
+  it("accepts negative decimals", () => {
+    expect(coerceFiniteNumber("-42")).to.equal(-42);
+    expect(coerceFiniteNumber("-0.5")).to.equal(-0.5);
+  });
 });
 
 describe("coerceString", () => {

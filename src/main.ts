@@ -4,6 +4,13 @@ import { classifyError, createDeviceConnection, UNSTABLE_DISCONNECT_THRESHOLD } 
 import { HomeWizardDiscovery } from "./lib/discovery";
 import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
 import { tLog } from "./lib/i18n-logs";
+import {
+  computeReconnectDelay,
+  decideUnstableTransition,
+  findConnectionForState as resolveConnectionForState,
+  pickRestPollInterval,
+  shouldStartIpRecovery,
+} from "./lib/main-helpers";
 import { StateManager } from "./lib/state-manager";
 import type { DeviceConfig, DeviceConnection, DiscoveredDevice, Measurement } from "./lib/types";
 import { HomeWizardWebSocket } from "./lib/websocket-client";
@@ -608,10 +615,7 @@ class HomeWizard extends utils.Adapter {
     }
 
     // After repeated failures, try mDNS periodically to find a new IP
-    if (
-      conn.wsFailCount >= WS_FAILURES_BEFORE_MDNS &&
-      (conn.wsFailCount - WS_FAILURES_BEFORE_MDNS) % MDNS_RETRY_EVERY === 0
-    ) {
+    if (shouldStartIpRecovery(conn.wsFailCount, WS_FAILURES_BEFORE_MDNS, MDNS_RETRY_EVERY)) {
       this.startIpRecovery();
     }
 
@@ -656,20 +660,24 @@ class HomeWizard extends utils.Adapter {
         this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
       },
       onDisconnected: (error?: Error) => {
-        // Track connection stability
+        // Track connection stability — pure decision in main-helpers, side-effects here
         if (conn.lastConnectedAt > 0) {
           const duration = Date.now() - conn.lastConnectedAt;
+          const transition = decideUnstableTransition(
+            conn.recentDisconnects,
+            duration,
+            STABLE_THRESHOLD_MS,
+            UNSTABLE_DISCONNECT_THRESHOLD,
+          );
           if (duration < STABLE_THRESHOLD_MS) {
             conn.recentDisconnects++;
-            if (conn.recentDisconnects === UNSTABLE_DISCONNECT_THRESHOLD) {
-              this.log.info(tLog(this.systemLang, "unstableDetected", { name: conn.config.productName }));
-            }
           } else {
-            // Was stable — reset counter
-            if (conn.recentDisconnects >= UNSTABLE_DISCONNECT_THRESHOLD) {
-              this.log.info(tLog(this.systemLang, "connectionStabilized", { name: conn.config.productName }));
-            }
             conn.recentDisconnects = 0;
+          }
+          if (transition === "becameUnstable") {
+            this.log.info(tLog(this.systemLang, "unstableDetected", { name: conn.config.productName }));
+          } else if (transition === "stabilized") {
+            this.log.info(tLog(this.systemLang, "connectionStabilized", { name: conn.config.productName }));
           }
         }
 
@@ -693,7 +701,7 @@ class HomeWizard extends utils.Adapter {
         // Schedule reconnect with exponential backoff (faster for unstable devices)
         conn.wsFailCount++;
         const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
-        const delay = Math.min(WS_RECONNECT_BASE_MS * Math.pow(2, conn.wsFailCount - 1), maxDelay);
+        const delay = computeReconnectDelay(conn.wsFailCount, WS_RECONNECT_BASE_MS, maxDelay);
         this.log.debug(`${key}: WS reconnect in ${delay / 1000}s (attempt ${conn.wsFailCount})`);
 
         conn.reconnectTimer = this.setTimeout(() => {
@@ -721,7 +729,7 @@ class HomeWizard extends utils.Adapter {
     }
 
     const unstable = this.isUnstable(conn);
-    const interval = unstable ? REST_POLL_UNSTABLE_MS : REST_POLL_MS;
+    const interval = pickRestPollInterval(unstable, REST_POLL_MS, REST_POLL_UNSTABLE_MS);
     const client = new HomeWizardClient(conn.ip, conn.config.token);
 
     conn.pollTimer = this.setInterval(async () => {
@@ -828,19 +836,13 @@ class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Find connection for a state ID
+   * Find connection for a state ID. Delegates to the pure helper so the
+   * lookup math is unit-tested separately (`lib/main-helpers.test.ts`).
    *
    * @param stateId Full state ID
    */
   private findConnectionForState(stateId: string): DeviceConnection | undefined {
-    const localId = stateId.replace(`${this.namespace}.`, "");
-    for (const conn of this.connections.values()) {
-      const prefix = this.stateManager.devicePrefix(conn.config);
-      if (localId.startsWith(`${prefix}.`)) {
-        return conn;
-      }
-    }
-    return undefined;
+    return resolveConnectionForState(stateId, this.namespace, this.connections);
   }
 
   /**

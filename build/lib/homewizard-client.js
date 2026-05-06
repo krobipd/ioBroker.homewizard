@@ -37,13 +37,22 @@ var import_cacert = require("./cacert");
 class HomeWizardClient {
   ip;
   token;
+  agent;
+  /** Override target port — only used by tests against a local stub-server. */
+  port;
   /**
-   * @param ip Device IP address
-   * @param token Bearer token (empty string for pairing requests)
+   * @param ip      Device IP address
+   * @param token   Bearer token (empty string for pairing requests)
+   * @param options Optional overrides — primarily for unit tests against a local TLS stub.
+   * @param options.agent HTTPS agent to use; defaults to {@link HW_AGENT} (with HomeWizard CA pinning).
+   * @param options.port  Target port; defaults to 443.
    */
-  constructor(ip, token = "") {
+  constructor(ip, token = "", options = {}) {
+    var _a, _b;
     this.ip = ip;
     this.token = token;
+    this.agent = (_a = options.agent) != null ? _a : import_cacert.HW_AGENT;
+    this.port = (_b = options.port) != null ? _b : 443;
   }
   /** Get device info (GET /api) */
   async getDeviceInfo() {
@@ -112,11 +121,11 @@ class HomeWizardClient {
       const req = https.request(
         {
           hostname: this.ip,
-          port: 443,
+          port: this.port,
           path,
           method,
           headers,
-          agent: import_cacert.HW_AGENT,
+          agent: this.agent,
           timeout: 1e4
         },
         (res) => {

@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.7.1",
     "news": {
+      "NEXT": {
+        "en": "Internal robustness: stricter number parsing for sensor inputs, parallel state writes, code split for testability, 38 new tests covering the HTTPS client. No user-facing changes.",
+        "de": "Interne Härtung: strengere Zahlenprüfung für Sensorwerte, parallele State-Writes, Code-Split für bessere Testbarkeit, 38 neue Tests für den HTTPS-Client. Keine User-sichtbaren Änderungen.",
+        "ru": "Внутреннее усиление: строгая проверка чисел для сенсорных значений, параллельная запись состояний, разделение кода ради тестируемости, 38 новых тестов для HTTPS-клиента. Без видимых изменений.",
+        "pt": "Endurecimento interno: análise de números mais rigorosa, gravação de estados em paralelo, código dividido para testes, 38 novos testes do cliente HTTPS. Sem mudanças visíveis.",
+        "nl": "Interne verharding: strengere getalcontrole voor sensorwaarden, parallelle state-writes, code-splitsing voor testbaarheid, 38 nieuwe tests voor de HTTPS-client. Geen wijzigingen voor de gebruiker.",
+        "fr": "Durcissement interne : analyse de nombres plus stricte, écritures d'état en parallèle, code scindé pour les tests, 38 nouveaux tests du client HTTPS. Aucune modification visible.",
+        "it": "Hardening interno: parsing numerico più rigoroso per i sensori, scritture di stato in parallelo, codice diviso per la testabilità, 38 nuovi test per il client HTTPS. Nessuna modifica visibile.",
+        "es": "Endurecimiento interno: análisis de números más estricto, escrituras de estado en paralelo, código dividido para tests, 38 nuevas pruebas del cliente HTTPS. Sin cambios visibles.",
+        "pl": "Wewnętrzne wzmocnienie: ściślejsze sprawdzanie liczb, równoległe zapisy stanów, podział kodu, 38 nowych testów klienta HTTPS. Brak zmian dla użytkownika.",
+        "uk": "Внутрішнє зміцнення: строгіша перевірка чисел для сенсорів, паралельні записи станів, розділення коду для тестованості, 38 нових тестів HTTPS-клієнта. Без видимих змін.",
+        "zh-cn": "内部加固：传感器数值校验更严格、状态写入并行化、代码拆分以提升可测试性，HTTPS 客户端新增 38 个测试。对用户无可见变化。"
+      },
       "0.7.1": {
         "en": "Performance: state existence checks are cached after first creation — saves ~30 redis lookups per second on a P1 meter. WiFi signal unit corrected to dBm.",
         "de": "Performance: Existenz-Prüfung für Datenpunkte wird nach dem ersten Anlegen gecacht — spart ca. 30 Redis-Lookups pro Sekunde bei einem P1-Meter. WLAN-Signalstärke jetzt in dBm.",

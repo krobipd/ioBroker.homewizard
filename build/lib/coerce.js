@@ -28,11 +28,12 @@ __export(coerce_exports, {
   validateBatteryMode: () => validateBatteryMode
 });
 module.exports = __toCommonJS(coerce_exports);
+const DECIMAL_NUMBER_RE = /^-?\d+(\.\d+)?$/;
 function coerceFiniteNumber(value) {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
   }
-  if (typeof value === "string" && value.length > 0) {
+  if (typeof value === "string" && DECIMAL_NUMBER_RE.test(value)) {
     const n = Number(value);
     return Number.isFinite(n) ? n : null;
   }

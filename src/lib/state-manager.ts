@@ -508,8 +508,11 @@ export class StateManager {
     // Ensure measurement channel exists (cached after first call per device)
     await this.ensureChannel(mPrefix, asName(tName("measurement")));
 
-    // Main measurement values — coerce per declared type
+    // Main measurement values — coerce per declared type. Once a state's object
+    // is in the cache, ensureAndSet only does one setStateAsync per field — those
+    // are independent and run in parallel via Promise.all instead of sequentially.
     const record = data;
+    const writes: Promise<void>[] = [];
     for (const def of MEASUREMENT_STATE_DEFS) {
       const raw = record[def.key];
       let coerced: number | string | null = null;
@@ -519,21 +522,27 @@ export class StateManager {
         coerced = coerceString(raw);
       }
       if (coerced !== null) {
-        await this.ensureAndSet(
-          `${mPrefix}.${def.id}`,
-          tName(def.nameKey),
-          def.type,
-          def.role,
-          coerced,
-          def.unit,
-          undefined,
-          def.descKey ? tDesc(def.descKey) : undefined,
-          def.key === "tariff" ? tariffStates() : undefined,
+        writes.push(
+          this.ensureAndSet(
+            `${mPrefix}.${def.id}`,
+            tName(def.nameKey),
+            def.type,
+            def.role,
+            coerced,
+            def.unit,
+            undefined,
+            def.descKey ? tDesc(def.descKey) : undefined,
+            def.key === "tariff" ? tariffStates() : undefined,
+          ),
         );
       }
     }
+    await Promise.all(writes);
 
-    // External meters (P1 gas/water/heat)
+    // External meters (P1 gas/water/heat) — channel-create paths must run sequentially
+    // because the parent `external` channel must exist before the per-meter channel
+    // and the per-meter value/unit/timestamp states. Inside one meter, the three
+    // value/unit/timestamp writes are independent and run in parallel.
     const external = record.external;
     if (Array.isArray(external) && external.length > 0) {
       for (const rawExt of external) {
@@ -556,22 +565,22 @@ export class StateManager {
         // External meter channel keeps the device-supplied type (e.g. "gas_meter")
         // as channel name — identifies the physical meter, not localizable.
         await this.ensureChannel(extId, type);
+
+        const extWrites: Promise<void>[] = [];
         if (value !== null) {
-          await this.ensureAndSet(
-            `${extId}.value`,
-            tName("externalValue"),
-            "number",
-            "value",
-            value,
-            unit ?? undefined,
+          extWrites.push(
+            this.ensureAndSet(`${extId}.value`, tName("externalValue"), "number", "value", value, unit ?? undefined),
           );
         }
         if (unit) {
-          await this.ensureAndSet(`${extId}.unit`, tName("externalUnit"), "string", "text", unit);
+          extWrites.push(this.ensureAndSet(`${extId}.unit`, tName("externalUnit"), "string", "text", unit));
         }
         if (timestamp) {
-          await this.ensureAndSet(`${extId}.timestamp`, tName("externalTimestamp"), "string", "date", timestamp);
+          extWrites.push(
+            this.ensureAndSet(`${extId}.timestamp`, tName("externalTimestamp"), "string", "date", timestamp),
+          );
         }
+        await Promise.all(extWrites);
       }
     }
   }

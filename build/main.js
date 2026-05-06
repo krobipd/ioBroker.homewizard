@@ -27,6 +27,7 @@ var import_connection_utils = require("./lib/connection-utils");
 var import_discovery = require("./lib/discovery");
 var import_homewizard_client = require("./lib/homewizard-client");
 var import_i18n_logs = require("./lib/i18n-logs");
+var import_main_helpers = require("./lib/main-helpers");
 var import_state_manager = require("./lib/state-manager");
 var import_websocket_client = require("./lib/websocket-client");
 const PAIRING_TIMEOUT_MS = 6e4;
@@ -509,7 +510,7 @@ class HomeWizard extends utils.Adapter {
     if (conn.authFailCount >= MAX_AUTH_FAILURES) {
       return;
     }
-    if (conn.wsFailCount >= WS_FAILURES_BEFORE_MDNS && (conn.wsFailCount - WS_FAILURES_BEFORE_MDNS) % MDNS_RETRY_EVERY === 0) {
+    if ((0, import_main_helpers.shouldStartIpRecovery)(conn.wsFailCount, WS_FAILURES_BEFORE_MDNS, MDNS_RETRY_EVERY)) {
       this.startIpRecovery();
     }
     const key = this.stateManager.devicePrefix(conn.config);
@@ -547,16 +548,21 @@ class HomeWizard extends utils.Adapter {
       onDisconnected: (error) => {
         if (conn.lastConnectedAt > 0) {
           const duration = Date.now() - conn.lastConnectedAt;
+          const transition = (0, import_main_helpers.decideUnstableTransition)(
+            conn.recentDisconnects,
+            duration,
+            STABLE_THRESHOLD_MS,
+            import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD
+          );
           if (duration < STABLE_THRESHOLD_MS) {
             conn.recentDisconnects++;
-            if (conn.recentDisconnects === import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD) {
-              this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "unstableDetected", { name: conn.config.productName }));
-            }
           } else {
-            if (conn.recentDisconnects >= import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD) {
-              this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "connectionStabilized", { name: conn.config.productName }));
-            }
             conn.recentDisconnects = 0;
+          }
+          if (transition === "becameUnstable") {
+            this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "unstableDetected", { name: conn.config.productName }));
+          } else if (transition === "stabilized") {
+            this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "connectionStabilized", { name: conn.config.productName }));
           }
         }
         conn.wsAuthenticated = false;
@@ -577,7 +583,7 @@ class HomeWizard extends utils.Adapter {
         this.startRestFallback(conn);
         conn.wsFailCount++;
         const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
-        const delay = Math.min(WS_RECONNECT_BASE_MS * Math.pow(2, conn.wsFailCount - 1), maxDelay);
+        const delay = (0, import_main_helpers.computeReconnectDelay)(conn.wsFailCount, WS_RECONNECT_BASE_MS, maxDelay);
         this.log.debug(`${key}: WS reconnect in ${delay / 1e3}s (attempt ${conn.wsFailCount})`);
         conn.reconnectTimer = this.setTimeout(() => {
           conn.reconnectTimer = void 0;
@@ -601,7 +607,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     const unstable = this.isUnstable(conn);
-    const interval = unstable ? REST_POLL_UNSTABLE_MS : REST_POLL_MS;
+    const interval = (0, import_main_helpers.pickRestPollInterval)(unstable, REST_POLL_MS, REST_POLL_UNSTABLE_MS);
     const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token);
     conn.pollTimer = this.setInterval(async () => {
       try {
@@ -692,19 +698,13 @@ class HomeWizard extends utils.Adapter {
     this.updateGlobalConnection();
   }
   /**
-   * Find connection for a state ID
+   * Find connection for a state ID. Delegates to the pure helper so the
+   * lookup math is unit-tested separately (`lib/main-helpers.test.ts`).
    *
    * @param stateId Full state ID
    */
   findConnectionForState(stateId) {
-    const localId = stateId.replace(`${this.namespace}.`, "");
-    for (const conn of this.connections.values()) {
-      const prefix = this.stateManager.devicePrefix(conn.config);
-      if (localId.startsWith(`${prefix}.`)) {
-        return conn;
-      }
-    }
-    return void 0;
+    return (0, import_main_helpers.findConnectionForState)(stateId, this.namespace, this.connections);
   }
   /**
    * Whether a device has unstable connectivity (frequent short-lived connections).
