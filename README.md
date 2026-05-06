@@ -17,14 +17,11 @@ Real-time energy monitoring from [HomeWizard](https://www.homewizard.com) Energy
 
 ## Features
 
-- **WebSocket push** for real-time energy data (~1 update per second)
-- **Automatic device discovery** via mDNS (zero configuration)
-- **Hue-style pairing** — press the button on the device to connect
-- **Multi-device support** — manage all HomeWizard devices in one adapter instance
-- **Battery control** — manage HomeWizard Plug-In Batteries (mode, permissions)
-- **System control** — LED brightness, cloud toggle, reboot, identify
-- **REST fallback** — automatic polling when WebSocket is unavailable
-- **Multi-language UI** — state names, descriptions and dropdown labels follow the ioBroker system language (11 languages)
+- One adapter instance handles all your HomeWizard devices
+- Energy data updates roughly once per second over WebSocket; falls back to REST polling if the WebSocket drops
+- Pairing finds the device via mDNS — press the button on the device, done
+- Battery control (mode, permissions) and device system controls (LED brightness, cloud toggle, reboot, identify)
+- Adapter texts follow your ioBroker system language (11 languages)
 
 ---
 
@@ -138,7 +135,7 @@ homewizard.0.
     └── system/                  — System settings
         ├── cloud_enabled        — Cloud communication (bool, R/W)
         ├── status_led_brightness_pct — LED brightness 0-100 (number, R/W)
-        ├── api_v1_enabled       — Legacy API v1 (bool, R/W)
+        ├── api_v1_enabled       — Toggle the device's deprecated v1 API (bool, R/W — leave off)
         ├── reboot               — Reboot device (button)
         └── identify             — Blink LED (button)
 ```
@@ -157,9 +154,9 @@ homewizard.0.
 - Check that multicast/mDNS traffic is not blocked by your router/firewall
 
 ### WebSocket keeps disconnecting
-- Check WiFi signal strength (`info.wifi_rssi_db`) — consider moving the device closer to the router
-- The adapter automatically detects unstable connections (e.g. P1 meter in a basement) and switches to faster reconnect (60s instead of 5 min) with persistent REST fallback
-- The adapter never gives up: reconnects with exponential backoff, falls back to REST polling, and periodically retries mDNS in case the IP changed
+- Check `info.wifi_rssi_db` — anything above -75 dBm is fine, weaker than -85 dBm explains frequent drops
+- For devices with weak WiFi the adapter switches to a faster reconnect interval (60 s instead of 5 min) and keeps REST polling in the background so you don't lose data
+- IP changes are picked up via mDNS — no manual reconfiguration needed
 
 ### Token invalid after factory reset
 - Set the device's `remove` data point to `true`, then pair again
