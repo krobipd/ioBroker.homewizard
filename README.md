@@ -36,12 +36,14 @@ Real-time energy monitoring from [HomeWizard](https://www.homewizard.com) Energy
 
 ## Supported Devices
 
-| Device | Product Type | WebSocket | Battery Control |
-|--------|-------------|-----------|-----------------|
-| P1 Meter | HWE-P1 | Yes | Yes (as controller) |
-| kWh Meter 1-Phase | HWE-KWH1 / SDM230 | Yes | Yes (as controller) |
-| kWh Meter 3-Phase | HWE-KWH3 / SDM630 | Yes | Yes (as controller) |
-| Plug-In Battery | HWE-BAT | Yes | Controlled via P1/kWh |
+| Device | Product Type |
+|--------|--------------|
+| P1 Meter | HWE-P1 |
+| kWh Meter 1-Phase | HWE-KWH1 (also sold as SDM230) |
+| kWh Meter 3-Phase | HWE-KWH3 (also sold as SDM630) |
+| Plug-In Battery | HWE-BAT |
+
+The Plug-In Battery is paired separately and shows up as its own device. To control charge/discharge mode and grid-feed permissions, you write to the `battery.*` data points of the P1 or kWh meter — that's where HomeWizard exposes the battery commands.
 
 ---
 
@@ -141,8 +143,6 @@ homewizard.0.
 ```
 
 > States are created dynamically based on what the device reports. Not all devices have all states. kWh meters additionally provide apparent/reactive current, apparent/reactive power, and power factor states.
-
-> State names, descriptions and dropdown labels (e.g. `tariff`, `battery.mode`) appear in the ioBroker system language. The adapter reads `system.config.language` at startup — change it under *Settings → Base settings → Language* and restart the adapter.
 
 ---
 
