@@ -21,7 +21,6 @@ Real-time energy monitoring from [HomeWizard](https://www.homewizard.com) Energy
 - Energy data updates roughly once per second over WebSocket; falls back to REST polling if the WebSocket drops
 - Pairing finds the device via mDNS — press the button on the device, done
 - Battery control (mode, permissions) and device system controls (LED brightness, cloud toggle, reboot, identify)
-- Adapter texts follow your ioBroker system language (11 languages)
 
 ---
 
