@@ -1,33 +1,20 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.7.0",
+    "version": "0.6.7",
     "news": {
       "NEXT": {
-        "en": "Robustness: errText helper replaces inline duplicates. battery.permissions JSON guarded against malformed input; battery.mode whitelist-validated before the API call. New coerce.test.ts with 22 tests.",
-        "de": "Robustheit: errText-Helper ersetzt Inline-Duplikate. battery.permissions JSON gegen Fehleingabe abgesichert; battery.mode wird vor dem API-Call gegen eine Whitelist geprüft. Neue coerce.test.ts mit 22 Tests.",
-        "ru": "Устойчивость: helper errText заменяет inline-дубликаты. battery.permissions JSON защищён от некорректного ввода; battery.mode проверяется по whitelist перед API-вызовом. Новый coerce.test.ts с 22 тестами.",
-        "pt": "Robustez: o helper errText substitui duplicados inline. battery.permissions agora valida JSON contra entrada inválida; battery.mode é verificado contra uma whitelist antes da chamada à API. Novo coerce.test.ts com 22 testes.",
-        "nl": "Robuustheid: errText-helper vervangt inline-duplicaten. battery.permissions JSON beschermd tegen onjuiste invoer; battery.mode wordt vóór de API-aanroep tegen een whitelist gecontroleerd. Nieuwe coerce.test.ts met 22 tests.",
-        "fr": "Robustesse : helper errText remplace les duplications inline. battery.permissions JSON protégé contre une entrée invalide ; battery.mode validé via whitelist avant l'appel API. Nouveau coerce.test.ts avec 22 tests.",
-        "it": "Robustezza: helper errText sostituisce duplicati inline. battery.permissions JSON protetto da input non valido; battery.mode validato tramite whitelist prima della chiamata API. Nuovo coerce.test.ts con 22 test.",
-        "es": "Robustez: el helper errText reemplaza duplicados inline. battery.permissions JSON protegido contra entrada inválida; battery.mode validado por whitelist antes de la llamada API. Nuevo coerce.test.ts con 22 tests.",
-        "pl": "Solidność: helper errText zastępuje powtórzenia inline. battery.permissions JSON sprawdzany pod kątem błędnych danych; battery.mode walidowany whitelistą przed wywołaniem API. Nowy coerce.test.ts z 22 testami.",
-        "uk": "Надійність: хелпер errText замінює inline-дублікати. battery.permissions JSON захищений від хибного вводу; battery.mode перевіряється по whitelist перед викликом API. Новий coerce.test.ts з 22 тестами.",
-        "zh-cn": "稳定性：errText helper 取代多处重复代码。battery.permissions 的 JSON 输入做了防错处理；battery.mode 在 API 调用前通过 whitelist 校验。新增 coerce.test.ts，22 个测试。"
-      },
-      "0.7.0": {
-        "en": "Multi-language: state names, descriptions, dropdown labels and user-facing logs in 11 languages, picked from the ioBroker system language. Baseline bumped to Node 22 and Admin 7.8.23.",
-        "de": "Mehrsprachigkeit: Zustandsnamen, Beschreibungen, Dropdown-Labels und User-Logs in 11 Sprachen — aus der ioBroker-Systemsprache. Baseline auf Node 22 und Admin 7.8.23 gehoben.",
-        "ru": "Многоязычность: имена состояний, описания, метки выпадающих списков и пользовательские логи на 11 языках по системному языку ioBroker. Baseline поднят до Node 22 и Admin 7.8.23.",
-        "pt": "Multilíngue: nomes de estados, descrições, rótulos de dropdown e logs de utilizador em 11 idiomas pelo idioma do sistema ioBroker. Baseline elevada para Node 22 e Admin 7.8.23.",
-        "nl": "Meertalig: statusnamen, beschrijvingen, dropdown-labels en gebruikerslogs in 11 talen uit de ioBroker-systeemtaal. Baseline verhoogd naar Node 22 en Admin 7.8.23.",
-        "fr": "Multilingue : noms d'états, descriptions, libellés déroulants et logs utilisateur en 11 langues, depuis la langue système ioBroker. Baseline rehaussée à Node 22 et Admin 7.8.23.",
-        "it": "Multilingua: nomi degli stati, descrizioni, etichette dei menu a tendina e log utente in 11 lingue dalla lingua di sistema ioBroker. Baseline elevata a Node 22 e Admin 7.8.23.",
-        "es": "Multilingüe: nombres de estados, descripciones, etiquetas de menús desplegables y logs de usuario en 11 idiomas según el idioma del sistema ioBroker. Línea base elevada a Node 22 y Admin 7.8.23.",
-        "pl": "Wiele języków: nazwy stanów, opisy, etykiety menu wyboru i logi użytkownika w 11 językach (z języka systemu ioBroker). Baseline podniesiona do Node 22 oraz Admin 7.8.23.",
-        "uk": "Багатомовність: імена станів, описи, мітки випадних меню та користувацькі логи 11 мовами із системної мови ioBroker. Базову версію піднято до Node 22 і Admin 7.8.23.",
-        "zh-cn": "多语言：状态名、描述、下拉标签和用户日志支持 11 种语言，跟随 ioBroker 系统语言。基线提升至 Node 22 和 Admin 7.8.23。"
+        "en": "Multi-language across 11 languages (state names, descriptions, dropdown labels, user logs). errText helper, guarded battery.permissions JSON, whitelist-validated battery.mode. Baseline Node 22 + Admin 7.8.23.",
+        "de": "Mehrsprachigkeit in 11 Sprachen (Zustandsnamen, Beschreibungen, Dropdown-Labels, User-Logs). errText-Helper, abgesichertes battery.permissions JSON, whitelist-validierter battery.mode. Baseline Node 22 + Admin 7.8.23.",
+        "ru": "Многоязычность на 11 языках (имена состояний, описания, метки списков, пользовательские логи). Helper errText, защищённый JSON в battery.permissions, whitelist для battery.mode. Baseline Node 22 + Admin 7.8.23.",
+        "pt": "Multilíngue em 11 idiomas (nomes de estados, descrições, rótulos de dropdown, logs de utilizador). Helper errText, JSON protegido em battery.permissions, whitelist para battery.mode. Baseline Node 22 + Admin 7.8.23.",
+        "nl": "Meertalig in 11 talen (statusnamen, beschrijvingen, dropdown-labels, gebruikerslogs). errText-helper, beveiligd battery.permissions JSON, whitelist voor battery.mode. Baseline Node 22 + Admin 7.8.23.",
+        "fr": "Multilingue en 11 langues (noms d'états, descriptions, libellés déroulants, logs utilisateur). Helper errText, JSON protégé dans battery.permissions, whitelist pour battery.mode. Baseline Node 22 + Admin 7.8.23.",
+        "it": "Multilingua in 11 lingue (nomi degli stati, descrizioni, etichette dei menu, log utente). Helper errText, JSON protetto in battery.permissions, whitelist per battery.mode. Baseline Node 22 + Admin 7.8.23.",
+        "es": "Multilingüe en 11 idiomas (nombres de estados, descripciones, etiquetas de menús, logs de usuario). Helper errText, JSON protegido en battery.permissions, whitelist para battery.mode. Baseline Node 22 + Admin 7.8.23.",
+        "pl": "Wiele języków w 11 językach (nazwy stanów, opisy, etykiety menu, logi użytkownika). Helper errText, zabezpieczony JSON w battery.permissions, whitelista dla battery.mode. Baseline Node 22 + Admin 7.8.23.",
+        "uk": "Багатомовність 11 мовами (імена станів, описи, мітки меню, користувацькі логи). Хелпер errText, захищений JSON в battery.permissions, whitelist для battery.mode. Baseline Node 22 + Admin 7.8.23.",
+        "zh-cn": "11 种语言多语言支持（状态名、描述、下拉标签、用户日志）。errText helper、battery.permissions JSON 防错、battery.mode 白名单校验。基线 Node 22 + Admin 7.8.23。"
       },
       "0.6.7": {
         "en": "Documentation: rewrote release notes in user-friendly style across all languages.",

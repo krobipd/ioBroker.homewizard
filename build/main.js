@@ -22,6 +22,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var utils = __toESM(require("@iobroker/adapter-core"));
+var import_coerce = require("./lib/coerce");
 var import_connection_utils = require("./lib/connection-utils");
 var import_discovery = require("./lib/discovery");
 var import_homewizard_client = require("./lib/homewizard-client");
@@ -41,9 +42,6 @@ const MDNS_RETRY_EVERY = 12;
 const STABLE_THRESHOLD_MS = 6e5;
 const WS_RECONNECT_MAX_UNSTABLE_MS = 6e4;
 const REST_POLL_UNSTABLE_MS = 3e4;
-function errText(err) {
-  return err instanceof Error ? err.message : String(err);
-}
 class HomeWizard extends utils.Adapter {
   stateManager;
   discovery = null;
@@ -64,17 +62,17 @@ class HomeWizard extends utils.Adapter {
     super({ ...options, name: "homewizard" });
     this.on("ready", () => {
       this.onReady().catch(
-        (err) => this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "onReadyFailed", { error: errText(err) }))
+        (err) => this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "onReadyFailed", { error: (0, import_coerce.errText)(err) }))
       );
     });
     this.on("stateChange", (id, state) => {
       this.onStateChange(id, state).catch(
-        (err) => this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "stateChangeFailed", { error: errText(err) }))
+        (err) => this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "stateChangeFailed", { error: (0, import_coerce.errText)(err) }))
       );
     });
     this.on("unload", (callback) => this.onUnload(callback));
     this.unhandledRejectionHandler = (reason) => {
-      this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "unhandledRejection", { error: errText(reason) }));
+      this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "unhandledRejection", { error: (0, import_coerce.errText)(reason) }));
     };
     this.uncaughtExceptionHandler = (err) => {
       this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "uncaughtException", { error: err.message }));
@@ -296,17 +294,26 @@ class HomeWizard extends utils.Adapter {
         await client.setSystem({ api_v1_enabled: !!state.val });
         await this.setStateAsync(id, { val: state.val, ack: true });
       } else if (id.endsWith(".battery.mode")) {
-        await client.setBatteries({
-          mode: String(state.val)
-        });
+        const mode = (0, import_coerce.validateBatteryMode)(String(state.val));
+        if (!mode) {
+          this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "invalidBatteryMode", { value: String(state.val) }));
+          return;
+        }
+        await client.setBatteries({ mode });
         await this.setStateAsync(id, { val: state.val, ack: true });
       } else if (id.endsWith(".battery.permissions")) {
-        const perms = JSON.parse(String(state.val));
-        await client.setBatteries({ permissions: perms });
+        const result = (0, import_coerce.parseBatteryPermissions)(String(state.val));
+        if (!result.ok) {
+          this.log.warn(
+            (0, import_i18n_logs.tLog)(this.systemLang, "invalidPermissionsJson", { error: result.reason, value: result.sample })
+          );
+          return;
+        }
+        await client.setBatteries({ permissions: result.perms });
         await this.setStateAsync(id, { val: state.val, ack: true });
       }
     } catch (err) {
-      this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "failedToSetState", { id, error: errText(err) }));
+      this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "failedToSetState", { id, error: (0, import_coerce.errText)(err) }));
     }
   }
   /** Start pairing mode — discover devices and attempt to pair */
@@ -383,7 +390,7 @@ class HomeWizard extends utils.Adapter {
         if (err instanceof import_homewizard_client.HomeWizardApiError && err.statusCode === 403) {
           continue;
         }
-        this.log.debug(`Pairing poll error for ${device.ip}: ${errText(err)}`);
+        this.log.debug(`Pairing poll error for ${device.ip}: ${(0, import_coerce.errText)(err)}`);
       }
     }
   }
@@ -559,12 +566,13 @@ class HomeWizard extends utils.Adapter {
         if (error) {
           this.logDeviceError(conn, "ws", error);
         }
-        if (error instanceof import_homewizard_client.HomeWizardApiError && error.errorCode === "user:unauthorized") {
-          conn.authFailCount++;
-          if (conn.authFailCount >= MAX_AUTH_FAILURES) {
-            this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "tokenInvalid", { name: conn.config.productName }));
-            return;
-          }
+        if (!this.handleAuthFailure(
+          conn,
+          error,
+          /* cleanupTimers */
+          false
+        )) {
+          return;
         }
         this.startRestFallback(conn);
         conn.wsFailCount++;
@@ -596,26 +604,18 @@ class HomeWizard extends utils.Adapter {
     const interval = unstable ? REST_POLL_UNSTABLE_MS : REST_POLL_MS;
     const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token);
     conn.pollTimer = this.setInterval(async () => {
-      var _a;
       try {
         const data = await client.getMeasurement();
         await this.stateManager.updateMeasurement(conn.config, data);
       } catch (err) {
         this.logDeviceError(conn, "rest", err);
         if (err instanceof import_homewizard_client.HomeWizardApiError && err.errorCode === "user:unauthorized") {
-          conn.authFailCount++;
-          if (conn.authFailCount >= MAX_AUTH_FAILURES) {
-            this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "tokenInvalid", { name: conn.config.productName }));
-            if (conn.pollTimer) {
-              this.clearInterval(conn.pollTimer);
-              conn.pollTimer = void 0;
-            }
-            if (conn.reconnectTimer) {
-              this.clearTimeout(conn.reconnectTimer);
-              conn.reconnectTimer = void 0;
-            }
-            (_a = conn.wsClient) == null ? void 0 : _a.close();
-          }
+          this.handleAuthFailure(
+            conn,
+            err,
+            /* cleanupTimers */
+            true
+          );
           return;
         }
         if (!unstable && (0, import_connection_utils.classifyError)(err) === "NETWORK" && conn.pollTimer) {
@@ -716,6 +716,45 @@ class HomeWizard extends utils.Adapter {
     return conn.recentDisconnects >= import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD;
   }
   /**
+   * Handle a possible auth failure on a device connection. Counts failures and,
+   * once `MAX_AUTH_FAILURES` is reached, warns the user and (optionally) tears
+   * down active timers and the WebSocket — stops bombarding the device with a
+   * known-bad token.
+   *
+   * @param conn          Device connection.
+   * @param error         The error from the failing call (any error type accepted).
+   * @param cleanupTimers If `true`, clears poll/reconnect timers and closes the WS
+   *                      on threshold reach. Used by REST-fallback paths where
+   *                      the WS would otherwise keep retrying indefinitely. The
+   *                      WS-disconnect path passes `false` because the caller
+   *                      decides the next step itself.
+   * @returns `true` if the caller should continue normal flow (no auth-stop),
+   *          `false` if the auth-stop fired and the caller should bail out.
+   */
+  handleAuthFailure(conn, error, cleanupTimers) {
+    var _a;
+    if (!(error instanceof import_homewizard_client.HomeWizardApiError) || error.errorCode !== "user:unauthorized") {
+      return true;
+    }
+    conn.authFailCount++;
+    if (conn.authFailCount < MAX_AUTH_FAILURES) {
+      return true;
+    }
+    this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "tokenInvalid", { name: conn.config.productName }));
+    if (cleanupTimers) {
+      if (conn.pollTimer) {
+        this.clearInterval(conn.pollTimer);
+        conn.pollTimer = void 0;
+      }
+      if (conn.reconnectTimer) {
+        this.clearTimeout(conn.reconnectTimer);
+        conn.reconnectTimer = void 0;
+      }
+      (_a = conn.wsClient) == null ? void 0 : _a.close();
+    }
+    return false;
+  }
+  /**
    * Log device error with deduplication (based on error category, not context).
    * First occurrence of a new error category logs as warn, repeats as debug.
    *
@@ -728,7 +767,7 @@ class HomeWizard extends utils.Adapter {
     const isRepeat = errorCode === conn.lastErrorCode;
     conn.lastErrorCode = errorCode;
     if (isRepeat) {
-      this.log.debug(`${conn.config.productName} ${context}: ${errText(err)}`);
+      this.log.debug(`${conn.config.productName} ${context}: ${(0, import_coerce.errText)(err)}`);
     } else if (errorCode === "NETWORK") {
       this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "deviceUnreachable", { name: conn.config.productName }));
     } else {
@@ -736,7 +775,7 @@ class HomeWizard extends utils.Adapter {
         (0, import_i18n_logs.tLog)(this.systemLang, "deviceErrorContext", {
           name: conn.config.productName,
           context,
-          error: errText(err)
+          error: (0, import_coerce.errText)(err)
         })
       );
     }

@@ -132,6 +132,8 @@ jobs:
     steps:
       - uses: ioBroker/testing-action-deploy@v1
         with:
-          node-version: "22.x"
+          # Node 22 + npm@latest installer trips MODULE_NOT_FOUND for promise-retry.
+          # Memory: reference_iobroker_deploy_node24_workaround.
+          node-version: "24.x"
           build: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
