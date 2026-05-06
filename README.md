@@ -11,17 +11,18 @@
 
 <img src="https://raw.githubusercontent.com/krobipd/ioBroker.homewizard/main/admin/homewizard.svg" width="100" />
 
-Real-time energy monitoring from [HomeWizard](https://www.homewizard.com) Energy devices via API v2 with WebSocket push (~1 update/second).
+Real-time energy monitoring for [HomeWizard](https://www.homewizard.com) Energy devices with API v2.
 
 ---
 
 ## Features
 
-- **Pairing by button press** — find devices via mDNS or enter a fixed IP
+- **HomeWizard API v2** — HTTPS + WebSocket, bearer-token authentication
+- **mDNS pairing** — `_homewizard._tcp` discovery, press the device button to pair
+- **WebSocket push** — measurements arrive ~1/s; REST polling takes over while the WebSocket reconnects
 - **Plug-In Battery control** — charge/discharge mode and grid-feed permissions through the paired P1/kWh meter
-- **System controls** — LED brightness, cloud toggle, reboot, identify
-- **Adaptive reconnect** for devices on weak WiFi
-- **No adapter restart** on pairing or removal — device tokens are stored encrypted per device object
+- **Adaptive reconnect** — devices with weak WiFi switch to a faster reconnect interval and keep REST polling running so data keeps flowing
+- **Encrypted device tokens** — stored per device object, no adapter restart on pairing or removal
 
 ---
 

@@ -109,17 +109,17 @@
       "zh-cn": "HomeWizard Energy"
     },
     "desc": {
-      "en": "Real-time energy monitoring from HomeWizard devices (P1 Meter, kWh Meter, Battery) via API v2 with WebSocket push",
-      "de": "Echtzeit-Energieüberwachung von HomeWizard-Geräten (P1 Meter, kWh Meter, Batterie) via API v2 mit WebSocket-Push",
-      "ru": "Мониторинг энергии в реальном времени от устройств HomeWizard (P1 Meter, kWh Meter, Battery) через API v2 с WebSocket push",
-      "pt": "Monitoramento de energia em tempo real de dispositivos HomeWizard (P1 Meter, kWh Meter, Battery) via API v2 com WebSocket push",
-      "nl": "Realtime energiemonitoring van HomeWizard-apparaten (P1 Meter, kWh Meter, Battery) via API v2 met WebSocket push",
-      "fr": "Surveillance énergétique en temps réel des appareils HomeWizard (P1 Meter, kWh Meter, Battery) via API v2 avec WebSocket push",
-      "it": "Monitoraggio energetico in tempo reale da dispositivi HomeWizard (P1 Meter, kWh Meter, Battery) via API v2 con WebSocket push",
-      "es": "Monitoreo de energía en tiempo real de dispositivos HomeWizard (P1 Meter, kWh Meter, Battery) vía API v2 con WebSocket push",
-      "pl": "Monitorowanie energii w czasie rzeczywistym z urządzeń HomeWizard (P1 Meter, kWh Meter, Battery) przez API v2 z WebSocket push",
-      "uk": "Моніторинг енергії в реальному часі від пристроїв HomeWizard (P1 Meter, kWh Meter, Battery) через API v2 з WebSocket push",
-      "zh-cn": "通过 API v2 和 WebSocket 推送实时监控 HomeWizard 设备（P1 Meter、kWh Meter、Battery）的能源数据"
+      "en": "Real-time energy monitoring for HomeWizard Energy devices with API v2",
+      "de": "Echtzeit-Energieüberwachung für HomeWizard-Energie-Geräte mit API v2",
+      "ru": "Мониторинг энергии в реальном времени для устройств HomeWizard Energy с API v2",
+      "pt": "Monitoramento de energia em tempo real para dispositivos HomeWizard Energy com API v2",
+      "nl": "Realtime energiemonitoring voor HomeWizard Energy-apparaten met API v2",
+      "fr": "Surveillance énergétique en temps réel pour les appareils HomeWizard Energy avec API v2",
+      "it": "Monitoraggio energetico in tempo reale per dispositivi HomeWizard Energy con API v2",
+      "es": "Monitoreo de energía en tiempo real para dispositivos HomeWizard Energy con API v2",
+      "pl": "Monitorowanie energii w czasie rzeczywistym dla urządzeń HomeWizard Energy z API v2",
+      "uk": "Моніторинг енергії в реальному часі для пристроїв HomeWizard Energy з API v2",
+      "zh-cn": "为支持 API v2 的 HomeWizard Energy 设备提供实时能源监控"
     },
     "authors": [
       "krobi <krobi@power-dreams.com>"
