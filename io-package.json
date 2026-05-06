@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.7.1",
+    "version": "0.7.2",
     "news": {
-      "NEXT": {
+      "0.7.2": {
         "en": "Internal robustness: stricter number parsing for sensor inputs, parallel state writes, code split for testability, 38 new tests covering the HTTPS client. No user-facing changes.",
         "de": "Interne Härtung: strengere Zahlenprüfung für Sensorwerte, parallele State-Writes, Code-Split für bessere Testbarkeit, 38 neue Tests für den HTTPS-Client. Keine User-sichtbaren Änderungen.",
         "ru": "Внутреннее усиление: строгая проверка чисел для сенсорных значений, параллельная запись состояний, разделение кода ради тестируемости, 38 новых тестов для HTTPS-клиента. Без видимых изменений.",
@@ -93,19 +93,6 @@
         "pl": "Wewnętrzne wzmocnienie. Brak zmian widocznych dla użytkownika.",
         "uk": "Внутрішнє зміцнення. Без помітних для користувача змін.",
         "zh-cn": "内部加固。对用户无可见变化。"
-      },
-      "0.6.3": {
-        "en": "WebSocket and REST input hardening. Stops endless reconnect when the device token is invalid.",
-        "de": "WebSocket- und REST-Input-Härtung. Beendet Endlos-Reconnect bei ungültigem Geräte-Token.",
-        "ru": "Усиление input WebSocket и REST. Прекращает бесконечный reconnect при недействительном токене устройства.",
-        "pt": "Endurecimento de entrada WebSocket e REST. Para a reconexão infinita quando o token do dispositivo é inválido.",
-        "nl": "WebSocket- en REST-input-verharding. Stopt eindeloze reconnect bij ongeldig apparaat-token.",
-        "fr": "Durcissement des entrées WebSocket et REST. Arrête la reconnexion infinie en cas de token d'appareil invalide.",
-        "it": "Hardening input WebSocket e REST. Ferma riconnessione infinita su token dispositivo non valido.",
-        "es": "Endurecimiento de entrada WebSocket y REST. Detiene la reconexión infinita con token de dispositivo inválido.",
-        "pl": "Wzmocnienie input WebSocket i REST. Zatrzymuje nieskończony reconnect przy nieprawidłowym tokenie urządzenia.",
-        "uk": "Зміцнення input WebSocket та REST. Припиняє нескінченний reconnect при недійсному токені пристрою.",
-        "zh-cn": "WebSocket 和 REST 输入加固。设备 token 无效时停止无限重连。"
       }
     },
     "titleLang": {

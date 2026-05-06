@@ -167,7 +167,7 @@ homewizard.0.
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 0.7.2 (2026-05-06)
 - Internal hardening: stricter number parsing for sensor inputs, parallel state writes, code split for testability, 38 new tests covering the HTTPS client. No user-facing changes.
 
 ### 0.7.1 (2026-05-06)
@@ -187,15 +187,6 @@ homewizard.0.
 ### 0.6.6 (2026-04-28)
 - Internal cleanup. No user-facing changes.
 
-### 0.6.5 (2026-04-26)
-- Crash defense: process-level error handlers.
-- Min `js-controller` restored to `>=6.0.11` (was incorrectly `>=7.0.0`).
-
-Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).## Support
-
-- [ioBroker Forum](https://forum.iobroker.net/)
-- [GitHub Issues](https://github.com/krobipd/ioBroker.homewizard/issues)
-
 ### Support Development
 
 This adapter is free and open source. If you find it useful, consider buying me a coffee:
@@ -204,6 +195,8 @@ This adapter is free and open source. If you find it useful, consider buying me 
 [![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge)](https://paypal.me/krobipd)
 
 ---
+
+Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
 ## License
 
