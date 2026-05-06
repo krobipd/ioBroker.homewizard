@@ -6,7 +6,7 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.7.0 (2026-05-06 — Multi-Language komplett über 11 Sprachen + Baseline May-26)
+- **Version:** 0.7.1 (2026-05-06 — Multi-Language + Robustness gebündelt in v0.7.0; v0.7.1 + Performance-Cache + RSSI dBm)
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
@@ -98,14 +98,15 @@ Info-Log: "connection stabilized — using normal reconnect"
 P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630), Battery (HWE-BAT).
 Energy Socket + Watermeter nur v1 → noch nicht unterstützt.
 
-## Tests (188)
+## Tests (217)
 
 ```
 src/main.test.ts                      → classifyError, createDeviceConnection (22)
+src/lib/coerce.test.ts                → coerce-Helpers + errText + validateBatteryMode + parseBatteryPermissions (29)
 src/lib/discovery.test.ts             → mDNS (16)
 src/lib/homewizard-client.test.ts     → HomeWizardApiError (9)
 src/lib/i18n-logs.test.ts             → tLog + EN-Fallback + Token-Substitution + 11-Sprachen-Coverage (8)
-src/lib/state-manager.test.ts         → States + Buttons + boundary hardening + Translation-Object-Asserts (57)
+src/lib/state-manager.test.ts         → States + Buttons + boundary hardening + Translation-Objects + cache + dBm (62)
 src/lib/websocket-client.test.ts      → WebSocket-Flow + envelope validation (19)
 test/package.js                       → @iobroker/testing Package-Tests (57)
 test/integration.js                   → @iobroker/testing Integration-Tests (plain JS)
@@ -124,7 +125,8 @@ Variant A wie hassemu — Single-Instance, Multi-Device, daher reicht ein global
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
-| 0.7.0 | 2026-05-06 | Multi-Language komplett über 11 Sprachen (State-Namen, Beschreibungen, Dropdown-Labels für tariff + battery.mode, info/warn/error-Logs). Power-Quality + Belgian-capacity-tariff bekommen common.desc-Tooltips. Baseline auf Node 22 + ioBroker Admin 7.8.23 (May-2026 Plattform-Empfehlung) |
+| 0.7.1 | 2026-05-06 | Performance-Cache: state-Existenz-Prüfung wird nach erstem Anlegen gecacht (~30 Redis-Lookups/s gespart bei P1 Meter mit 1 Hz Push). WiFi-RSSI Einheit dB → dBm. |
+| 0.7.0 | 2026-05-06 | Multi-Language komplett über 11 Sprachen (State-Namen, Beschreibungen, Dropdown-Labels für tariff + battery.mode, info/warn/error-Logs). Power-Quality + Belgian-capacity-tariff bekommen common.desc-Tooltips. errText / handleAuthFailure / validateBatteryMode / parseBatteryPermissions als pure Helpers. Baseline auf Node 22 + ioBroker Admin 7.8.23 + @tsconfig/node22 (May-2026 Plattform-Empfehlung). Erstes v0.7.0-Tag wurde wegen MODULE_NOT_FOUND beim deploy gelöscht und mit Workflow-fix (deploy auf Node 24) neu gesetzt. |
 | 0.6.4 | 2026-04-23 | tsconfig.test.json → outDir `./build-test`, `.catch()`-Wrapper für onReady + onStateChange, `pairingIp` als instanceObject (11-sprachig) statt dynamic in onReady |
 | 0.6.3 | 2026-04-18 | API-Boundary-Härtung (WS + REST), Auth-Loop-Stopp bei ungültigem Token, Lazy external-Channel, 29 neue Edge-Case-Tests |
 | 0.6.2 | 2026-04-13 | Fix res.on("error"), onUnload try/finally, setObjectNotExistsAsync Hot Path, DRY removeDeviceFromObject |
