@@ -46,7 +46,7 @@ src/lib/i18n-states.ts       → STATE_NAMES + STATE_DESCS + STATE_LABELS (~109 
 2. **Hue-Style Pairing** — mDNS Discovery → User drückt physischen Knopf → Token
 3. **WebSocket primär** — Push ~1/s, REST-Fallback (10s poll bei WS-Disconnect, stoppt bei NETWORK-Error)
 4. **bonjour-service** für mDNS (`_homewizard._tcp` v2), nur bei Pairing und IP-Recovery
-5. **API v2 only** — v1 unsicher, kein WS, deprecated
+5. **API v2 only — v1 wird NIEMALS unterstützt.** v1 ist deprecated (kein TLS, kein Token, kein WebSocket). Geräte ohne v2-Support liegen außerhalb des Adapter-Scope. Diese Entscheidung ist final, nicht „noch nicht" und nicht „warten auf v2-Firmware".
 6. **Device-Config in Device-Objekten** (seit v0.3.0) — Token mit `this.encrypt()`, KEIN adapter native → kein Restart bei Pairing/Remove
 7. **TLS mit CA-Cert** — HomeWizard CA gebündelt, Hostname-Check übersprungen (CN = `appliance/type/serial`)
 8. **Admin UI ohne Gerätetabelle** — Geräte im Objekte-Tab, nicht in Config
@@ -96,7 +96,8 @@ Info-Log: "connection stabilized — using normal reconnect"
 ## Unterstützte Geräte
 
 P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630), Battery (HWE-BAT).
-Energy Socket + Watermeter nur v1 → noch nicht unterstützt.
+
+**Außerhalb des Scope (final, nicht „noch nicht"):** Energy Socket (HWE-SKT), Watermeter (HWE-WTR), Energy Display (HWE-DSP). Diese Geräte sprechen nur die deprecated v1-API. Adapter ist v2-only — siehe Design-Entscheidung 5.
 
 ## Tests (259)
 
