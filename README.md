@@ -1,7 +1,7 @@
 # ioBroker.homewizard
 
 [![npm version](https://img.shields.io/npm/v/iobroker.homewizard)](https://www.npmjs.com/package/iobroker.homewizard)
-![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
+![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![npm downloads](https://img.shields.io/npm/dt/iobroker.homewizard)](https://www.npmjs.com/package/iobroker.homewizard)
@@ -24,14 +24,15 @@ Real-time energy monitoring from [HomeWizard](https://www.homewizard.com) Energy
 - **Battery control** — manage HomeWizard Plug-In Batteries (mode, permissions)
 - **System control** — LED brightness, cloud toggle, reboot, identify
 - **REST fallback** — automatic polling when WebSocket is unavailable
+- **Multi-language UI** — state names, descriptions and dropdown labels follow the ioBroker system language (11 languages)
 
 ---
 
 ## Requirements
 
-- **Node.js >= 20**
+- **Node.js >= 22**
 - **ioBroker js-controller >= 7.0.7**
-- **ioBroker Admin >= 7.7.22**
+- **ioBroker Admin >= 7.8.23**
 - **HomeWizard device with API v2 support** (firmware 4.x+ with local API enabled)
 
 ---
@@ -144,6 +145,8 @@ homewizard.0.
 
 > States are created dynamically based on what the device reports. Not all devices have all states. kWh meters additionally provide apparent/reactive current, apparent/reactive power, and power factor states.
 
+> State names, descriptions and dropdown labels (e.g. `tariff`, `battery.mode`) appear in the ioBroker system language. The adapter reads `system.config.language` at startup — change it under *Settings → Base settings → Language* and restart the adapter.
+
 ---
 
 ## Troubleshooting
@@ -164,6 +167,12 @@ homewizard.0.
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- Multi-language: state names, descriptions, dropdown labels and user-facing logs follow the ioBroker system language across 11 languages (EN, DE, RU, PT, NL, FR, IT, ES, PL, UK, ZH-CN).
+- `tariff` and `battery.mode` show translated dropdown labels in admin/vis instead of raw values.
+- Power-quality and Belgian capacity-tariff states now show inline descriptions (admin tooltips).
+- Baseline bumped to Node 22 and ioBroker Admin 7.8.23 (May-2026 platform requirement).
+
 ### 0.6.7 (2026-05-01)
 - Internal cleanup. No user-facing changes.
 - Documentation: rewrote release notes for v0.6.0–v0.6.6 in user-friendly style across all languages.

@@ -2,6 +2,7 @@ import * as utils from "@iobroker/adapter-core";
 import { classifyError, createDeviceConnection, UNSTABLE_DISCONNECT_THRESHOLD } from "./lib/connection-utils";
 import { HomeWizardDiscovery } from "./lib/discovery";
 import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
+import { tLog } from "./lib/i18n-logs";
 import { StateManager } from "./lib/state-manager";
 import type { DeviceConfig, DeviceConnection, DiscoveredDevice, Measurement } from "./lib/types";
 import { HomeWizardWebSocket } from "./lib/websocket-client";
@@ -55,6 +56,8 @@ class HomeWizard extends utils.Adapter {
   private discoveredDuringPairing: DiscoveredDevice[] = [];
   private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
   private uncaughtExceptionHandler: ((err: Error) => void) | null = null;
+  /** ioBroker system language — read once in `onReady` from `system.config`. EN fallback. */
+  private systemLang: string = "en";
 
   /** @param options Adapter options */
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
@@ -62,10 +65,14 @@ class HomeWizard extends utils.Adapter {
     // Wrap async handlers with .catch() so a rejection can never become an
     // unhandled promise rejection (→ SIGKILL → js-controller restart loop).
     this.on("ready", () => {
-      this.onReady().catch((err: unknown) => this.log.error(`onReady failed: ${errText(err)}`));
+      this.onReady().catch((err: unknown) =>
+        this.log.error(tLog(this.systemLang, "onReadyFailed", { error: errText(err) })),
+      );
     });
     this.on("stateChange", (id, state) => {
-      this.onStateChange(id, state).catch((err: unknown) => this.log.error(`stateChange failed: ${errText(err)}`));
+      this.onStateChange(id, state).catch((err: unknown) =>
+        this.log.error(tLog(this.systemLang, "stateChangeFailed", { error: errText(err) })),
+      );
     });
     this.on("unload", callback => this.onUnload(callback));
 
@@ -73,10 +80,10 @@ class HomeWizard extends utils.Adapter {
     // fire-and-forget paths. The per-handler wrappers cover documented async
     // paths; this catches anything that slips past during refactors.
     this.unhandledRejectionHandler = (reason: unknown) => {
-      this.log.error(`Unhandled rejection: ${errText(reason)}`);
+      this.log.error(tLog(this.systemLang, "unhandledRejection", { error: errText(reason) }));
     };
     this.uncaughtExceptionHandler = (err: Error) => {
-      this.log.error(`Uncaught exception: ${err.message}`);
+      this.log.error(tLog(this.systemLang, "uncaughtException", { error: err.message }));
     };
     process.on("unhandledRejection", this.unhandledRejectionHandler);
     process.on("uncaughtException", this.uncaughtExceptionHandler);
@@ -84,6 +91,17 @@ class HomeWizard extends utils.Adapter {
 
   /** Adapter started */
   private async onReady(): Promise<void> {
+    // Read ioBroker system language for user-facing logs + state names. EN fallback for unknown values.
+    try {
+      const sysCfg = await this.getForeignObjectAsync("system.config");
+      const lang = sysCfg?.common?.language;
+      if (typeof lang === "string" && lang.length > 0) {
+        this.systemLang = lang;
+      }
+    } catch {
+      // EN fallback already in place
+    }
+
     this.stateManager = new StateManager(this);
 
     // `pairingIp` is declared in io-package.json instanceObjects — just reset state.
@@ -105,7 +123,7 @@ class HomeWizard extends utils.Adapter {
     // Load devices from device objects (not from adapter config)
     const devices = await this.loadDevicesFromObjects();
     if (devices.length === 0) {
-      this.log.info("No devices configured — set 'startPairing' to true to add a device");
+      this.log.info(tLog(this.systemLang, "noDevicesConfigured"));
       await this.setStateAsync("info.connection", { val: false, ack: true });
     }
 
@@ -218,7 +236,11 @@ class HomeWizard extends utils.Adapter {
 
     this.discoveredDuringPairing.push(discovered);
     this.log.info(
-      `Found ${discovered.name} (${discovered.productType}) at ${discovered.ip} — press the button on the device to pair`,
+      tLog(this.systemLang, "deviceFound", {
+        name: discovered.name,
+        type: discovered.productType,
+        ip: discovered.ip,
+      }),
     );
   }
 
@@ -308,7 +330,7 @@ class HomeWizard extends utils.Adapter {
 
     try {
       if (id.endsWith(".system.reboot")) {
-        this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
+        this.log.info(tLog(this.systemLang, "rebootingDevice", { name: conn.config.productName, ip: conn.ip }));
         await client.reboot();
       } else if (id.endsWith(".system.identify")) {
         await client.identify();
@@ -334,7 +356,7 @@ class HomeWizard extends utils.Adapter {
         await this.setStateAsync(id, { val: state.val, ack: true });
       }
     } catch (err) {
-      this.log.warn(`Failed to set ${id}: ${err instanceof Error ? err.message : String(err)}`);
+      this.log.warn(tLog(this.systemLang, "failedToSetState", { id, error: errText(err) }));
     }
   }
 
@@ -360,9 +382,7 @@ class HomeWizard extends utils.Adapter {
     await this.setStateAsync("pairingIp", { val: "", ack: true });
 
     if (this.pairingManualIp) {
-      this.log.info(
-        `Pairing mode enabled for ${this.pairingManualIp} — press the button on your HomeWizard device now (60 seconds timeout)`,
-      );
+      this.log.info(tLog(this.systemLang, "pairingEnabledManual", { ip: this.pairingManualIp }));
       // Add as discovered device immediately
       this.discoveredDuringPairing.push({
         ip: this.pairingManualIp,
@@ -371,9 +391,7 @@ class HomeWizard extends utils.Adapter {
         name: this.pairingManualIp,
       });
     } else {
-      this.log.info(
-        "Pairing mode enabled — searching for devices via mDNS, press the button on your HomeWizard device now (60 seconds timeout)",
-      );
+      this.log.info(tLog(this.systemLang, "pairingEnabledMdns"));
       // Restart mDNS browser to trigger fresh query — already-cached devices
       // won't be re-announced otherwise and pairing would never find them
       if (!this.discovery) {
@@ -392,7 +410,7 @@ class HomeWizard extends utils.Adapter {
     // Timeout pairing
     this.pairingTimer = this.setTimeout(() => {
       this.stopPairing();
-      this.log.info("Pairing mode automatically disabled after 60 seconds timeout");
+      this.log.info(tLog(this.systemLang, "pairingTimeout"));
     }, PAIRING_TIMEOUT_MS);
   }
 
@@ -405,7 +423,11 @@ class HomeWizard extends utils.Adapter {
 
         // Success! Button was pressed
         this.log.info(
-          `Successfully paired with ${device.name} (${device.productType}) at ${device.ip} — connecting...`,
+          tLog(this.systemLang, "pairingSuccess", {
+            name: device.name,
+            type: device.productType,
+            ip: device.ip,
+          }),
         );
 
         // Get device info
@@ -441,7 +463,7 @@ class HomeWizard extends utils.Adapter {
         if (err instanceof HomeWizardApiError && err.statusCode === 403) {
           continue;
         }
-        this.log.debug(`Pairing poll error for ${device.ip}: ${err instanceof Error ? err.message : String(err)}`);
+        this.log.debug(`Pairing poll error for ${device.ip}: ${errText(err)}`);
       }
     }
   }
@@ -475,7 +497,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
 
-    this.log.info("Device unreachable — searching for new IP via mDNS");
+    this.log.info(tLog(this.systemLang, "searchingNewIp"));
 
     this.discovery = new HomeWizardDiscovery(this.log);
     this.discovery.start(discovered => {
@@ -488,7 +510,13 @@ class HomeWizard extends utils.Adapter {
           return; // Same IP or already connected
         }
 
-        this.log.info(`${conn.config.productName}: found at new IP ${discovered.ip} (was ${conn.ip})`);
+        this.log.info(
+          tLog(this.systemLang, "foundAtNewIp", {
+            name: conn.config.productName,
+            newIp: discovered.ip,
+            oldIp: conn.ip,
+          }),
+        );
 
         // Update IP and persist — reset stability (new network conditions)
         conn.ip = discovered.ip;
@@ -519,7 +547,10 @@ class HomeWizard extends utils.Adapter {
       for (const conn of this.connections.values()) {
         if (!conn.wsAuthenticated && conn.wsFailCount > 0) {
           this.log.warn(
-            `${conn.config.productName}: device offline — will keep retrying every ${WS_RECONNECT_MAX_MS / 1000}s`,
+            tLog(this.systemLang, "deviceOfflineRetrying", {
+              name: conn.config.productName,
+              seconds: WS_RECONNECT_MAX_MS / 1000,
+            }),
           );
         }
       }
@@ -613,8 +644,11 @@ class HomeWizard extends utils.Adapter {
 
         // Log restoration if we had errors before
         if (conn.lastErrorCode) {
-          const mode = this.isUnstable(conn) ? " (unstable mode)" : "";
-          this.log.info(`${conn.config.productName}: connection restored${mode}`);
+          this.log.info(
+            tLog(this.systemLang, this.isUnstable(conn) ? "connectionRestoredUnstable" : "connectionRestored", {
+              name: conn.config.productName,
+            }),
+          );
           conn.lastErrorCode = "";
         }
 
@@ -627,12 +661,12 @@ class HomeWizard extends utils.Adapter {
           if (duration < STABLE_THRESHOLD_MS) {
             conn.recentDisconnects++;
             if (conn.recentDisconnects === UNSTABLE_DISCONNECT_THRESHOLD) {
-              this.log.info(`${conn.config.productName}: unstable connection detected — using faster reconnect`);
+              this.log.info(tLog(this.systemLang, "unstableDetected", { name: conn.config.productName }));
             }
           } else {
             // Was stable — reset counter
             if (conn.recentDisconnects >= UNSTABLE_DISCONNECT_THRESHOLD) {
-              this.log.info(`${conn.config.productName}: connection stabilized — using normal reconnect`);
+              this.log.info(tLog(this.systemLang, "connectionStabilized", { name: conn.config.productName }));
             }
             conn.recentDisconnects = 0;
           }
@@ -651,7 +685,7 @@ class HomeWizard extends utils.Adapter {
         if (error instanceof HomeWizardApiError && error.errorCode === "user:unauthorized") {
           conn.authFailCount++;
           if (conn.authFailCount >= MAX_AUTH_FAILURES) {
-            this.log.warn(`${conn.config.productName}: token invalid — re-pair device to fix`);
+            this.log.warn(tLog(this.systemLang, "tokenInvalid", { name: conn.config.productName }));
             return;
           }
         }
@@ -704,7 +738,7 @@ class HomeWizard extends utils.Adapter {
         if (err instanceof HomeWizardApiError && err.errorCode === "user:unauthorized") {
           conn.authFailCount++;
           if (conn.authFailCount >= MAX_AUTH_FAILURES) {
-            this.log.warn(`${conn.config.productName}: token invalid — re-pair device to fix`);
+            this.log.warn(tLog(this.systemLang, "tokenInvalid", { name: conn.config.productName }));
             if (conn.pollTimer) {
               this.clearInterval(conn.pollTimer);
               conn.pollTimer = undefined;
@@ -788,7 +822,9 @@ class HomeWizard extends utils.Adapter {
     }
 
     const key = this.stateManager.devicePrefix(conn.config);
-    this.log.info(`Removing device ${conn.config.productName} (${conn.config.serial})`);
+    this.log.info(
+      tLog(this.systemLang, "removingDevice", { name: conn.config.productName, serial: conn.config.serial }),
+    );
 
     // Disconnect
     conn.wsClient?.close();
@@ -846,11 +882,17 @@ class HomeWizard extends utils.Adapter {
     conn.lastErrorCode = errorCode;
 
     if (isRepeat) {
-      this.log.debug(`${conn.config.productName} ${context}: ${err instanceof Error ? err.message : String(err)}`);
+      this.log.debug(`${conn.config.productName} ${context}: ${errText(err)}`);
     } else if (errorCode === "NETWORK") {
-      this.log.warn(`${conn.config.productName}: device unreachable — will keep retrying`);
+      this.log.warn(tLog(this.systemLang, "deviceUnreachable", { name: conn.config.productName }));
     } else {
-      this.log.warn(`${conn.config.productName} ${context}: ${err instanceof Error ? err.message : String(err)}`);
+      this.log.warn(
+        tLog(this.systemLang, "deviceErrorContext", {
+          name: conn.config.productName,
+          context,
+          error: errText(err),
+        }),
+      );
     }
   }
 }

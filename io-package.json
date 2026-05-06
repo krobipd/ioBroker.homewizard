@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.6.7",
     "news": {
+      "NEXT": {
+        "en": "Multi-language: state names, descriptions, dropdown labels and user-facing logs in 11 languages, picked from the ioBroker system language. Baseline bumped to Node 22 and Admin 7.8.23.",
+        "de": "Mehrsprachigkeit: Zustandsnamen, Beschreibungen, Dropdown-Labels und User-Logs in 11 Sprachen — aus der ioBroker-Systemsprache. Baseline auf Node 22 und Admin 7.8.23 gehoben.",
+        "ru": "Многоязычность: имена состояний, описания, метки выпадающих списков и пользовательские логи на 11 языках по системному языку ioBroker. Baseline поднят до Node 22 и Admin 7.8.23.",
+        "pt": "Multilíngue: nomes de estados, descrições, rótulos de dropdown e logs de utilizador em 11 idiomas pelo idioma do sistema ioBroker. Baseline elevada para Node 22 e Admin 7.8.23.",
+        "nl": "Meertalig: statusnamen, beschrijvingen, dropdown-labels en gebruikerslogs in 11 talen uit de ioBroker-systeemtaal. Baseline verhoogd naar Node 22 en Admin 7.8.23.",
+        "fr": "Multilingue : noms d'états, descriptions, libellés déroulants et logs utilisateur en 11 langues, depuis la langue système ioBroker. Baseline rehaussée à Node 22 et Admin 7.8.23.",
+        "it": "Multilingua: nomi degli stati, descrizioni, etichette dei menu a tendina e log utente in 11 lingue dalla lingua di sistema ioBroker. Baseline elevata a Node 22 e Admin 7.8.23.",
+        "es": "Multilingüe: nombres de estados, descripciones, etiquetas de menús desplegables y logs de usuario en 11 idiomas según el idioma del sistema ioBroker. Línea base elevada a Node 22 y Admin 7.8.23.",
+        "pl": "Wiele języków: nazwy stanów, opisy, etykiety menu wyboru i logi użytkownika w 11 językach (z języka systemu ioBroker). Baseline podniesiona do Node 22 oraz Admin 7.8.23.",
+        "uk": "Багатомовність: імена станів, описи, мітки випадних меню та користувацькі логи 11 мовами із системної мови ioBroker. Базову версію піднято до Node 22 і Admin 7.8.23.",
+        "zh-cn": "多语言：状态名、描述、下拉标签和用户日志支持 11 种语言，跟随 ioBroker 系统语言。基线提升至 Node 22 和 Admin 7.8.23。"
+      },
       "0.6.7": {
         "en": "Documentation: rewrote release notes in user-friendly style across all languages.",
         "de": "Dokumentation: Release-Notes in alle Sprachen User-orientiert neu geschrieben.",
@@ -162,7 +175,7 @@
     ],
     "globalDependencies": [
       {
-        "admin": ">=7.7.22"
+        "admin": ">=7.8.23"
       }
     ]
   },
@@ -174,7 +187,19 @@
       "_id": "info",
       "type": "channel",
       "common": {
-        "name": "Adapter Information"
+        "name": {
+          "en": "Adapter Information",
+          "de": "Adapter-Informationen",
+          "ru": "Информация об адаптере",
+          "pt": "Informações do adaptador",
+          "nl": "Adapterinformatie",
+          "fr": "Informations sur l'adaptateur",
+          "it": "Informazioni sull'adattatore",
+          "es": "Información del adaptador",
+          "pl": "Informacje o adapterze",
+          "uk": "Інформація про адаптер",
+          "zh-cn": "适配器信息"
+        }
       },
       "native": {}
     },
@@ -182,7 +207,19 @@
       "_id": "info.connection",
       "type": "state",
       "common": {
-        "name": "Connection status",
+        "name": {
+          "en": "Connection status",
+          "de": "Verbindungsstatus",
+          "ru": "Статус подключения",
+          "pt": "Estado da ligação",
+          "nl": "Verbindingsstatus",
+          "fr": "État de la connexion",
+          "it": "Stato della connessione",
+          "es": "Estado de la conexión",
+          "pl": "Status połączenia",
+          "uk": "Стан з'єднання",
+          "zh-cn": "连接状态"
+        },
         "type": "boolean",
         "role": "indicator.connected",
         "read": true,
@@ -195,7 +232,32 @@
       "_id": "startPairing",
       "type": "state",
       "common": {
-        "name": "Start pairing mode",
+        "name": {
+          "en": "Start pairing mode",
+          "de": "Pairing-Modus starten",
+          "ru": "Начать режим сопряжения",
+          "pt": "Iniciar modo de emparelhamento",
+          "nl": "Koppelmodus starten",
+          "fr": "Démarrer le mode d'appairage",
+          "it": "Avvia modalità di accoppiamento",
+          "es": "Iniciar modo de emparejamiento",
+          "pl": "Uruchom tryb parowania",
+          "uk": "Запустити режим сполучення",
+          "zh-cn": "启动配对模式"
+        },
+        "desc": {
+          "en": "Set to true to start mDNS discovery and pair a new HomeWizard device (60-second window)",
+          "de": "Auf true setzen, um die mDNS-Suche zu starten und ein neues HomeWizard-Gerät zu koppeln (60 Sekunden Zeitfenster)",
+          "ru": "Установите true, чтобы начать поиск через mDNS и сопрячь новое устройство HomeWizard (окно 60 секунд)",
+          "pt": "Defina como true para iniciar a deteção mDNS e emparelhar um novo dispositivo HomeWizard (janela de 60 segundos)",
+          "nl": "Zet op true om mDNS-detectie te starten en een nieuw HomeWizard-apparaat te koppelen (60 seconden venster)",
+          "fr": "Mettez à true pour démarrer la détection mDNS et appairer un nouvel appareil HomeWizard (fenêtre de 60 secondes)",
+          "it": "Imposta su true per avviare la rilevazione mDNS e accoppiare un nuovo dispositivo HomeWizard (finestra di 60 secondi)",
+          "es": "Establece en true para iniciar la detección mDNS y emparejar un nuevo dispositivo HomeWizard (ventana de 60 segundos)",
+          "pl": "Ustaw na true, aby uruchomić wykrywanie mDNS i sparować nowe urządzenie HomeWizard (okno 60 sekund)",
+          "uk": "Встановіть true, щоб запустити пошук через mDNS і виконати сполучення нового пристрою HomeWizard (вікно 60 секунд)",
+          "zh-cn": "设置为 true 以启动 mDNS 发现并配对新的 HomeWizard 设备（60 秒窗口）"
+        },
         "type": "boolean",
         "role": "button",
         "read": false,

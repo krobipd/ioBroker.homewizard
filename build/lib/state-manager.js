@@ -22,123 +22,33 @@ __export(state_manager_exports, {
 });
 module.exports = __toCommonJS(state_manager_exports);
 var import_coerce = require("./coerce");
+var import_i18n_states = require("./i18n-states");
 function sanitize(str) {
   return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
 }
 const MEASUREMENT_STATE_DEFS = [
   // Power
-  {
-    key: "power_w",
-    id: "power_w",
-    name: "Total power",
-    type: "number",
-    role: "value.power",
-    unit: "W"
-  },
-  {
-    key: "power_l1_w",
-    id: "power_l1_w",
-    name: "Power L1",
-    type: "number",
-    role: "value.power",
-    unit: "W"
-  },
-  {
-    key: "power_l2_w",
-    id: "power_l2_w",
-    name: "Power L2",
-    type: "number",
-    role: "value.power",
-    unit: "W"
-  },
-  {
-    key: "power_l3_w",
-    id: "power_l3_w",
-    name: "Power L3",
-    type: "number",
-    role: "value.power",
-    unit: "W"
-  },
+  { key: "power_w", id: "power_w", nameKey: "powerTotal", type: "number", role: "value.power", unit: "W" },
+  { key: "power_l1_w", id: "power_l1_w", nameKey: "powerL1", type: "number", role: "value.power", unit: "W" },
+  { key: "power_l2_w", id: "power_l2_w", nameKey: "powerL2", type: "number", role: "value.power", unit: "W" },
+  { key: "power_l3_w", id: "power_l3_w", nameKey: "powerL3", type: "number", role: "value.power", unit: "W" },
   // Voltage
-  {
-    key: "voltage_v",
-    id: "voltage_v",
-    name: "Voltage",
-    type: "number",
-    role: "value.voltage",
-    unit: "V"
-  },
-  {
-    key: "voltage_l1_v",
-    id: "voltage_l1_v",
-    name: "Voltage L1",
-    type: "number",
-    role: "value.voltage",
-    unit: "V"
-  },
-  {
-    key: "voltage_l2_v",
-    id: "voltage_l2_v",
-    name: "Voltage L2",
-    type: "number",
-    role: "value.voltage",
-    unit: "V"
-  },
-  {
-    key: "voltage_l3_v",
-    id: "voltage_l3_v",
-    name: "Voltage L3",
-    type: "number",
-    role: "value.voltage",
-    unit: "V"
-  },
+  { key: "voltage_v", id: "voltage_v", nameKey: "voltage", type: "number", role: "value.voltage", unit: "V" },
+  { key: "voltage_l1_v", id: "voltage_l1_v", nameKey: "voltageL1", type: "number", role: "value.voltage", unit: "V" },
+  { key: "voltage_l2_v", id: "voltage_l2_v", nameKey: "voltageL2", type: "number", role: "value.voltage", unit: "V" },
+  { key: "voltage_l3_v", id: "voltage_l3_v", nameKey: "voltageL3", type: "number", role: "value.voltage", unit: "V" },
   // Current
-  {
-    key: "current_a",
-    id: "current_a",
-    name: "Current",
-    type: "number",
-    role: "value.current",
-    unit: "A"
-  },
-  {
-    key: "current_l1_a",
-    id: "current_l1_a",
-    name: "Current L1",
-    type: "number",
-    role: "value.current",
-    unit: "A"
-  },
-  {
-    key: "current_l2_a",
-    id: "current_l2_a",
-    name: "Current L2",
-    type: "number",
-    role: "value.current",
-    unit: "A"
-  },
-  {
-    key: "current_l3_a",
-    id: "current_l3_a",
-    name: "Current L3",
-    type: "number",
-    role: "value.current",
-    unit: "A"
-  },
+  { key: "current_a", id: "current_a", nameKey: "current", type: "number", role: "value.current", unit: "A" },
+  { key: "current_l1_a", id: "current_l1_a", nameKey: "currentL1", type: "number", role: "value.current", unit: "A" },
+  { key: "current_l2_a", id: "current_l2_a", nameKey: "currentL2", type: "number", role: "value.current", unit: "A" },
+  { key: "current_l3_a", id: "current_l3_a", nameKey: "currentL3", type: "number", role: "value.current", unit: "A" },
   // Frequency
-  {
-    key: "frequency_hz",
-    id: "frequency_hz",
-    name: "Frequency",
-    type: "number",
-    role: "value",
-    unit: "Hz"
-  },
+  { key: "frequency_hz", id: "frequency_hz", nameKey: "frequency", type: "number", role: "value", unit: "Hz" },
   // Energy import
   {
     key: "energy_import_kwh",
     id: "energy_import_kwh",
-    name: "Energy import total",
+    nameKey: "energyImportTotal",
     type: "number",
     role: "value.energy",
     unit: "kWh"
@@ -146,7 +56,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "energy_import_t1_kwh",
     id: "energy_import_t1_kwh",
-    name: "Energy import T1",
+    nameKey: "energyImportT1",
     type: "number",
     role: "value.energy",
     unit: "kWh"
@@ -154,7 +64,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "energy_import_t2_kwh",
     id: "energy_import_t2_kwh",
-    name: "Energy import T2",
+    nameKey: "energyImportT2",
     type: "number",
     role: "value.energy",
     unit: "kWh"
@@ -162,7 +72,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "energy_import_t3_kwh",
     id: "energy_import_t3_kwh",
-    name: "Energy import T3",
+    nameKey: "energyImportT3",
     type: "number",
     role: "value.energy",
     unit: "kWh"
@@ -170,7 +80,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "energy_import_t4_kwh",
     id: "energy_import_t4_kwh",
-    name: "Energy import T4",
+    nameKey: "energyImportT4",
     type: "number",
     role: "value.energy",
     unit: "kWh"
@@ -179,7 +89,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "energy_export_kwh",
     id: "energy_export_kwh",
-    name: "Energy export total",
+    nameKey: "energyExportTotal",
     type: "number",
     role: "value.energy",
     unit: "kWh"
@@ -187,7 +97,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "energy_export_t1_kwh",
     id: "energy_export_t1_kwh",
-    name: "Energy export T1",
+    nameKey: "energyExportT1",
     type: "number",
     role: "value.energy",
     unit: "kWh"
@@ -195,7 +105,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "energy_export_t2_kwh",
     id: "energy_export_t2_kwh",
-    name: "Energy export T2",
+    nameKey: "energyExportT2",
     type: "number",
     role: "value.energy",
     unit: "kWh"
@@ -203,7 +113,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "energy_export_t3_kwh",
     id: "energy_export_t3_kwh",
-    name: "Energy export T3",
+    nameKey: "energyExportT3",
     type: "number",
     role: "value.energy",
     unit: "kWh"
@@ -211,73 +121,75 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "energy_export_t4_kwh",
     id: "energy_export_t4_kwh",
-    name: "Energy export T4",
+    nameKey: "energyExportT4",
     type: "number",
     role: "value.energy",
     unit: "kWh"
   },
-  // Tariff
-  {
-    key: "tariff",
-    id: "tariff",
-    name: "Active tariff",
-    type: "number",
-    role: "value"
-  },
+  // Tariff (common.states applied separately in updateMeasurement for translation labels)
+  { key: "tariff", id: "tariff", nameKey: "tariff", type: "number", role: "value" },
   // Power quality
   {
     key: "voltage_sag_l1_count",
     id: "quality.voltage_sag_l1_count",
-    name: "Voltage sag L1",
+    nameKey: "voltageSagL1",
+    descKey: "voltageSag",
     type: "number",
     role: "value"
   },
   {
     key: "voltage_sag_l2_count",
     id: "quality.voltage_sag_l2_count",
-    name: "Voltage sag L2",
+    nameKey: "voltageSagL2",
+    descKey: "voltageSag",
     type: "number",
     role: "value"
   },
   {
     key: "voltage_sag_l3_count",
     id: "quality.voltage_sag_l3_count",
-    name: "Voltage sag L3",
+    nameKey: "voltageSagL3",
+    descKey: "voltageSag",
     type: "number",
     role: "value"
   },
   {
     key: "voltage_swell_l1_count",
     id: "quality.voltage_swell_l1_count",
-    name: "Voltage swell L1",
+    nameKey: "voltageSwellL1",
+    descKey: "voltageSwell",
     type: "number",
     role: "value"
   },
   {
     key: "voltage_swell_l2_count",
     id: "quality.voltage_swell_l2_count",
-    name: "Voltage swell L2",
+    nameKey: "voltageSwellL2",
+    descKey: "voltageSwell",
     type: "number",
     role: "value"
   },
   {
     key: "voltage_swell_l3_count",
     id: "quality.voltage_swell_l3_count",
-    name: "Voltage swell L3",
+    nameKey: "voltageSwellL3",
+    descKey: "voltageSwell",
     type: "number",
     role: "value"
   },
   {
     key: "any_power_fail_count",
     id: "quality.power_fail_count",
-    name: "Power fail count",
+    nameKey: "powerFailCount",
+    descKey: "powerFailCountDesc",
     type: "number",
     role: "value"
   },
   {
     key: "long_power_fail_count",
     id: "quality.long_power_fail_count",
-    name: "Long power fail count",
+    nameKey: "longPowerFailCount",
+    descKey: "longPowerFailCountDesc",
     type: "number",
     role: "value"
   },
@@ -285,7 +197,8 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "average_power_15m_w",
     id: "average_power_15m_w",
-    name: "Average power 15min",
+    nameKey: "avgPower15m",
+    descKey: "belgiumCapacityTariff",
     type: "number",
     role: "value.power",
     unit: "W"
@@ -293,7 +206,8 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "monthly_power_peak_w",
     id: "monthly_power_peak_w",
-    name: "Monthly power peak",
+    nameKey: "monthlyPowerPeak",
+    descKey: "belgiumCapacityTariff",
     type: "number",
     role: "value.power",
     unit: "W"
@@ -301,15 +215,16 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "monthly_power_peak_timestamp",
     id: "monthly_power_peak_timestamp",
-    name: "Monthly power peak time",
+    nameKey: "monthlyPowerPeakTimestamp",
+    descKey: "belgiumCapacityTariff",
     type: "string",
     role: "date"
   },
-  // kWh meter specifics
+  // kWh meter specifics — apparent / reactive
   {
     key: "apparent_current_a",
     id: "apparent_current_a",
-    name: "Apparent current",
+    nameKey: "apparentCurrent",
     type: "number",
     role: "value.current",
     unit: "A"
@@ -317,7 +232,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "apparent_current_l1_a",
     id: "apparent_current_l1_a",
-    name: "Apparent current L1",
+    nameKey: "apparentCurrentL1",
     type: "number",
     role: "value.current",
     unit: "A"
@@ -325,7 +240,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "apparent_current_l2_a",
     id: "apparent_current_l2_a",
-    name: "Apparent current L2",
+    nameKey: "apparentCurrentL2",
     type: "number",
     role: "value.current",
     unit: "A"
@@ -333,7 +248,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "apparent_current_l3_a",
     id: "apparent_current_l3_a",
-    name: "Apparent current L3",
+    nameKey: "apparentCurrentL3",
     type: "number",
     role: "value.current",
     unit: "A"
@@ -341,7 +256,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "reactive_current_a",
     id: "reactive_current_a",
-    name: "Reactive current",
+    nameKey: "reactiveCurrent",
     type: "number",
     role: "value.current",
     unit: "A"
@@ -349,7 +264,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "reactive_current_l1_a",
     id: "reactive_current_l1_a",
-    name: "Reactive current L1",
+    nameKey: "reactiveCurrentL1",
     type: "number",
     role: "value.current",
     unit: "A"
@@ -357,7 +272,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "reactive_current_l2_a",
     id: "reactive_current_l2_a",
-    name: "Reactive current L2",
+    nameKey: "reactiveCurrentL2",
     type: "number",
     role: "value.current",
     unit: "A"
@@ -365,7 +280,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "reactive_current_l3_a",
     id: "reactive_current_l3_a",
-    name: "Reactive current L3",
+    nameKey: "reactiveCurrentL3",
     type: "number",
     role: "value.current",
     unit: "A"
@@ -373,7 +288,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "apparent_power_va",
     id: "apparent_power_va",
-    name: "Apparent power",
+    nameKey: "apparentPower",
     type: "number",
     role: "value.power",
     unit: "VA"
@@ -381,7 +296,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "apparent_power_l1_va",
     id: "apparent_power_l1_va",
-    name: "Apparent power L1",
+    nameKey: "apparentPowerL1",
     type: "number",
     role: "value.power",
     unit: "VA"
@@ -389,7 +304,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "apparent_power_l2_va",
     id: "apparent_power_l2_va",
-    name: "Apparent power L2",
+    nameKey: "apparentPowerL2",
     type: "number",
     role: "value.power",
     unit: "VA"
@@ -397,7 +312,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "apparent_power_l3_va",
     id: "apparent_power_l3_va",
-    name: "Apparent power L3",
+    nameKey: "apparentPowerL3",
     type: "number",
     role: "value.power",
     unit: "VA"
@@ -405,7 +320,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "reactive_power_var",
     id: "reactive_power_var",
-    name: "Reactive power",
+    nameKey: "reactivePower",
     type: "number",
     role: "value.power",
     unit: "var"
@@ -413,7 +328,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "reactive_power_l1_var",
     id: "reactive_power_l1_var",
-    name: "Reactive power L1",
+    nameKey: "reactivePowerL1",
     type: "number",
     role: "value.power",
     unit: "var"
@@ -421,7 +336,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "reactive_power_l2_var",
     id: "reactive_power_l2_var",
-    name: "Reactive power L2",
+    nameKey: "reactivePowerL2",
     type: "number",
     role: "value.power",
     unit: "var"
@@ -429,7 +344,7 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "reactive_power_l3_var",
     id: "reactive_power_l3_var",
-    name: "Reactive power L3",
+    nameKey: "reactivePowerL3",
     type: "number",
     role: "value.power",
     unit: "var"
@@ -437,28 +352,32 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "power_factor",
     id: "power_factor",
-    name: "Power factor",
+    nameKey: "powerFactor",
+    descKey: "powerFactorDesc",
     type: "number",
     role: "value"
   },
   {
     key: "power_factor_l1",
     id: "power_factor_l1",
-    name: "Power factor L1",
+    nameKey: "powerFactorL1",
+    descKey: "powerFactorDesc",
     type: "number",
     role: "value"
   },
   {
     key: "power_factor_l2",
     id: "power_factor_l2",
-    name: "Power factor L2",
+    nameKey: "powerFactorL2",
+    descKey: "powerFactorDesc",
     type: "number",
     role: "value"
   },
   {
     key: "power_factor_l3",
     id: "power_factor_l3",
-    name: "Power factor L3",
+    nameKey: "powerFactorL3",
+    descKey: "powerFactorDesc",
     type: "number",
     role: "value"
   },
@@ -466,34 +385,34 @@ const MEASUREMENT_STATE_DEFS = [
   {
     key: "state_of_charge_pct",
     id: "state_of_charge_pct",
-    name: "State of charge",
+    nameKey: "stateOfCharge",
     type: "number",
     role: "value.battery",
     unit: "%"
   },
-  {
-    key: "cycles",
-    id: "cycles",
-    name: "Charge cycles",
-    type: "number",
-    role: "value"
-  },
+  { key: "cycles", id: "cycles", nameKey: "cycles", type: "number", role: "value" },
   // Metadata
-  {
-    key: "meter_model",
-    id: "meter_model",
-    name: "Meter model",
-    type: "string",
-    role: "text"
-  },
-  {
-    key: "timestamp",
-    id: "timestamp",
-    name: "Measurement timestamp",
-    type: "string",
-    role: "date"
-  }
+  { key: "meter_model", id: "meter_model", nameKey: "meterModel", type: "string", role: "text" },
+  { key: "timestamp", id: "timestamp", nameKey: "measurementTimestamp", type: "string", role: "date" }
 ];
+function asName(name) {
+  return name;
+}
+function tariffStates() {
+  return {
+    1: (0, import_i18n_states.tLabel)("tariff1"),
+    2: (0, import_i18n_states.tLabel)("tariff2"),
+    3: (0, import_i18n_states.tLabel)("tariff3"),
+    4: (0, import_i18n_states.tLabel)("tariff4")
+  };
+}
+function batteryModeStates() {
+  return {
+    zero: (0, import_i18n_states.tLabel)("modeZero"),
+    to_full: (0, import_i18n_states.tLabel)("modeToFull"),
+    standby: (0, import_i18n_states.tLabel)("modeStandby")
+  };
+}
 class StateManager {
   adapter;
   /** @param adapter The ioBroker adapter instance */
@@ -519,16 +438,16 @@ class StateManager {
     });
     await this.adapter.extendObjectAsync(`${prefix}.info`, {
       type: "channel",
-      common: { name: "Device Information" },
+      common: { name: asName((0, import_i18n_states.tName)("deviceInformation")) },
       native: {}
     });
-    await this.createState(`${prefix}.info.productName`, "Product name", "string", "text", false);
-    await this.createState(`${prefix}.info.productType`, "Product type", "string", "text", false);
-    await this.createState(`${prefix}.info.firmware`, "Firmware version", "string", "text", false);
-    await this.createState(`${prefix}.info.connected`, "Device connected", "boolean", "indicator.reachable", false);
-    await this.createState(`${prefix}.info.wifi_rssi_db`, "WiFi signal strength", "number", "value", false, "dB");
-    await this.createState(`${prefix}.info.uptime_s`, "Uptime", "number", "value", false, "s");
-    await this.createButton(`${prefix}.remove`, "Remove device");
+    await this.createState(`${prefix}.info.productName`, (0, import_i18n_states.tName)("productName"), "string", "text", false);
+    await this.createState(`${prefix}.info.productType`, (0, import_i18n_states.tName)("productType"), "string", "text", false);
+    await this.createState(`${prefix}.info.firmware`, (0, import_i18n_states.tName)("firmware"), "string", "text", false);
+    await this.createState(`${prefix}.info.connected`, (0, import_i18n_states.tName)("connected"), "boolean", "indicator.reachable", false);
+    await this.createState(`${prefix}.info.wifi_rssi_db`, (0, import_i18n_states.tName)("wifiRssi"), "number", "value", false, "dB");
+    await this.createState(`${prefix}.info.uptime_s`, (0, import_i18n_states.tName)("uptime"), "number", "value", false, "s");
+    await this.createButton(`${prefix}.remove`, (0, import_i18n_states.tName)("removeDevice"), (0, import_i18n_states.tDesc)("removeDeviceDesc"));
     await this.adapter.setStateAsync(`${prefix}.info.productName`, {
       val: config.productName,
       ack: true
@@ -552,7 +471,7 @@ class StateManager {
     const mPrefix = `${prefix}.measurement`;
     await this.adapter.setObjectNotExistsAsync(mPrefix, {
       type: "channel",
-      common: { name: "Measurement" },
+      common: { name: asName((0, import_i18n_states.tName)("measurement")) },
       native: {}
     });
     const record = data;
@@ -565,7 +484,17 @@ class StateManager {
         coerced = (0, import_coerce.coerceString)(raw);
       }
       if (coerced !== null) {
-        await this.ensureAndSet(`${mPrefix}.${def.id}`, def.name, def.type, def.role, coerced, def.unit);
+        await this.ensureAndSet(
+          `${mPrefix}.${def.id}`,
+          (0, import_i18n_states.tName)(def.nameKey),
+          def.type,
+          def.role,
+          coerced,
+          def.unit,
+          void 0,
+          def.descKey ? (0, import_i18n_states.tDesc)(def.descKey) : void 0,
+          def.key === "tariff" ? tariffStates() : void 0
+        );
       }
     }
     const external = record.external;
@@ -586,7 +515,7 @@ class StateManager {
         if (!extChannelEnsured) {
           await this.adapter.setObjectNotExistsAsync(`${mPrefix}.external`, {
             type: "channel",
-            common: { name: "External Meters" },
+            common: { name: asName((0, import_i18n_states.tName)("externalMeters")) },
             native: {}
           });
           extChannelEnsured = true;
@@ -598,13 +527,20 @@ class StateManager {
           native: {}
         });
         if (value !== null) {
-          await this.ensureAndSet(`${extId}.value`, "Value", "number", "value", value, unit != null ? unit : void 0);
+          await this.ensureAndSet(
+            `${extId}.value`,
+            (0, import_i18n_states.tName)("externalValue"),
+            "number",
+            "value",
+            value,
+            unit != null ? unit : void 0
+          );
         }
         if (unit) {
-          await this.ensureAndSet(`${extId}.unit`, "Unit", "string", "text", unit);
+          await this.ensureAndSet(`${extId}.unit`, (0, import_i18n_states.tName)("externalUnit"), "string", "text", unit);
         }
         if (timestamp) {
-          await this.ensureAndSet(`${extId}.timestamp`, "Timestamp", "string", "date", timestamp);
+          await this.ensureAndSet(`${extId}.timestamp`, (0, import_i18n_states.tName)("externalTimestamp"), "string", "date", timestamp);
         }
       }
     }
@@ -623,22 +559,22 @@ class StateManager {
     const record = system;
     const rssi = (0, import_coerce.coerceFiniteNumber)(record.wifi_rssi_db);
     if (rssi !== null) {
-      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, "WiFi signal strength", "number", "value", rssi, "dB");
+      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, (0, import_i18n_states.tName)("wifiRssi"), "number", "value", rssi, "dB");
     }
     const uptime = (0, import_coerce.coerceFiniteNumber)(record.uptime_s);
     if (uptime !== null) {
-      await this.ensureAndSet(`${prefix}.info.uptime_s`, "Uptime", "number", "value", uptime, "s");
+      await this.ensureAndSet(`${prefix}.info.uptime_s`, (0, import_i18n_states.tName)("uptime"), "number", "value", uptime, "s");
     }
     await this.adapter.setObjectNotExistsAsync(`${prefix}.system`, {
       type: "channel",
-      common: { name: "System Settings" },
+      common: { name: asName((0, import_i18n_states.tName)("systemSettings")) },
       native: {}
     });
     const cloudEnabled = (0, import_coerce.coerceBoolean)(record.cloud_enabled);
     if (cloudEnabled !== null) {
       await this.ensureAndSet(
         `${prefix}.system.cloud_enabled`,
-        "Cloud enabled",
+        (0, import_i18n_states.tName)("cloudEnabled"),
         "boolean",
         "switch",
         cloudEnabled,
@@ -650,7 +586,7 @@ class StateManager {
     if (ledPct !== null) {
       await this.ensureAndSet(
         `${prefix}.system.status_led_brightness_pct`,
-        "LED brightness",
+        (0, import_i18n_states.tName)("ledBrightness"),
         "number",
         "level",
         ledPct,
@@ -662,7 +598,7 @@ class StateManager {
     if (apiV1 !== null) {
       await this.ensureAndSet(
         `${prefix}.system.api_v1_enabled`,
-        "API v1 enabled",
+        (0, import_i18n_states.tName)("apiV1Enabled"),
         "boolean",
         "switch",
         apiV1,
@@ -670,8 +606,8 @@ class StateManager {
         true
       );
     }
-    await this.createButton(`${prefix}.system.reboot`, "Reboot device");
-    await this.createButton(`${prefix}.system.identify`, "Identify (blink LED)");
+    await this.createButton(`${prefix}.system.reboot`, (0, import_i18n_states.tName)("rebootDevice"));
+    await this.createButton(`${prefix}.system.identify`, (0, import_i18n_states.tName)("identify"));
   }
   /**
    * Update battery control states
@@ -687,17 +623,27 @@ class StateManager {
     const record = battery;
     await this.adapter.setObjectNotExistsAsync(`${prefix}.battery`, {
       type: "channel",
-      common: { name: "Battery Control" },
+      common: { name: asName((0, import_i18n_states.tName)("batteryControl")) },
       native: {}
     });
     const mode = (0, import_coerce.coerceString)(record.mode);
     if (mode) {
-      await this.ensureAndSet(`${prefix}.battery.mode`, "Battery mode", "string", "text", mode, void 0, true);
+      await this.ensureAndSet(
+        `${prefix}.battery.mode`,
+        (0, import_i18n_states.tName)("batteryMode"),
+        "string",
+        "text",
+        mode,
+        void 0,
+        true,
+        (0, import_i18n_states.tDesc)("batteryModeDesc"),
+        batteryModeStates()
+      );
     }
     if (Array.isArray(record.permissions)) {
       await this.ensureAndSet(
         `${prefix}.battery.permissions`,
-        "Battery permissions",
+        (0, import_i18n_states.tName)("batteryPermissions"),
         "string",
         "json",
         JSON.stringify(record.permissions),
@@ -706,37 +652,20 @@ class StateManager {
       );
     }
     const numberFields = [
-      {
-        key: "battery_count",
-        id: "battery_count",
-        name: "Connected batteries",
-        role: "value"
-      },
-      {
-        key: "power_w",
-        id: "power_w",
-        name: "Battery power",
-        role: "value.power",
-        unit: "W"
-      },
-      {
-        key: "target_power_w",
-        id: "target_power_w",
-        name: "Target power",
-        role: "value.power",
-        unit: "W"
-      },
+      { key: "battery_count", id: "battery_count", nameKey: "batteryCount", role: "value" },
+      { key: "power_w", id: "power_w", nameKey: "batteryPower", role: "value.power", unit: "W" },
+      { key: "target_power_w", id: "target_power_w", nameKey: "batteryTargetPower", role: "value.power", unit: "W" },
       {
         key: "max_consumption_w",
         id: "max_consumption_w",
-        name: "Max consumption",
+        nameKey: "batteryMaxConsumption",
         role: "value.power",
         unit: "W"
       },
       {
         key: "max_production_w",
         id: "max_production_w",
-        name: "Max production",
+        nameKey: "batteryMaxProduction",
         role: "value.power",
         unit: "W"
       }
@@ -744,7 +673,14 @@ class StateManager {
     for (const field of numberFields) {
       const coerced = (0, import_coerce.coerceFiniteNumber)(record[field.key]);
       if (coerced !== null) {
-        await this.ensureAndSet(`${prefix}.battery.${field.id}`, field.name, "number", field.role, coerced, field.unit);
+        await this.ensureAndSet(
+          `${prefix}.battery.${field.id}`,
+          (0, import_i18n_states.tName)(field.nameKey),
+          "number",
+          field.role,
+          coerced,
+          field.unit
+        );
       }
     }
   }
@@ -800,16 +736,18 @@ class StateManager {
   /**
    * Create a state if it doesn't exist
    *
-   * @param id State ID
-   * @param name State name
-   * @param type Value type
-   * @param role ioBroker role
+   * @param id    State ID
+   * @param name  State name (translation object or string for device identifiers)
+   * @param type  Value type
+   * @param role  ioBroker role
    * @param write Whether state is writable
-   * @param unit Optional unit
+   * @param unit  Optional unit
+   * @param desc  Optional translation object for `common.desc`
+   * @param states Optional `common.states` map
    */
-  async createState(id, name, type, role, write, unit) {
+  async createState(id, name, type, role, write, unit, desc, states) {
     const common = {
-      name,
+      name: typeof name === "string" ? name : asName(name),
       type,
       role,
       read: true,
@@ -817,6 +755,12 @@ class StateManager {
     };
     if (unit) {
       common.unit = unit;
+    }
+    if (desc) {
+      common.desc = asName(desc);
+    }
+    if (states) {
+      common.states = states;
     }
     await this.adapter.setObjectNotExistsAsync(id, {
       type: "state",
@@ -827,19 +771,24 @@ class StateManager {
   /**
    * Create a button state (read: false, write: true) with initial value false
    *
-   * @param id State ID
-   * @param name State name
+   * @param id   State ID
+   * @param name Button label (translation object)
+   * @param desc Optional translation object for `common.desc`
    */
-  async createButton(id, name) {
+  async createButton(id, name, desc) {
+    const common = {
+      name: asName(name),
+      type: "boolean",
+      role: "button",
+      read: false,
+      write: true
+    };
+    if (desc) {
+      common.desc = asName(desc);
+    }
     await this.adapter.setObjectNotExistsAsync(id, {
       type: "state",
-      common: {
-        name,
-        type: "boolean",
-        role: "button",
-        read: false,
-        write: true
-      },
+      common,
       native: {}
     });
     await this.adapter.setStateAsync(id, { val: false, ack: true });
@@ -847,16 +796,18 @@ class StateManager {
   /**
    * Ensure state exists and set value
    *
-   * @param id State ID
-   * @param name State name
-   * @param type Value type
-   * @param role ioBroker role
-   * @param value State value
-   * @param unit Optional unit
-   * @param write Whether state is writable
+   * @param id     State ID
+   * @param name   State name (translation object or string)
+   * @param type   Value type
+   * @param role   ioBroker role
+   * @param value  State value
+   * @param unit   Optional unit
+   * @param write  Whether state is writable
+   * @param desc   Optional translation object for `common.desc`
+   * @param states Optional `common.states` map (translation objects)
    */
-  async ensureAndSet(id, name, type, role, value, unit, write) {
-    await this.createState(id, name, type, role, write != null ? write : false, unit);
+  async ensureAndSet(id, name, type, role, value, unit, write, desc, states) {
+    await this.createState(id, name, type, role, write != null ? write : false, unit, desc, states);
     await this.adapter.setStateAsync(id, { val: value, ack: true });
   }
 }

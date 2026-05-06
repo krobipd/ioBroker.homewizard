@@ -1,5 +1,7 @@
 import type * as utils from "@iobroker/adapter-core";
 import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject } from "./coerce";
+import type { StateName, STATE_DESCS, STATE_NAMES } from "./i18n-states";
+import { tDesc, tLabel, tName } from "./i18n-states";
 import type { BatteryControl, DeviceConfig, Measurement, SystemInfo } from "./types";
 
 /** Measurement field to state definition mapping */
@@ -8,8 +10,10 @@ interface MeasurementStateDef {
   key: string;
   /** ioBroker state ID suffix */
   id: string;
-  /** State display name */
-  name: string;
+  /** Translation key for `common.name` (resolved via {@link tName}) */
+  nameKey: keyof typeof STATE_NAMES;
+  /** Optional translation key for `common.desc` (resolved via {@link tDesc}) */
+  descKey?: keyof typeof STATE_DESCS;
   /** State value type */
   type: ioBroker.CommonType;
   /** ioBroker role */
@@ -29,118 +33,27 @@ function sanitize(str: string): string {
 
 const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   // Power
-  {
-    key: "power_w",
-    id: "power_w",
-    name: "Total power",
-    type: "number",
-    role: "value.power",
-    unit: "W",
-  },
-  {
-    key: "power_l1_w",
-    id: "power_l1_w",
-    name: "Power L1",
-    type: "number",
-    role: "value.power",
-    unit: "W",
-  },
-  {
-    key: "power_l2_w",
-    id: "power_l2_w",
-    name: "Power L2",
-    type: "number",
-    role: "value.power",
-    unit: "W",
-  },
-  {
-    key: "power_l3_w",
-    id: "power_l3_w",
-    name: "Power L3",
-    type: "number",
-    role: "value.power",
-    unit: "W",
-  },
+  { key: "power_w", id: "power_w", nameKey: "powerTotal", type: "number", role: "value.power", unit: "W" },
+  { key: "power_l1_w", id: "power_l1_w", nameKey: "powerL1", type: "number", role: "value.power", unit: "W" },
+  { key: "power_l2_w", id: "power_l2_w", nameKey: "powerL2", type: "number", role: "value.power", unit: "W" },
+  { key: "power_l3_w", id: "power_l3_w", nameKey: "powerL3", type: "number", role: "value.power", unit: "W" },
   // Voltage
-  {
-    key: "voltage_v",
-    id: "voltage_v",
-    name: "Voltage",
-    type: "number",
-    role: "value.voltage",
-    unit: "V",
-  },
-  {
-    key: "voltage_l1_v",
-    id: "voltage_l1_v",
-    name: "Voltage L1",
-    type: "number",
-    role: "value.voltage",
-    unit: "V",
-  },
-  {
-    key: "voltage_l2_v",
-    id: "voltage_l2_v",
-    name: "Voltage L2",
-    type: "number",
-    role: "value.voltage",
-    unit: "V",
-  },
-  {
-    key: "voltage_l3_v",
-    id: "voltage_l3_v",
-    name: "Voltage L3",
-    type: "number",
-    role: "value.voltage",
-    unit: "V",
-  },
+  { key: "voltage_v", id: "voltage_v", nameKey: "voltage", type: "number", role: "value.voltage", unit: "V" },
+  { key: "voltage_l1_v", id: "voltage_l1_v", nameKey: "voltageL1", type: "number", role: "value.voltage", unit: "V" },
+  { key: "voltage_l2_v", id: "voltage_l2_v", nameKey: "voltageL2", type: "number", role: "value.voltage", unit: "V" },
+  { key: "voltage_l3_v", id: "voltage_l3_v", nameKey: "voltageL3", type: "number", role: "value.voltage", unit: "V" },
   // Current
-  {
-    key: "current_a",
-    id: "current_a",
-    name: "Current",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "current_l1_a",
-    id: "current_l1_a",
-    name: "Current L1",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "current_l2_a",
-    id: "current_l2_a",
-    name: "Current L2",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "current_l3_a",
-    id: "current_l3_a",
-    name: "Current L3",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
+  { key: "current_a", id: "current_a", nameKey: "current", type: "number", role: "value.current", unit: "A" },
+  { key: "current_l1_a", id: "current_l1_a", nameKey: "currentL1", type: "number", role: "value.current", unit: "A" },
+  { key: "current_l2_a", id: "current_l2_a", nameKey: "currentL2", type: "number", role: "value.current", unit: "A" },
+  { key: "current_l3_a", id: "current_l3_a", nameKey: "currentL3", type: "number", role: "value.current", unit: "A" },
   // Frequency
-  {
-    key: "frequency_hz",
-    id: "frequency_hz",
-    name: "Frequency",
-    type: "number",
-    role: "value",
-    unit: "Hz",
-  },
+  { key: "frequency_hz", id: "frequency_hz", nameKey: "frequency", type: "number", role: "value", unit: "Hz" },
   // Energy import
   {
     key: "energy_import_kwh",
     id: "energy_import_kwh",
-    name: "Energy import total",
+    nameKey: "energyImportTotal",
     type: "number",
     role: "value.energy",
     unit: "kWh",
@@ -148,7 +61,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "energy_import_t1_kwh",
     id: "energy_import_t1_kwh",
-    name: "Energy import T1",
+    nameKey: "energyImportT1",
     type: "number",
     role: "value.energy",
     unit: "kWh",
@@ -156,7 +69,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "energy_import_t2_kwh",
     id: "energy_import_t2_kwh",
-    name: "Energy import T2",
+    nameKey: "energyImportT2",
     type: "number",
     role: "value.energy",
     unit: "kWh",
@@ -164,7 +77,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "energy_import_t3_kwh",
     id: "energy_import_t3_kwh",
-    name: "Energy import T3",
+    nameKey: "energyImportT3",
     type: "number",
     role: "value.energy",
     unit: "kWh",
@@ -172,7 +85,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "energy_import_t4_kwh",
     id: "energy_import_t4_kwh",
-    name: "Energy import T4",
+    nameKey: "energyImportT4",
     type: "number",
     role: "value.energy",
     unit: "kWh",
@@ -181,7 +94,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "energy_export_kwh",
     id: "energy_export_kwh",
-    name: "Energy export total",
+    nameKey: "energyExportTotal",
     type: "number",
     role: "value.energy",
     unit: "kWh",
@@ -189,7 +102,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "energy_export_t1_kwh",
     id: "energy_export_t1_kwh",
-    name: "Energy export T1",
+    nameKey: "energyExportT1",
     type: "number",
     role: "value.energy",
     unit: "kWh",
@@ -197,7 +110,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "energy_export_t2_kwh",
     id: "energy_export_t2_kwh",
-    name: "Energy export T2",
+    nameKey: "energyExportT2",
     type: "number",
     role: "value.energy",
     unit: "kWh",
@@ -205,7 +118,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "energy_export_t3_kwh",
     id: "energy_export_t3_kwh",
-    name: "Energy export T3",
+    nameKey: "energyExportT3",
     type: "number",
     role: "value.energy",
     unit: "kWh",
@@ -213,73 +126,75 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "energy_export_t4_kwh",
     id: "energy_export_t4_kwh",
-    name: "Energy export T4",
+    nameKey: "energyExportT4",
     type: "number",
     role: "value.energy",
     unit: "kWh",
   },
-  // Tariff
-  {
-    key: "tariff",
-    id: "tariff",
-    name: "Active tariff",
-    type: "number",
-    role: "value",
-  },
+  // Tariff (common.states applied separately in updateMeasurement for translation labels)
+  { key: "tariff", id: "tariff", nameKey: "tariff", type: "number", role: "value" },
   // Power quality
   {
     key: "voltage_sag_l1_count",
     id: "quality.voltage_sag_l1_count",
-    name: "Voltage sag L1",
+    nameKey: "voltageSagL1",
+    descKey: "voltageSag",
     type: "number",
     role: "value",
   },
   {
     key: "voltage_sag_l2_count",
     id: "quality.voltage_sag_l2_count",
-    name: "Voltage sag L2",
+    nameKey: "voltageSagL2",
+    descKey: "voltageSag",
     type: "number",
     role: "value",
   },
   {
     key: "voltage_sag_l3_count",
     id: "quality.voltage_sag_l3_count",
-    name: "Voltage sag L3",
+    nameKey: "voltageSagL3",
+    descKey: "voltageSag",
     type: "number",
     role: "value",
   },
   {
     key: "voltage_swell_l1_count",
     id: "quality.voltage_swell_l1_count",
-    name: "Voltage swell L1",
+    nameKey: "voltageSwellL1",
+    descKey: "voltageSwell",
     type: "number",
     role: "value",
   },
   {
     key: "voltage_swell_l2_count",
     id: "quality.voltage_swell_l2_count",
-    name: "Voltage swell L2",
+    nameKey: "voltageSwellL2",
+    descKey: "voltageSwell",
     type: "number",
     role: "value",
   },
   {
     key: "voltage_swell_l3_count",
     id: "quality.voltage_swell_l3_count",
-    name: "Voltage swell L3",
+    nameKey: "voltageSwellL3",
+    descKey: "voltageSwell",
     type: "number",
     role: "value",
   },
   {
     key: "any_power_fail_count",
     id: "quality.power_fail_count",
-    name: "Power fail count",
+    nameKey: "powerFailCount",
+    descKey: "powerFailCountDesc",
     type: "number",
     role: "value",
   },
   {
     key: "long_power_fail_count",
     id: "quality.long_power_fail_count",
-    name: "Long power fail count",
+    nameKey: "longPowerFailCount",
+    descKey: "longPowerFailCountDesc",
     type: "number",
     role: "value",
   },
@@ -287,7 +202,8 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "average_power_15m_w",
     id: "average_power_15m_w",
-    name: "Average power 15min",
+    nameKey: "avgPower15m",
+    descKey: "belgiumCapacityTariff",
     type: "number",
     role: "value.power",
     unit: "W",
@@ -295,7 +211,8 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "monthly_power_peak_w",
     id: "monthly_power_peak_w",
-    name: "Monthly power peak",
+    nameKey: "monthlyPowerPeak",
+    descKey: "belgiumCapacityTariff",
     type: "number",
     role: "value.power",
     unit: "W",
@@ -303,15 +220,16 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "monthly_power_peak_timestamp",
     id: "monthly_power_peak_timestamp",
-    name: "Monthly power peak time",
+    nameKey: "monthlyPowerPeakTimestamp",
+    descKey: "belgiumCapacityTariff",
     type: "string",
     role: "date",
   },
-  // kWh meter specifics
+  // kWh meter specifics — apparent / reactive
   {
     key: "apparent_current_a",
     id: "apparent_current_a",
-    name: "Apparent current",
+    nameKey: "apparentCurrent",
     type: "number",
     role: "value.current",
     unit: "A",
@@ -319,7 +237,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "apparent_current_l1_a",
     id: "apparent_current_l1_a",
-    name: "Apparent current L1",
+    nameKey: "apparentCurrentL1",
     type: "number",
     role: "value.current",
     unit: "A",
@@ -327,7 +245,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "apparent_current_l2_a",
     id: "apparent_current_l2_a",
-    name: "Apparent current L2",
+    nameKey: "apparentCurrentL2",
     type: "number",
     role: "value.current",
     unit: "A",
@@ -335,7 +253,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "apparent_current_l3_a",
     id: "apparent_current_l3_a",
-    name: "Apparent current L3",
+    nameKey: "apparentCurrentL3",
     type: "number",
     role: "value.current",
     unit: "A",
@@ -343,7 +261,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "reactive_current_a",
     id: "reactive_current_a",
-    name: "Reactive current",
+    nameKey: "reactiveCurrent",
     type: "number",
     role: "value.current",
     unit: "A",
@@ -351,7 +269,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "reactive_current_l1_a",
     id: "reactive_current_l1_a",
-    name: "Reactive current L1",
+    nameKey: "reactiveCurrentL1",
     type: "number",
     role: "value.current",
     unit: "A",
@@ -359,7 +277,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "reactive_current_l2_a",
     id: "reactive_current_l2_a",
-    name: "Reactive current L2",
+    nameKey: "reactiveCurrentL2",
     type: "number",
     role: "value.current",
     unit: "A",
@@ -367,7 +285,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "reactive_current_l3_a",
     id: "reactive_current_l3_a",
-    name: "Reactive current L3",
+    nameKey: "reactiveCurrentL3",
     type: "number",
     role: "value.current",
     unit: "A",
@@ -375,7 +293,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "apparent_power_va",
     id: "apparent_power_va",
-    name: "Apparent power",
+    nameKey: "apparentPower",
     type: "number",
     role: "value.power",
     unit: "VA",
@@ -383,7 +301,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "apparent_power_l1_va",
     id: "apparent_power_l1_va",
-    name: "Apparent power L1",
+    nameKey: "apparentPowerL1",
     type: "number",
     role: "value.power",
     unit: "VA",
@@ -391,7 +309,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "apparent_power_l2_va",
     id: "apparent_power_l2_va",
-    name: "Apparent power L2",
+    nameKey: "apparentPowerL2",
     type: "number",
     role: "value.power",
     unit: "VA",
@@ -399,7 +317,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "apparent_power_l3_va",
     id: "apparent_power_l3_va",
-    name: "Apparent power L3",
+    nameKey: "apparentPowerL3",
     type: "number",
     role: "value.power",
     unit: "VA",
@@ -407,7 +325,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "reactive_power_var",
     id: "reactive_power_var",
-    name: "Reactive power",
+    nameKey: "reactivePower",
     type: "number",
     role: "value.power",
     unit: "var",
@@ -415,7 +333,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "reactive_power_l1_var",
     id: "reactive_power_l1_var",
-    name: "Reactive power L1",
+    nameKey: "reactivePowerL1",
     type: "number",
     role: "value.power",
     unit: "var",
@@ -423,7 +341,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "reactive_power_l2_var",
     id: "reactive_power_l2_var",
-    name: "Reactive power L2",
+    nameKey: "reactivePowerL2",
     type: "number",
     role: "value.power",
     unit: "var",
@@ -431,7 +349,7 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "reactive_power_l3_var",
     id: "reactive_power_l3_var",
-    name: "Reactive power L3",
+    nameKey: "reactivePowerL3",
     type: "number",
     role: "value.power",
     unit: "var",
@@ -439,28 +357,32 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "power_factor",
     id: "power_factor",
-    name: "Power factor",
+    nameKey: "powerFactor",
+    descKey: "powerFactorDesc",
     type: "number",
     role: "value",
   },
   {
     key: "power_factor_l1",
     id: "power_factor_l1",
-    name: "Power factor L1",
+    nameKey: "powerFactorL1",
+    descKey: "powerFactorDesc",
     type: "number",
     role: "value",
   },
   {
     key: "power_factor_l2",
     id: "power_factor_l2",
-    name: "Power factor L2",
+    nameKey: "powerFactorL2",
+    descKey: "powerFactorDesc",
     type: "number",
     role: "value",
   },
   {
     key: "power_factor_l3",
     id: "power_factor_l3",
-    name: "Power factor L3",
+    nameKey: "powerFactorL3",
+    descKey: "powerFactorDesc",
     type: "number",
     role: "value",
   },
@@ -468,34 +390,42 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   {
     key: "state_of_charge_pct",
     id: "state_of_charge_pct",
-    name: "State of charge",
+    nameKey: "stateOfCharge",
     type: "number",
     role: "value.battery",
     unit: "%",
   },
-  {
-    key: "cycles",
-    id: "cycles",
-    name: "Charge cycles",
-    type: "number",
-    role: "value",
-  },
+  { key: "cycles", id: "cycles", nameKey: "cycles", type: "number", role: "value" },
   // Metadata
-  {
-    key: "meter_model",
-    id: "meter_model",
-    name: "Meter model",
-    type: "string",
-    role: "text",
-  },
-  {
-    key: "timestamp",
-    id: "timestamp",
-    name: "Measurement timestamp",
-    type: "string",
-    role: "date",
-  },
+  { key: "meter_model", id: "meter_model", nameKey: "meterModel", type: "string", role: "text" },
+  { key: "timestamp", id: "timestamp", nameKey: "measurementTimestamp", type: "string", role: "date" },
 ];
+
+/**
+ * Translation-object cast helper — ioBroker's `common.name`/`desc` accept `StringOrTranslated`.
+ *
+ * @param name Translation object from {@link STATE_NAMES} or {@link STATE_DESCS}.
+ */
+function asName(name: StateName): ioBroker.StringOrTranslated {
+  return name;
+}
+
+/** Build a `common.states` map where the values are translation objects (admin v6+). */
+function tariffStates(): Record<string, string> {
+  return {
+    1: tLabel("tariff1") as unknown as string,
+    2: tLabel("tariff2") as unknown as string,
+    3: tLabel("tariff3") as unknown as string,
+    4: tLabel("tariff4") as unknown as string,
+  };
+}
+function batteryModeStates(): Record<string, string> {
+  return {
+    zero: tLabel("modeZero") as unknown as string,
+    to_full: tLabel("modeToFull") as unknown as string,
+    standby: tLabel("modeStandby") as unknown as string,
+  };
+}
 
 /** Manages ioBroker state creation and updates for HomeWizard devices */
 export class StateManager {
@@ -514,6 +444,8 @@ export class StateManager {
   async createDeviceStates(config: DeviceConfig): Promise<void> {
     const prefix = this.devicePrefix(config);
 
+    // Device-Object: common.name keeps the user-supplied product name (or product type as fallback) —
+    // these are device-specific identifiers, NOT translatable.
     await this.adapter.extendObjectAsync(prefix, {
       type: "device",
       common: {
@@ -527,19 +459,19 @@ export class StateManager {
 
     await this.adapter.extendObjectAsync(`${prefix}.info`, {
       type: "channel",
-      common: { name: "Device Information" },
+      common: { name: asName(tName("deviceInformation")) },
       native: {},
     });
 
-    await this.createState(`${prefix}.info.productName`, "Product name", "string", "text", false);
-    await this.createState(`${prefix}.info.productType`, "Product type", "string", "text", false);
-    await this.createState(`${prefix}.info.firmware`, "Firmware version", "string", "text", false);
-    await this.createState(`${prefix}.info.connected`, "Device connected", "boolean", "indicator.reachable", false);
-    await this.createState(`${prefix}.info.wifi_rssi_db`, "WiFi signal strength", "number", "value", false, "dB");
-    await this.createState(`${prefix}.info.uptime_s`, "Uptime", "number", "value", false, "s");
+    await this.createState(`${prefix}.info.productName`, tName("productName"), "string", "text", false);
+    await this.createState(`${prefix}.info.productType`, tName("productType"), "string", "text", false);
+    await this.createState(`${prefix}.info.firmware`, tName("firmware"), "string", "text", false);
+    await this.createState(`${prefix}.info.connected`, tName("connected"), "boolean", "indicator.reachable", false);
+    await this.createState(`${prefix}.info.wifi_rssi_db`, tName("wifiRssi"), "number", "value", false, "dB");
+    await this.createState(`${prefix}.info.uptime_s`, tName("uptime"), "number", "value", false, "s");
 
     // Remove device button
-    await this.createButton(`${prefix}.remove`, "Remove device");
+    await this.createButton(`${prefix}.remove`, tName("removeDevice"), tDesc("removeDeviceDesc"));
 
     // Set initial info values
     await this.adapter.setStateAsync(`${prefix}.info.productName`, {
@@ -568,7 +500,7 @@ export class StateManager {
     // Ensure measurement channel exists
     await this.adapter.setObjectNotExistsAsync(mPrefix, {
       type: "channel",
-      common: { name: "Measurement" },
+      common: { name: asName(tName("measurement")) },
       native: {},
     });
 
@@ -583,7 +515,17 @@ export class StateManager {
         coerced = coerceString(raw);
       }
       if (coerced !== null) {
-        await this.ensureAndSet(`${mPrefix}.${def.id}`, def.name, def.type, def.role, coerced, def.unit);
+        await this.ensureAndSet(
+          `${mPrefix}.${def.id}`,
+          tName(def.nameKey),
+          def.type,
+          def.role,
+          coerced,
+          def.unit,
+          undefined,
+          def.descKey ? tDesc(def.descKey) : undefined,
+          def.key === "tariff" ? tariffStates() : undefined,
+        );
       }
     }
 
@@ -609,26 +551,35 @@ export class StateManager {
         if (!extChannelEnsured) {
           await this.adapter.setObjectNotExistsAsync(`${mPrefix}.external`, {
             type: "channel",
-            common: { name: "External Meters" },
+            common: { name: asName(tName("externalMeters")) },
             native: {},
           });
           extChannelEnsured = true;
         }
 
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
+        // External meter channel keeps the device-supplied type (e.g. "gas_meter") as channel name —
+        // identifies the physical meter, not localizable.
         await this.adapter.setObjectNotExistsAsync(extId, {
           type: "channel",
           common: { name: type },
           native: {},
         });
         if (value !== null) {
-          await this.ensureAndSet(`${extId}.value`, "Value", "number", "value", value, unit ?? undefined);
+          await this.ensureAndSet(
+            `${extId}.value`,
+            tName("externalValue"),
+            "number",
+            "value",
+            value,
+            unit ?? undefined,
+          );
         }
         if (unit) {
-          await this.ensureAndSet(`${extId}.unit`, "Unit", "string", "text", unit);
+          await this.ensureAndSet(`${extId}.unit`, tName("externalUnit"), "string", "text", unit);
         }
         if (timestamp) {
-          await this.ensureAndSet(`${extId}.timestamp`, "Timestamp", "string", "date", timestamp);
+          await this.ensureAndSet(`${extId}.timestamp`, tName("externalTimestamp"), "string", "date", timestamp);
         }
       }
     }
@@ -650,17 +601,17 @@ export class StateManager {
     // WiFi/uptime in info channel
     const rssi = coerceFiniteNumber(record.wifi_rssi_db);
     if (rssi !== null) {
-      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, "WiFi signal strength", "number", "value", rssi, "dB");
+      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, tName("wifiRssi"), "number", "value", rssi, "dB");
     }
     const uptime = coerceFiniteNumber(record.uptime_s);
     if (uptime !== null) {
-      await this.ensureAndSet(`${prefix}.info.uptime_s`, "Uptime", "number", "value", uptime, "s");
+      await this.ensureAndSet(`${prefix}.info.uptime_s`, tName("uptime"), "number", "value", uptime, "s");
     }
 
     // System control channel
     await this.adapter.setObjectNotExistsAsync(`${prefix}.system`, {
       type: "channel",
-      common: { name: "System Settings" },
+      common: { name: asName(tName("systemSettings")) },
       native: {},
     });
 
@@ -668,7 +619,7 @@ export class StateManager {
     if (cloudEnabled !== null) {
       await this.ensureAndSet(
         `${prefix}.system.cloud_enabled`,
-        "Cloud enabled",
+        tName("cloudEnabled"),
         "boolean",
         "switch",
         cloudEnabled,
@@ -680,7 +631,7 @@ export class StateManager {
     if (ledPct !== null) {
       await this.ensureAndSet(
         `${prefix}.system.status_led_brightness_pct`,
-        "LED brightness",
+        tName("ledBrightness"),
         "number",
         "level",
         ledPct,
@@ -693,7 +644,7 @@ export class StateManager {
     if (apiV1 !== null) {
       await this.ensureAndSet(
         `${prefix}.system.api_v1_enabled`,
-        "API v1 enabled",
+        tName("apiV1Enabled"),
         "boolean",
         "switch",
         apiV1,
@@ -703,8 +654,8 @@ export class StateManager {
     }
 
     // Action buttons
-    await this.createButton(`${prefix}.system.reboot`, "Reboot device");
-    await this.createButton(`${prefix}.system.identify`, "Identify (blink LED)");
+    await this.createButton(`${prefix}.system.reboot`, tName("rebootDevice"));
+    await this.createButton(`${prefix}.system.identify`, tName("identify"));
   }
 
   /**
@@ -722,18 +673,28 @@ export class StateManager {
 
     await this.adapter.setObjectNotExistsAsync(`${prefix}.battery`, {
       type: "channel",
-      common: { name: "Battery Control" },
+      common: { name: asName(tName("batteryControl")) },
       native: {},
     });
 
     const mode = coerceString(record.mode);
     if (mode) {
-      await this.ensureAndSet(`${prefix}.battery.mode`, "Battery mode", "string", "text", mode, undefined, true);
+      await this.ensureAndSet(
+        `${prefix}.battery.mode`,
+        tName("batteryMode"),
+        "string",
+        "text",
+        mode,
+        undefined,
+        true,
+        tDesc("batteryModeDesc"),
+        batteryModeStates(),
+      );
     }
     if (Array.isArray(record.permissions)) {
       await this.ensureAndSet(
         `${prefix}.battery.permissions`,
-        "Battery permissions",
+        tName("batteryPermissions"),
         "string",
         "json",
         JSON.stringify(record.permissions),
@@ -745,41 +706,24 @@ export class StateManager {
     const numberFields: Array<{
       key: string;
       id: string;
-      name: string;
+      nameKey: keyof typeof STATE_NAMES;
       role: string;
       unit?: string;
     }> = [
-      {
-        key: "battery_count",
-        id: "battery_count",
-        name: "Connected batteries",
-        role: "value",
-      },
-      {
-        key: "power_w",
-        id: "power_w",
-        name: "Battery power",
-        role: "value.power",
-        unit: "W",
-      },
-      {
-        key: "target_power_w",
-        id: "target_power_w",
-        name: "Target power",
-        role: "value.power",
-        unit: "W",
-      },
+      { key: "battery_count", id: "battery_count", nameKey: "batteryCount", role: "value" },
+      { key: "power_w", id: "power_w", nameKey: "batteryPower", role: "value.power", unit: "W" },
+      { key: "target_power_w", id: "target_power_w", nameKey: "batteryTargetPower", role: "value.power", unit: "W" },
       {
         key: "max_consumption_w",
         id: "max_consumption_w",
-        name: "Max consumption",
+        nameKey: "batteryMaxConsumption",
         role: "value.power",
         unit: "W",
       },
       {
         key: "max_production_w",
         id: "max_production_w",
-        name: "Max production",
+        nameKey: "batteryMaxProduction",
         role: "value.power",
         unit: "W",
       },
@@ -787,7 +731,14 @@ export class StateManager {
     for (const field of numberFields) {
       const coerced = coerceFiniteNumber(record[field.key]);
       if (coerced !== null) {
-        await this.ensureAndSet(`${prefix}.battery.${field.id}`, field.name, "number", field.role, coerced, field.unit);
+        await this.ensureAndSet(
+          `${prefix}.battery.${field.id}`,
+          tName(field.nameKey),
+          "number",
+          field.role,
+          coerced,
+          field.unit,
+        );
       }
     }
   }
@@ -852,23 +803,27 @@ export class StateManager {
   /**
    * Create a state if it doesn't exist
    *
-   * @param id State ID
-   * @param name State name
-   * @param type Value type
-   * @param role ioBroker role
+   * @param id    State ID
+   * @param name  State name (translation object or string for device identifiers)
+   * @param type  Value type
+   * @param role  ioBroker role
    * @param write Whether state is writable
-   * @param unit Optional unit
+   * @param unit  Optional unit
+   * @param desc  Optional translation object for `common.desc`
+   * @param states Optional `common.states` map
    */
   private async createState(
     id: string,
-    name: string,
+    name: StateName | string,
     type: ioBroker.CommonType,
     role: string,
     write: boolean,
     unit?: string,
+    desc?: StateName,
+    states?: Record<string, string>,
   ): Promise<void> {
     const common: Partial<ioBroker.StateCommon> = {
-      name,
+      name: typeof name === "string" ? name : asName(name),
       type,
       role,
       read: true,
@@ -876,6 +831,12 @@ export class StateManager {
     };
     if (unit) {
       common.unit = unit;
+    }
+    if (desc) {
+      common.desc = asName(desc);
+    }
+    if (states) {
+      common.states = states;
     }
     await this.adapter.setObjectNotExistsAsync(id, {
       type: "state",
@@ -887,19 +848,24 @@ export class StateManager {
   /**
    * Create a button state (read: false, write: true) with initial value false
    *
-   * @param id State ID
-   * @param name State name
+   * @param id   State ID
+   * @param name Button label (translation object)
+   * @param desc Optional translation object for `common.desc`
    */
-  private async createButton(id: string, name: string): Promise<void> {
+  private async createButton(id: string, name: StateName, desc?: StateName): Promise<void> {
+    const common: Partial<ioBroker.StateCommon> = {
+      name: asName(name),
+      type: "boolean",
+      role: "button",
+      read: false,
+      write: true,
+    };
+    if (desc) {
+      common.desc = asName(desc);
+    }
     await this.adapter.setObjectNotExistsAsync(id, {
       type: "state",
-      common: {
-        name,
-        type: "boolean",
-        role: "button",
-        read: false,
-        write: true,
-      },
+      common: common as ioBroker.StateCommon,
       native: {},
     });
     await this.adapter.setStateAsync(id, { val: false, ack: true });
@@ -908,24 +874,28 @@ export class StateManager {
   /**
    * Ensure state exists and set value
    *
-   * @param id State ID
-   * @param name State name
-   * @param type Value type
-   * @param role ioBroker role
-   * @param value State value
-   * @param unit Optional unit
-   * @param write Whether state is writable
+   * @param id     State ID
+   * @param name   State name (translation object or string)
+   * @param type   Value type
+   * @param role   ioBroker role
+   * @param value  State value
+   * @param unit   Optional unit
+   * @param write  Whether state is writable
+   * @param desc   Optional translation object for `common.desc`
+   * @param states Optional `common.states` map (translation objects)
    */
   private async ensureAndSet(
     id: string,
-    name: string,
+    name: StateName | string,
     type: ioBroker.CommonType,
     role: string,
     value: ioBroker.StateValue,
     unit?: string,
     write?: boolean,
+    desc?: StateName,
+    states?: Record<string, string>,
   ): Promise<void> {
-    await this.createState(id, name, type, role, write ?? false, unit);
+    await this.createState(id, name, type, role, write ?? false, unit, desc, states);
     await this.adapter.setStateAsync(id, { val: value, ack: true });
   }
 }

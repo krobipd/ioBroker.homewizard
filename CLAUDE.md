@@ -6,13 +6,13 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.6.6 (2026-04-28 — Audit-Cleanup gegen ioBroker.example/TypeScript-Vollstandard)
+- **Version:** 0.7.0 (2026-05-06 — Multi-Language komplett über 11 Sprachen + Baseline May-26)
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
 - **Runtime-Deps:** `@iobroker/adapter-core`, `ws`, `bonjour-service`
 - **Test-Setup:** offizieller ioBroker.example/TypeScript-Standard — Tests unter `src/**/*.test.ts` direkt mit `ts-node/register`, kein separater Build (siehe globales `reference_iobroker_test_setup_standard`)
-- **`@types/node` an `engines.node`-Min gekoppelt:** `^20.x` weil `engines.node: ">=20"`. Dependabot ignoriert Major-Bumps
+- **`@types/node` + `@tsconfig/nodeXX` an `engines.node`-Min gekoppelt:** `^22.x` / `@tsconfig/node22` weil `engines.node: ">=22"`. Dependabot ignoriert Major-Bumps
 
 ## API v2 Referenz
 
@@ -31,10 +31,13 @@ src/main.ts                  → Adapter (Lifecycle, Pairing, Multi-Device, Reco
 src/lib/types.ts             → Interfaces
 src/lib/connection-utils.ts  → classifyError, createDeviceConnection (pure, testbar)
 src/lib/cacert.ts            → HomeWizard CA-Cert + shared HTTPS Agent
+src/lib/coerce.ts            → Type-Guards für API-Boundary (coerceFiniteNumber/-String/-Boolean, isPlainObject)
 src/lib/discovery.ts         → mDNS (_homewizard._tcp), nur bei Pairing/IP-Recovery
 src/lib/homewizard-client.ts → HTTPS-Client (REST)
 src/lib/websocket-client.ts  → WSS-Client (Echtzeit)
-src/lib/state-manager.ts     → State CRUD + Cleanup
+src/lib/state-manager.ts     → State CRUD + Cleanup, MEASUREMENT_STATE_DEFS mit nameKey/descKey
+src/lib/i18n-logs.ts         → Lokalisierte info/warn/error-Strings (21 Keys × 11 Sprachen) + tLog-Helper
+src/lib/i18n-states.ts       → STATE_NAMES + STATE_DESCS + STATE_LABELS (~109 Keys × 11 Sprachen) + tName/tDesc/tLabel
 ```
 
 ## Design-Entscheidungen
@@ -95,22 +98,33 @@ Info-Log: "connection stabilized — using normal reconnect"
 P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630), Battery (HWE-BAT).
 Energy Socket + Watermeter nur v1 → noch nicht unterstützt.
 
-## Tests (179)
+## Tests (188)
 
 ```
-test/testClient.ts       → API-Error-Handling (9)
-test/testDiscovery.ts    → mDNS (16)
-test/testMain.ts         → classifyError, createDeviceConnection (20)
-test/testWebSocket.ts    → WebSocket-Flow + envelope validation (19)
-test/testStateManager.ts → States + Buttons + boundary hardening (58)
-test/package.js          → @iobroker/testing Package-Tests (57)
-test/integration.js      → @iobroker/testing Integration-Tests (plain JS)
+src/main.test.ts                      → classifyError, createDeviceConnection (22)
+src/lib/discovery.test.ts             → mDNS (16)
+src/lib/homewizard-client.test.ts     → HomeWizardApiError (9)
+src/lib/i18n-logs.test.ts             → tLog + EN-Fallback + Token-Substitution + 11-Sprachen-Coverage (8)
+src/lib/state-manager.test.ts         → States + Buttons + boundary hardening + Translation-Object-Asserts (57)
+src/lib/websocket-client.test.ts      → WebSocket-Flow + envelope validation (19)
+test/package.js                       → @iobroker/testing Package-Tests (57)
+test/integration.js                   → @iobroker/testing Integration-Tests (plain JS)
 ```
+
+## Multi-Language (seit v0.7.0)
+
+Variant A wie hassemu — Single-Instance, Multi-Device, daher reicht ein global gelesener `systemLang`.
+
+- `lib/i18n-logs.ts` — 21 LOG_STRINGS-Keys × 11 Sprachen (en/de/ru/pt/nl/fr/it/es/pl/uk/zh-cn). `tLog(lang, key, params?)`-Helper mit `{token}`-Substitution. EN-Fallback bei unbekannter Sprache. Debug-Logs bleiben EN (Maintainer-Diagnose).
+- `lib/i18n-states.ts` — STATE_NAMES (~92 Keys), STATE_DESCS (10 Keys, nur für nicht-offensichtliche), STATE_LABELS (7 Keys für `tariff` 1-4 + `battery.mode` zero/to_full/standby) × 11 Sprachen. `tName/tDesc/tLabel` returnen Translation-Objects, ioBroker Admin/vis/Object-Browser localizen automatisch.
+- Cast-Pattern: `tName('key') as unknown as ioBroker.StringOrTranslated` — TypeScript-Type-Widening sonst bricht den Compile.
+- `main.ts:onReady` liest `system.config.language` einmalig in `this.systemLang`. Sprachwechsel im Admin braucht Adapter-Restart — akzeptabel (User wechselt nicht regelmäßig).
 
 ## Versionshistorie
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
+| 0.7.0 | 2026-05-06 | Multi-Language komplett über 11 Sprachen (State-Namen, Beschreibungen, Dropdown-Labels für tariff + battery.mode, info/warn/error-Logs). Power-Quality + Belgian-capacity-tariff bekommen common.desc-Tooltips. Baseline auf Node 22 + ioBroker Admin 7.8.23 (May-2026 Plattform-Empfehlung) |
 | 0.6.4 | 2026-04-23 | tsconfig.test.json → outDir `./build-test`, `.catch()`-Wrapper für onReady + onStateChange, `pairingIp` als instanceObject (11-sprachig) statt dynamic in onReady |
 | 0.6.3 | 2026-04-18 | API-Boundary-Härtung (WS + REST), Auth-Loop-Stopp bei ungültigem Token, Lazy external-Channel, 29 neue Edge-Case-Tests |
 | 0.6.2 | 2026-04-13 | Fix res.on("error"), onUnload try/finally, setObjectNotExistsAsync Hot Path, DRY removeDeviceFromObject |

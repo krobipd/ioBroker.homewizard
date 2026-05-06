@@ -2,6 +2,11 @@ import { expect } from "chai";
 import { StateManager } from "./state-manager";
 import type { DeviceConfig, Measurement, SystemInfo, BatteryControl } from "./types";
 
+interface CommonNameTranslated {
+    en: string;
+    de: string;
+    [key: string]: string;
+}
 interface ObjectDef {
     type: string;
     common: Record<string, unknown>;
@@ -118,19 +123,23 @@ describe("StateManager", () => {
     });
 
     describe("createDeviceStates", () => {
-        it("should create device object", async () => {
+        it("should create device object with productName as plain string (device-specific identifier, not translated)", async () => {
             await manager.createDeviceStates(testDevice);
             const obj = adapter.objects.get("hwe-p1_aabbccddeeff");
             expect(obj).to.not.be.undefined;
             expect(obj!.type).to.equal("device");
+            // Device names stay as plain strings — they are user/hardware identifiers, not localizable.
             expect(obj!.common.name).to.equal("P1 Meter");
         });
 
-        it("should create info channel", async () => {
+        it("should create info channel with translated name", async () => {
             await manager.createDeviceStates(testDevice);
             const obj = adapter.objects.get("hwe-p1_aabbccddeeff.info");
             expect(obj).to.not.be.undefined;
             expect(obj!.type).to.equal("channel");
+            const name = obj!.common.name as CommonNameTranslated;
+            expect(name.en).to.equal("Device Information");
+            expect(name.de).to.equal("Geräteinformationen");
         });
 
         it("should create info states", async () => {
@@ -165,13 +174,19 @@ describe("StateManager", () => {
             expect(obj!.common.name).to.equal("HWE-P1");
         });
 
-        it("should create remove button with read:false and initial value", async () => {
+        it("should create remove button with translated name + desc + read:false + initial value", async () => {
             await manager.createDeviceStates(testDevice);
             const obj = adapter.objects.get("hwe-p1_aabbccddeeff.remove");
             expect(obj).to.not.be.undefined;
             expect(obj!.common.role).to.equal("button");
             expect(obj!.common.read).to.be.false;
             expect(obj!.common.write).to.be.true;
+            const name = obj!.common.name as CommonNameTranslated;
+            expect(name.en).to.equal("Remove device");
+            expect(name.de).to.equal("Gerät entfernen");
+            const desc = obj!.common.desc as CommonNameTranslated;
+            expect(desc.en).to.contain("disconnect");
+            expect(desc.de).to.contain("trennen");
 
             const state = adapter.states.get("hwe-p1_aabbccddeeff.remove");
             expect(state).to.not.be.undefined;
@@ -312,7 +327,7 @@ describe("StateManager", () => {
             expect(adapter.states.size).to.equal(0);
         });
 
-        it("should handle metadata fields", async () => {
+        it("should handle metadata fields and add common.states map for tariff", async () => {
             const data: Measurement = {
                 meter_model: "Landis+Gyr E350",
                 timestamp: "2026-04-04T12:00:00",
@@ -323,6 +338,34 @@ describe("StateManager", () => {
             expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.meter_model")?.val).to.equal("Landis+Gyr E350");
             expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.timestamp")?.val).to.equal("2026-04-04T12:00:00");
             expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.tariff")?.val).to.equal(2);
+
+            // tariff has translated dropdown labels for the 4 supported tariff values
+            const tariffObj = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.tariff");
+            const states = tariffObj!.common.states as Record<string, CommonNameTranslated>;
+            expect(states["1"].en).to.contain("Tariff 1");
+            expect(states["1"].de).to.contain("Tarif 1");
+            expect(states["4"].en).to.contain("Tariff 4");
+        });
+
+        it("should attach common.desc for power-quality and Belgian capacity tariff states", async () => {
+            await manager.updateMeasurement(testDevice, {
+                voltage_sag_l1_count: 1,
+                any_power_fail_count: 1,
+                average_power_15m_w: 1500,
+                power_factor: 0.98,
+            });
+            const sagDesc = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.quality.voltage_sag_l1_count")!
+                .common.desc as CommonNameTranslated;
+            expect(sagDesc.en).to.contain("voltage sag");
+            const failDesc = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.quality.power_fail_count")!.common
+                .desc as CommonNameTranslated;
+            expect(failDesc.en).to.contain("outages");
+            const avgDesc = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.average_power_15m_w")!.common
+                .desc as CommonNameTranslated;
+            expect(avgDesc.en).to.contain("Belgian");
+            const pfDesc = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.power_factor")!.common
+                .desc as CommonNameTranslated;
+            expect(pfDesc.en).to.contain("active to apparent");
         });
     });
 
@@ -343,12 +386,14 @@ describe("StateManager", () => {
             expect(adapter.states.get("hwe-p1_aabbccddeeff.info.uptime_s")?.val).to.equal(3600);
         });
 
-        it("should create system channel", async () => {
+        it("should create system channel with translated name", async () => {
             await manager.updateSystem(testDevice, system);
 
             const channel = adapter.objects.get("hwe-p1_aabbccddeeff.system");
             expect(channel?.type).to.equal("channel");
-            expect(channel?.common.name).to.equal("System Settings");
+            const name = channel!.common.name as CommonNameTranslated;
+            expect(name.en).to.equal("System Settings");
+            expect(name.de).to.equal("Systemeinstellungen");
         });
 
         it("should create writable system states", async () => {
@@ -384,18 +429,24 @@ describe("StateManager", () => {
             expect(adapter.states.has("hwe-p1_aabbccddeeff.system.api_v1_enabled")).to.be.false;
         });
 
-        it("should create reboot and identify buttons with read:false and initial value", async () => {
+        it("should create reboot and identify buttons with translated names + read:false + initial value", async () => {
             await manager.updateSystem(testDevice, system);
 
             const reboot = adapter.objects.get("hwe-p1_aabbccddeeff.system.reboot");
             expect(reboot?.common.role).to.equal("button");
             expect(reboot?.common.write).to.be.true;
             expect(reboot?.common.read).to.be.false;
+            const rebootName = reboot!.common.name as CommonNameTranslated;
+            expect(rebootName.en).to.equal("Reboot device");
+            expect(rebootName.de).to.equal("Gerät neu starten");
 
             const identify = adapter.objects.get("hwe-p1_aabbccddeeff.system.identify");
             expect(identify?.common.role).to.equal("button");
             expect(identify?.common.write).to.be.true;
             expect(identify?.common.read).to.be.false;
+            const identifyName = identify!.common.name as CommonNameTranslated;
+            expect(identifyName.en).to.contain("Identify");
+            expect(identifyName.de).to.contain("Identifizieren");
 
             // Buttons should have initial state value
             const rebootState = adapter.states.get("hwe-p1_aabbccddeeff.system.reboot");
@@ -419,20 +470,29 @@ describe("StateManager", () => {
             max_production_w: 800,
         };
 
-        it("should create battery channel", async () => {
+        it("should create battery channel with translated name", async () => {
             await manager.updateBattery(testDevice, battery);
 
             const channel = adapter.objects.get("hwe-p1_aabbccddeeff.battery");
             expect(channel?.type).to.equal("channel");
-            expect(channel?.common.name).to.equal("Battery Control");
+            const name = channel!.common.name as CommonNameTranslated;
+            expect(name.en).to.equal("Battery Control");
+            expect(name.de).to.equal("Batteriesteuerung");
         });
 
-        it("should create writable mode state", async () => {
+        it("should create writable mode state with common.states translation map", async () => {
             await manager.updateBattery(testDevice, battery);
 
             const mode = adapter.objects.get("hwe-p1_aabbccddeeff.battery.mode");
             expect(mode?.common.write).to.be.true;
             expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.mode")?.val).to.equal("zero");
+
+            // Dropdown labels — admin v6+ renders translation objects per value
+            const states = mode!.common.states as Record<string, CommonNameTranslated>;
+            expect(states.zero.en).to.contain("Zero");
+            expect(states.zero.de).to.contain("Zero");
+            expect(states.to_full.en).to.contain("To full");
+            expect(states.standby.en).to.equal("Standby");
         });
 
         it("should store permissions as JSON string", async () => {
