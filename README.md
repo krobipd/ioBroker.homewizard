@@ -167,7 +167,7 @@ homewizard.0.
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 0.7.0 (2026-05-06)
 - Multi-language: state names, descriptions, dropdown labels and user-facing logs follow the ioBroker system language across 11 languages (EN, DE, RU, PT, NL, FR, IT, ES, PL, UK, ZH-CN).
 - `tariff` and `battery.mode` show translated dropdown labels in admin/vis instead of raw values; power-quality and Belgian capacity-tariff states now show inline descriptions (admin tooltips).
 - Baseline bumped to Node 22 and ioBroker Admin 7.8.23 (May-2026 platform requirement).
