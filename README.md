@@ -167,7 +167,7 @@ homewizard.0.
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 0.7.0 (2026-05-06)
 - Multi-language: state names, descriptions, dropdown labels and user-facing logs follow the ioBroker system language across 11 languages (EN, DE, RU, PT, NL, FR, IT, ES, PL, UK, ZH-CN).
 - `tariff` and `battery.mode` show translated dropdown labels in admin/vis instead of raw values.
 - Power-quality and Belgian capacity-tariff states now show inline descriptions (admin tooltips).
@@ -186,9 +186,6 @@ homewizard.0.
 
 ### 0.6.4 (2026-04-23)
 - Internal hardening. No user-facing changes.
-
-### 0.6.3 (2026-04-18)
-- WebSocket and REST input hardening. Stops endless reconnect when the device token is invalid.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

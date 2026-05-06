@@ -1,4 +1,7 @@
 # Older Changes
+## 0.6.3 (2026-04-18)
+- WebSocket and REST input hardening. Stops endless reconnect when the device token is invalid.
+
 ## 0.6.2 (2026-04-13)
 - Fix: hanging promise on response stream errors. Safer adapter shutdown.
 

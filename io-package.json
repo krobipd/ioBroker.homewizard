@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.6.7",
+    "version": "0.7.0",
     "news": {
-      "NEXT": {
+      "0.7.0": {
         "en": "Multi-language: state names, descriptions, dropdown labels and user-facing logs in 11 languages, picked from the ioBroker system language. Baseline bumped to Node 22 and Admin 7.8.23.",
         "de": "Mehrsprachigkeit: Zustandsnamen, Beschreibungen, Dropdown-Labels und User-Logs in 11 Sprachen — aus der ioBroker-Systemsprache. Baseline auf Node 22 und Admin 7.8.23 gehoben.",
         "ru": "Многоязычность: имена состояний, описания, метки выпадающих списков и пользовательские логи на 11 языках по системному языку ioBroker. Baseline поднят до Node 22 и Admin 7.8.23.",
@@ -93,19 +93,6 @@
         "pl": "Fix: zawieszony promise przy błędach response stream. Bezpieczniejsze zamykanie adaptera.",
         "uk": "Fix: завислий promise при помилках response-stream. Безпечніше завершення роботи адаптера.",
         "zh-cn": "修复：response stream 错误时的挂起 promise。更安全的适配器关闭。"
-      },
-      "0.6.1": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Bereinigung. Keine User-sichtbaren Änderungen.",
-        "ru": "Внутренняя очистка. Без видимых изменений для пользователя.",
-        "pt": "Limpeza interna. Sem alterações visíveis para o usuário.",
-        "nl": "Interne opschoning. Geen wijzigingen voor de gebruiker.",
-        "fr": "Nettoyage interne. Aucune modification visible pour l'utilisateur.",
-        "it": "Pulizia interna. Nessuna modifica visibile all'utente.",
-        "es": "Limpieza interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішнє прибирання. Без помітних для користувача змін.",
-        "zh-cn": "内部清理。对用户无可见变化。"
       }
     },
     "titleLang": {
