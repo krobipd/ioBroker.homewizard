@@ -1,4 +1,7 @@
 # Older Changes
+## 0.6.4 (2026-04-23)
+- Internal hardening. No user-facing changes.
+
 ## 0.6.3 (2026-04-18)
 - WebSocket and REST input hardening. Stops endless reconnect when the device token is invalid.
 

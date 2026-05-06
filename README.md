@@ -167,7 +167,7 @@ homewizard.0.
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 0.7.1 (2026-05-06)
 - WiFi signal strength is now reported in dBm (was incorrectly labelled `dB`).
 - Faster state updates: existence checks for datapoints are cached after first creation, saving ~30 Redis lookups per second on a P1 Meter pushing 1 measurement/second.
 
@@ -188,12 +188,7 @@ homewizard.0.
 - Crash defense: process-level error handlers.
 - Min `js-controller` restored to `>=6.0.11` (was incorrectly `>=7.0.0`).
 
-### 0.6.4 (2026-04-23)
-- Internal hardening. No user-facing changes.
-
-Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
-
-## Support
+Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).## Support
 
 - [ioBroker Forum](https://forum.iobroker.net/)
 - [GitHub Issues](https://github.com/krobipd/ioBroker.homewizard/issues)

@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.7.0",
+    "version": "0.7.1",
     "news": {
-      "NEXT": {
+      "0.7.1": {
         "en": "Performance: state existence checks are cached after first creation — saves ~30 redis lookups per second on a P1 meter. WiFi signal unit corrected to dBm.",
         "de": "Performance: Existenz-Prüfung für Datenpunkte wird nach dem ersten Anlegen gecacht — spart ca. 30 Redis-Lookups pro Sekunde bei einem P1-Meter. WLAN-Signalstärke jetzt in dBm.",
         "ru": "Производительность: проверка существования датчиков кэшируется после первого создания — экономит около 30 redis-запросов в секунду на P1-счётчике. Единица WiFi-сигнала dBm.",
@@ -93,19 +93,6 @@
         "pl": "Wzmocnienie input WebSocket i REST. Zatrzymuje nieskończony reconnect przy nieprawidłowym tokenie urządzenia.",
         "uk": "Зміцнення input WebSocket та REST. Припиняє нескінченний reconnect при недійсному токені пристрою.",
         "zh-cn": "WebSocket 和 REST 输入加固。设备 token 无效时停止无限重连。"
-      },
-      "0.6.2": {
-        "en": "Fix: hanging promise on response stream errors. Safer adapter shutdown.",
-        "de": "Fix: hängender Promise bei Response-Stream-Fehlern. Sichereres Adapter-Shutdown.",
-        "ru": "Fix: зависший promise при ошибках response-stream. Более безопасное завершение работы адаптера.",
-        "pt": "Fix: promise pendurada em erros de response stream. Encerramento mais seguro do adaptador.",
-        "nl": "Fix: hangende promise bij response-stream-fouten. Veiliger afsluiten van de adapter.",
-        "fr": "Fix : promesse bloquée sur erreurs de response stream. Arrêt plus sûr de l'adaptateur.",
-        "it": "Fix: promise sospesa su errori response stream. Spegnimento più sicuro dell'adattatore.",
-        "es": "Fix: promise colgada en errores de response stream. Apagado más seguro del adaptador.",
-        "pl": "Fix: zawieszony promise przy błędach response stream. Bezpieczniejsze zamykanie adaptera.",
-        "uk": "Fix: завислий promise при помилках response-stream. Безпечніше завершення роботи адаптера.",
-        "zh-cn": "修复：response stream 错误时的挂起 promise。更安全的适配器关闭。"
       }
     },
     "titleLang": {
