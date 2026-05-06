@@ -415,6 +415,14 @@ function batteryModeStates() {
 }
 class StateManager {
   adapter;
+  /**
+   * Cache of state / channel IDs that have already passed
+   * `setObjectNotExistsAsync`. Skips repeat DB lookups on the hot path —
+   * a P1 meter pushes ~1 measurement/s with up to ~30 active fields, which
+   * otherwise meant ~30 Redis lookups per second just to ask „does it
+   * exist". On `removeDevice(prefix)` all `prefix.*` IDs are dropped.
+   */
+  createdIds = /* @__PURE__ */ new Set();
   /** @param adapter The ioBroker adapter instance */
   constructor(adapter) {
     this.adapter = adapter;
@@ -445,7 +453,7 @@ class StateManager {
     await this.createState(`${prefix}.info.productType`, (0, import_i18n_states.tName)("productType"), "string", "text", false);
     await this.createState(`${prefix}.info.firmware`, (0, import_i18n_states.tName)("firmware"), "string", "text", false);
     await this.createState(`${prefix}.info.connected`, (0, import_i18n_states.tName)("connected"), "boolean", "indicator.reachable", false);
-    await this.createState(`${prefix}.info.wifi_rssi_db`, (0, import_i18n_states.tName)("wifiRssi"), "number", "value", false, "dB");
+    await this.createState(`${prefix}.info.wifi_rssi_db`, (0, import_i18n_states.tName)("wifiRssi"), "number", "value", false, "dBm");
     await this.createState(`${prefix}.info.uptime_s`, (0, import_i18n_states.tName)("uptime"), "number", "value", false, "s");
     await this.createButton(`${prefix}.remove`, (0, import_i18n_states.tName)("removeDevice"), (0, import_i18n_states.tDesc)("removeDeviceDesc"));
     await this.adapter.setStateAsync(`${prefix}.info.productName`, {
@@ -469,11 +477,7 @@ class StateManager {
     }
     const prefix = this.devicePrefix(config);
     const mPrefix = `${prefix}.measurement`;
-    await this.adapter.setObjectNotExistsAsync(mPrefix, {
-      type: "channel",
-      common: { name: asName((0, import_i18n_states.tName)("measurement")) },
-      native: {}
-    });
+    await this.ensureChannel(mPrefix, asName((0, import_i18n_states.tName)("measurement")));
     const record = data;
     for (const def of MEASUREMENT_STATE_DEFS) {
       const raw = record[def.key];
@@ -499,7 +503,6 @@ class StateManager {
     }
     const external = record.external;
     if (Array.isArray(external) && external.length > 0) {
-      let extChannelEnsured = false;
       for (const rawExt of external) {
         if (!(0, import_coerce.isPlainObject)(rawExt)) {
           continue;
@@ -512,20 +515,9 @@ class StateManager {
         const value = (0, import_coerce.coerceFiniteNumber)(rawExt.value);
         const unit = (0, import_coerce.coerceString)(rawExt.unit);
         const timestamp = (0, import_coerce.coerceString)(rawExt.timestamp);
-        if (!extChannelEnsured) {
-          await this.adapter.setObjectNotExistsAsync(`${mPrefix}.external`, {
-            type: "channel",
-            common: { name: asName((0, import_i18n_states.tName)("externalMeters")) },
-            native: {}
-          });
-          extChannelEnsured = true;
-        }
+        await this.ensureChannel(`${mPrefix}.external`, asName((0, import_i18n_states.tName)("externalMeters")));
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
-        await this.adapter.setObjectNotExistsAsync(extId, {
-          type: "channel",
-          common: { name: type },
-          native: {}
-        });
+        await this.ensureChannel(extId, type);
         if (value !== null) {
           await this.ensureAndSet(
             `${extId}.value`,
@@ -559,17 +551,13 @@ class StateManager {
     const record = system;
     const rssi = (0, import_coerce.coerceFiniteNumber)(record.wifi_rssi_db);
     if (rssi !== null) {
-      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, (0, import_i18n_states.tName)("wifiRssi"), "number", "value", rssi, "dB");
+      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, (0, import_i18n_states.tName)("wifiRssi"), "number", "value", rssi, "dBm");
     }
     const uptime = (0, import_coerce.coerceFiniteNumber)(record.uptime_s);
     if (uptime !== null) {
       await this.ensureAndSet(`${prefix}.info.uptime_s`, (0, import_i18n_states.tName)("uptime"), "number", "value", uptime, "s");
     }
-    await this.adapter.setObjectNotExistsAsync(`${prefix}.system`, {
-      type: "channel",
-      common: { name: asName((0, import_i18n_states.tName)("systemSettings")) },
-      native: {}
-    });
+    await this.ensureChannel(`${prefix}.system`, asName((0, import_i18n_states.tName)("systemSettings")));
     const cloudEnabled = (0, import_coerce.coerceBoolean)(record.cloud_enabled);
     if (cloudEnabled !== null) {
       await this.ensureAndSet(
@@ -621,11 +609,7 @@ class StateManager {
     }
     const prefix = this.devicePrefix(config);
     const record = battery;
-    await this.adapter.setObjectNotExistsAsync(`${prefix}.battery`, {
-      type: "channel",
-      common: { name: asName((0, import_i18n_states.tName)("batteryControl")) },
-      native: {}
-    });
+    await this.ensureChannel(`${prefix}.battery`, asName((0, import_i18n_states.tName)("batteryControl")));
     const mode = (0, import_coerce.coerceString)(record.mode);
     if (mode) {
       await this.ensureAndSet(
@@ -705,6 +689,11 @@ class StateManager {
   async removeDevice(config) {
     const prefix = this.devicePrefix(config);
     await this.adapter.delObjectAsync(prefix, { recursive: true });
+    for (const id of this.createdIds) {
+      if (id === prefix || id.startsWith(`${prefix}.`)) {
+        this.createdIds.delete(id);
+      }
+    }
   }
   /**
    * Remove measurement states from old locations (pre-v0.4.0: device root instead of measurement/ channel)
@@ -734,6 +723,24 @@ class StateManager {
     return `${sanitize(config.productType)}_${sanitize(config.serial)}`;
   }
   /**
+   * Ensure a channel object exists. Skips the DB lookup once `id` is in the
+   * cache — channels are static after first creation per device.
+   *
+   * @param id   Full channel ID (`<prefix>.<channelName>`).
+   * @param name Display name (translation object or device-supplied string).
+   */
+  async ensureChannel(id, name) {
+    if (this.createdIds.has(id)) {
+      return;
+    }
+    await this.adapter.setObjectNotExistsAsync(id, {
+      type: "channel",
+      common: { name },
+      native: {}
+    });
+    this.createdIds.add(id);
+  }
+  /**
    * Create a state if it doesn't exist
    *
    * @param id    State ID
@@ -746,6 +753,9 @@ class StateManager {
    * @param states Optional `common.states` map
    */
   async createState(id, name, type, role, write, unit, desc, states) {
+    if (this.createdIds.has(id)) {
+      return;
+    }
     const common = {
       name: typeof name === "string" ? name : asName(name),
       type,
@@ -767,6 +777,7 @@ class StateManager {
       common,
       native: {}
     });
+    this.createdIds.add(id);
   }
   /**
    * Create a button state (read: false, write: true) with initial value false
@@ -776,6 +787,9 @@ class StateManager {
    * @param desc Optional translation object for `common.desc`
    */
   async createButton(id, name, desc) {
+    if (this.createdIds.has(id)) {
+      return;
+    }
     const common = {
       name: asName(name),
       type: "boolean",
@@ -792,6 +806,7 @@ class StateManager {
       native: {}
     });
     await this.adapter.setStateAsync(id, { val: false, ack: true });
+    this.createdIds.add(id);
   }
   /**
    * Ensure state exists and set value

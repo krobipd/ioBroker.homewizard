@@ -13,6 +13,10 @@ interface ObjectDef {
     native: Record<string, unknown>;
 }
 
+interface MockAdapterMetrics {
+    setObjectNotExistsCalls: number;
+}
+
 interface StateValue {
     val: unknown;
     ack: boolean;
@@ -22,6 +26,7 @@ interface MockAdapter {
     namespace: string;
     objects: Map<string, ObjectDef>;
     states: Map<string, StateValue>;
+    metrics: MockAdapterMetrics;
     log: { debug: (msg: string) => void };
     extendObjectAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
     setObjectNotExistsAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
@@ -33,11 +38,13 @@ interface MockAdapter {
 function createMockAdapter(): MockAdapter {
     const objects = new Map<string, ObjectDef>();
     const states = new Map<string, StateValue>();
+    const metrics: MockAdapterMetrics = { setObjectNotExistsCalls: 0 };
 
     return {
         namespace: "homewizard.0",
         objects,
         states,
+        metrics,
         log: { debug: (): void => {} },
         extendObjectAsync: async (id: string, obj: Partial<ObjectDef>): Promise<void> => {
             const existing = objects.get(id) || { type: "", common: {}, native: {} };
@@ -48,6 +55,7 @@ function createMockAdapter(): MockAdapter {
             });
         },
         setObjectNotExistsAsync: async (id: string, obj: Partial<ObjectDef>): Promise<void> => {
+            metrics.setObjectNotExistsCalls++;
             if (objects.has(id)) {
                 return;
             }
@@ -547,6 +555,69 @@ describe("StateManager", () => {
             await manager.setDeviceConnected(testDevice, false);
             const state = adapter.states.get("hwe-p1_aabbccddeeff.info.connected");
             expect(state?.val).to.be.false;
+        });
+    });
+
+    describe("createdIds cache (hot-path performance)", () => {
+        it("calls setObjectNotExistsAsync only once per state across repeated updateMeasurement calls", async () => {
+            // First call creates 4 states.
+            await manager.updateMeasurement(testDevice, {
+                power_w: 100,
+                voltage_l1_v: 230,
+                current_l1_a: 0.5,
+                frequency_hz: 50,
+            });
+            const firstPass = adapter.metrics.setObjectNotExistsCalls;
+            // Second call with the same fields must NOT re-touch setObjectNotExistsAsync
+            // for those same IDs — they are cached after the first creation.
+            await manager.updateMeasurement(testDevice, {
+                power_w: 200,
+                voltage_l1_v: 231,
+                current_l1_a: 0.6,
+                frequency_hz: 49.9,
+            });
+            expect(adapter.metrics.setObjectNotExistsCalls).to.equal(firstPass);
+            // Values were updated.
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.power_w")?.val).to.equal(200);
+        });
+
+        it("cache miss creates a state on next updateMeasurement when a new field shows up", async () => {
+            await manager.updateMeasurement(testDevice, { power_w: 100 });
+            const firstPass = adapter.metrics.setObjectNotExistsCalls;
+            await manager.updateMeasurement(testDevice, { power_w: 200, voltage_l1_v: 230 });
+            expect(adapter.metrics.setObjectNotExistsCalls).to.be.greaterThan(firstPass);
+        });
+
+        it("removeDevice clears the cache so re-pairing the same device re-creates states", async () => {
+            await manager.createDeviceStates(testDevice);
+            await manager.updateMeasurement(testDevice, { power_w: 100 });
+            await manager.removeDevice(testDevice);
+            const beforeRecreate = adapter.metrics.setObjectNotExistsCalls;
+            // Re-pair: createDeviceStates + updateMeasurement must hit setObjectNotExists again
+            await manager.createDeviceStates(testDevice);
+            await manager.updateMeasurement(testDevice, { power_w: 50 });
+            expect(adapter.metrics.setObjectNotExistsCalls).to.be.greaterThan(beforeRecreate);
+        });
+    });
+
+    describe("WiFi RSSI uses dBm (B7)", () => {
+        it("createDeviceStates declares unit dBm on info.wifi_rssi_db", async () => {
+            await manager.createDeviceStates(testDevice);
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.info.wifi_rssi_db");
+            expect(obj?.common.unit).to.equal("dBm");
+        });
+
+        it("updateSystem keeps unit dBm on info.wifi_rssi_db", async () => {
+            await manager.updateSystem(testDevice, {
+                wifi_ssid: "x",
+                wifi_rssi_db: -65,
+                uptime_s: 100,
+                cloud_enabled: true,
+                status_led_brightness_pct: 50,
+            });
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.info.wifi_rssi_db");
+            expect(obj?.common.unit).to.equal("dBm");
+            expect(adapter.states.get("hwe-p1_aabbccddeeff.info.wifi_rssi_db")?.val).to.equal(-65);
         });
     });
 

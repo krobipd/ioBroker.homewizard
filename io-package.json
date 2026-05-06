@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.7.0",
     "news": {
+      "NEXT": {
+        "en": "Performance: state existence checks are cached after first creation — saves ~30 redis lookups per second on a P1 meter. WiFi signal unit corrected to dBm.",
+        "de": "Performance: Existenz-Prüfung für Datenpunkte wird nach dem ersten Anlegen gecacht — spart ca. 30 Redis-Lookups pro Sekunde bei einem P1-Meter. WLAN-Signalstärke jetzt in dBm.",
+        "ru": "Производительность: проверка существования датчиков кэшируется после первого создания — экономит около 30 redis-запросов в секунду на P1-счётчике. Единица WiFi-сигнала dBm.",
+        "pt": "Desempenho: verificação de existência de datapoints é cacheada após a primeira criação — poupa ~30 lookups redis por segundo num P1 Meter. Unidade do sinal WiFi em dBm.",
+        "nl": "Performance: bestaanscheck voor datapoints wordt na het eerste aanmaken gecachet — bespaart ~30 redis-lookups per seconde op een P1 Meter. WiFi-signaaleenheid nu dBm.",
+        "fr": "Performance : la vérification d'existence des datapoints est mise en cache après la première création — économise ~30 lookups redis par seconde sur un P1 Meter. Unité du signal WiFi en dBm.",
+        "it": "Performance: la verifica di esistenza dei datapoint viene memorizzata in cache dopo la prima creazione — risparmia ~30 lookup redis al secondo su un P1 Meter. Unità segnale WiFi ora dBm.",
+        "es": "Rendimiento: la comprobación de existencia de datapoints se guarda en caché tras la primera creación — ahorra ~30 lookups redis por segundo en un P1 Meter. Unidad de señal WiFi en dBm.",
+        "pl": "Wydajność: sprawdzanie istnienia datapointów jest cache'owane po pierwszym utworzeniu — oszczędza ~30 zapytań redis na sekundę przy P1 Meter. Jednostka sygnału WiFi to dBm.",
+        "uk": "Продуктивність: перевірка існування датапоінтів кешується після першого створення — економить ~30 redis-запитів на секунду на P1 Meter. Одиниця сигналу WiFi — dBm.",
+        "zh-cn": "性能：数据点存在检查在首次创建后会缓存——P1 Meter 每秒节省约 30 次 Redis 查询。WiFi 信号单位修正为 dBm。"
+      },
       "0.7.0": {
         "en": "Multi-language: state names, descriptions, dropdown values (tariff, battery.mode) and user logs in your ioBroker system language (11 languages). Battery inputs validated. Min Node 22, Admin 7.8.23.",
         "de": "Mehrsprachig: Datenpunkt-Namen, -Beschreibungen, Dropdown-Werte (tariff, battery.mode) und User-Logs in der ioBroker-Systemsprache (11 Sprachen). Batterie-Eingaben werden geprüft. Min Node 22, Admin 7.8.23.",
