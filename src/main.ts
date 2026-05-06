@@ -1,4 +1,5 @@
 import * as utils from "@iobroker/adapter-core";
+import { errText, parseBatteryPermissions, validateBatteryMode } from "./lib/coerce";
 import { classifyError, createDeviceConnection, UNSTABLE_DISCONNECT_THRESHOLD } from "./lib/connection-utils";
 import { HomeWizardDiscovery } from "./lib/discovery";
 import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
@@ -33,15 +34,6 @@ const STABLE_THRESHOLD_MS = 600_000;
 const WS_RECONNECT_MAX_UNSTABLE_MS = 60_000;
 /** REST fallback interval for unstable devices (slower, not stopped) */
 const REST_POLL_UNSTABLE_MS = 30_000;
-
-/**
- * Extract a log-friendly message from an unknown error value.
- *
- * @param err Value caught in a promise rejection (may or may not be an Error)
- */
-function errText(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 class HomeWizard extends utils.Adapter {
   private stateManager!: StateManager;
@@ -346,13 +338,22 @@ class HomeWizard extends utils.Adapter {
         await client.setSystem({ api_v1_enabled: !!state.val });
         await this.setStateAsync(id, { val: state.val, ack: true });
       } else if (id.endsWith(".battery.mode")) {
-        await client.setBatteries({
-          mode: String(state.val) as "zero" | "to_full" | "standby",
-        });
+        const mode = validateBatteryMode(String(state.val));
+        if (!mode) {
+          this.log.warn(tLog(this.systemLang, "invalidBatteryMode", { value: String(state.val) }));
+          return;
+        }
+        await client.setBatteries({ mode });
         await this.setStateAsync(id, { val: state.val, ack: true });
       } else if (id.endsWith(".battery.permissions")) {
-        const perms = JSON.parse(String(state.val));
-        await client.setBatteries({ permissions: perms });
+        const result = parseBatteryPermissions(String(state.val));
+        if (!result.ok) {
+          this.log.warn(
+            tLog(this.systemLang, "invalidPermissionsJson", { error: result.reason, value: result.sample }),
+          );
+          return;
+        }
+        await client.setBatteries({ permissions: result.perms });
         await this.setStateAsync(id, { val: state.val, ack: true });
       }
     } catch (err) {
@@ -681,13 +682,9 @@ class HomeWizard extends utils.Adapter {
           this.logDeviceError(conn, "ws", error);
         }
 
-        // Check if this was an auth failure
-        if (error instanceof HomeWizardApiError && error.errorCode === "user:unauthorized") {
-          conn.authFailCount++;
-          if (conn.authFailCount >= MAX_AUTH_FAILURES) {
-            this.log.warn(tLog(this.systemLang, "tokenInvalid", { name: conn.config.productName }));
-            return;
-          }
+        // Check if this was an auth failure (returns false → stop reconnect path)
+        if (!this.handleAuthFailure(conn, error, /* cleanupTimers */ false)) {
+          return;
         }
 
         // Start REST fallback
@@ -734,21 +731,9 @@ class HomeWizard extends utils.Adapter {
       } catch (err) {
         this.logDeviceError(conn, "rest", err);
 
-        // Treat auth failures as a hard stop — token is bad, re-pair required.
+        // Auth failures: stop everything — token is bad, re-pair required.
         if (err instanceof HomeWizardApiError && err.errorCode === "user:unauthorized") {
-          conn.authFailCount++;
-          if (conn.authFailCount >= MAX_AUTH_FAILURES) {
-            this.log.warn(tLog(this.systemLang, "tokenInvalid", { name: conn.config.productName }));
-            if (conn.pollTimer) {
-              this.clearInterval(conn.pollTimer);
-              conn.pollTimer = undefined;
-            }
-            if (conn.reconnectTimer) {
-              this.clearTimeout(conn.reconnectTimer);
-              conn.reconnectTimer = undefined;
-            }
-            conn.wsClient?.close();
-          }
+          this.handleAuthFailure(conn, err, /* cleanupTimers */ true);
           return;
         }
 
@@ -866,6 +851,45 @@ class HomeWizard extends utils.Adapter {
    */
   private isUnstable(conn: DeviceConnection): boolean {
     return conn.recentDisconnects >= UNSTABLE_DISCONNECT_THRESHOLD;
+  }
+
+  /**
+   * Handle a possible auth failure on a device connection. Counts failures and,
+   * once `MAX_AUTH_FAILURES` is reached, warns the user and (optionally) tears
+   * down active timers and the WebSocket — stops bombarding the device with a
+   * known-bad token.
+   *
+   * @param conn          Device connection.
+   * @param error         The error from the failing call (any error type accepted).
+   * @param cleanupTimers If `true`, clears poll/reconnect timers and closes the WS
+   *                      on threshold reach. Used by REST-fallback paths where
+   *                      the WS would otherwise keep retrying indefinitely. The
+   *                      WS-disconnect path passes `false` because the caller
+   *                      decides the next step itself.
+   * @returns `true` if the caller should continue normal flow (no auth-stop),
+   *          `false` if the auth-stop fired and the caller should bail out.
+   */
+  private handleAuthFailure(conn: DeviceConnection, error: unknown, cleanupTimers: boolean): boolean {
+    if (!(error instanceof HomeWizardApiError) || error.errorCode !== "user:unauthorized") {
+      return true;
+    }
+    conn.authFailCount++;
+    if (conn.authFailCount < MAX_AUTH_FAILURES) {
+      return true;
+    }
+    this.log.warn(tLog(this.systemLang, "tokenInvalid", { name: conn.config.productName }));
+    if (cleanupTimers) {
+      if (conn.pollTimer) {
+        this.clearInterval(conn.pollTimer);
+        conn.pollTimer = undefined;
+      }
+      if (conn.reconnectTimer) {
+        this.clearTimeout(conn.reconnectTimer);
+        conn.reconnectTimer = undefined;
+      }
+      conn.wsClient?.close();
+    }
+    return false;
   }
 
   /**

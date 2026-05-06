@@ -167,6 +167,13 @@ homewizard.0.
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- Robustness: `errText` helper consolidates 5 inline catch-site duplicates across `main.ts`.
+- `battery.permissions` parses JSON in a guarded path with explicit array check — malformed input now becomes a clean warning instead of a cryptic stack trace.
+- `battery.mode` whitelist-validates before the API call (`zero` / `to_full` / `standby`); other values are warned and dropped.
+- `handleAuthFailure` helper extracted; duplicate auth-stop branch in WS-disconnect and REST-fallback paths consolidated.
+- New `coerce.test.ts` with 22 tests covering `errText`, `validateBatteryMode`, `parseBatteryPermissions` and the existing coerce helpers.
+
 ### 0.7.0 (2026-05-06)
 - Multi-language: state names, descriptions, dropdown labels and user-facing logs follow the ioBroker system language across 11 languages (EN, DE, RU, PT, NL, FR, IT, ES, PL, UK, ZH-CN).
 - `tariff` and `battery.mode` show translated dropdown labels in admin/vis instead of raw values.
