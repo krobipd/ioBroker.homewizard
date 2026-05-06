@@ -17,10 +17,12 @@ Real-time energy monitoring from [HomeWizard](https://www.homewizard.com) Energy
 
 ## Features
 
-- One adapter instance handles all your HomeWizard devices
-- Energy data updates roughly once per second over WebSocket; falls back to REST polling if the WebSocket drops
-- Pairing finds the device via mDNS — press the button on the device, done
-- Battery control (mode, permissions) and device system controls (LED brightness, cloud toggle, reboot, identify)
+- **HomeWizard API v2** — HTTPS + WebSocket, bearer-token authentication
+- **mDNS pairing** — `_homewizard._tcp` discovery, press the device button to pair
+- **WebSocket push** — measurements arrive ~1/s; REST polling takes over while the WebSocket reconnects
+- **Plug-In Battery control** — charge/discharge mode and grid-feed permissions through the paired P1/kWh meter
+- **Adaptive reconnect** — devices with weak WiFi switch to a faster reconnect interval and keep REST polling running so data keeps flowing
+- **Encrypted device tokens** — stored per device object, no adapter restart on pairing or removal
 
 ---
 
