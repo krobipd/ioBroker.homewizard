@@ -94,7 +94,7 @@ homewizard.0.
     │   ├── productType          — Product type (string)
     │   ├── firmware             — Firmware version (string)
     │   ├── connected            — WebSocket connection status (bool)
-    │   ├── wifi_rssi_db         — WiFi signal strength (number, dB)
+    │   ├── wifi_rssi_db         — WiFi signal strength (number, dBm)
     │   └── uptime_s             — Device uptime (number, s)
     ├── measurement/             — Measurement data
     │   ├── power_w              — Total power (number, W)
