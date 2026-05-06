@@ -4,17 +4,17 @@
     "version": "0.7.0",
     "news": {
       "0.7.0": {
-        "en": "Multi-language across 11 languages (state names, descriptions, dropdown labels, user logs). errText helper, guarded battery.permissions JSON, whitelist-validated battery.mode. Baseline Node 22 + Admin 7.8.23.",
-        "de": "Mehrsprachigkeit in 11 Sprachen (Zustandsnamen, Beschreibungen, Dropdown-Labels, User-Logs). errText-Helper, abgesichertes battery.permissions JSON, whitelist-validierter battery.mode. Baseline Node 22 + Admin 7.8.23.",
-        "ru": "Многоязычность на 11 языках (имена состояний, описания, метки списков, пользовательские логи). Helper errText, защищённый JSON в battery.permissions, whitelist для battery.mode. Baseline Node 22 + Admin 7.8.23.",
-        "pt": "Multilíngue em 11 idiomas (nomes de estados, descrições, rótulos de dropdown, logs de utilizador). Helper errText, JSON protegido em battery.permissions, whitelist para battery.mode. Baseline Node 22 + Admin 7.8.23.",
-        "nl": "Meertalig in 11 talen (statusnamen, beschrijvingen, dropdown-labels, gebruikerslogs). errText-helper, beveiligd battery.permissions JSON, whitelist voor battery.mode. Baseline Node 22 + Admin 7.8.23.",
-        "fr": "Multilingue en 11 langues (noms d'états, descriptions, libellés déroulants, logs utilisateur). Helper errText, JSON protégé dans battery.permissions, whitelist pour battery.mode. Baseline Node 22 + Admin 7.8.23.",
-        "it": "Multilingua in 11 lingue (nomi degli stati, descrizioni, etichette dei menu, log utente). Helper errText, JSON protetto in battery.permissions, whitelist per battery.mode. Baseline Node 22 + Admin 7.8.23.",
-        "es": "Multilingüe en 11 idiomas (nombres de estados, descripciones, etiquetas de menús, logs de usuario). Helper errText, JSON protegido en battery.permissions, whitelist para battery.mode. Baseline Node 22 + Admin 7.8.23.",
-        "pl": "Wiele języków w 11 językach (nazwy stanów, opisy, etykiety menu, logi użytkownika). Helper errText, zabezpieczony JSON w battery.permissions, whitelista dla battery.mode. Baseline Node 22 + Admin 7.8.23.",
-        "uk": "Багатомовність 11 мовами (імена станів, описи, мітки меню, користувацькі логи). Хелпер errText, захищений JSON в battery.permissions, whitelist для battery.mode. Baseline Node 22 + Admin 7.8.23.",
-        "zh-cn": "11 种语言多语言支持（状态名、描述、下拉标签、用户日志）。errText helper、battery.permissions JSON 防错、battery.mode 白名单校验。基线 Node 22 + Admin 7.8.23。"
+        "en": "Multi-language: state names, descriptions, dropdown values (tariff, battery.mode) and user logs in your ioBroker system language (11 languages). Battery inputs validated. Min Node 22, Admin 7.8.23.",
+        "de": "Mehrsprachig: Datenpunkt-Namen, -Beschreibungen, Dropdown-Werte (tariff, battery.mode) und User-Logs in der ioBroker-Systemsprache (11 Sprachen). Batterie-Eingaben werden geprüft. Min Node 22, Admin 7.8.23.",
+        "ru": "Многоязычность: имена и описания датчиков, значения списков (tariff, battery.mode) и пользовательские логи в системном языке ioBroker (11 языков). Проверка ввода для батареи. Мин. Node 22, Admin 7.8.23.",
+        "pt": "Multilíngue: nomes e descrições de datapoints, valores de dropdown (tariff, battery.mode) e logs no idioma do sistema ioBroker (11 idiomas). Validação de entradas de bateria. Mín. Node 22, Admin 7.8.23.",
+        "nl": "Meertalig: datapoint-namen, beschrijvingen, dropdown-waarden (tariff, battery.mode) en gebruikerslogs in de ioBroker-systeemtaal (11 talen). Batterij-invoer wordt gecontroleerd. Min. Node 22, Admin 7.8.23.",
+        "fr": "Multilingue : noms et descriptions des datapoints, valeurs déroulantes (tariff, battery.mode) et logs dans la langue système ioBroker (11 langues). Saisies batterie validées. Min Node 22, Admin 7.8.23.",
+        "it": "Multilingua: nomi e descrizioni dei datapoint, valori dei menu (tariff, battery.mode) e log utente nella lingua di sistema ioBroker (11 lingue). Input batteria validati. Min Node 22, Admin 7.8.23.",
+        "es": "Multilingüe: nombres y descripciones de datapoints, valores de menús (tariff, battery.mode) y logs en el idioma del sistema ioBroker (11 idiomas). Entradas de batería validadas. Mín. Node 22, Admin 7.8.23.",
+        "pl": "Wiele języków: nazwy i opisy datapointów, wartości menu (tariff, battery.mode) i logi w języku systemu ioBroker (11 języków). Walidacja wprowadzania baterii. Min Node 22, Admin 7.8.23.",
+        "uk": "Багатомовність: імена та описи датапоінтів, значення меню (tariff, battery.mode) та логи мовою системи ioBroker (11 мов). Перевірка вводу для батареї. Мін. Node 22, Admin 7.8.23.",
+        "zh-cn": "多语言：数据点名称、描述、下拉值（tariff、battery.mode）和用户日志使用 ioBroker 系统语言（11 种）。电池输入会被校验。最低 Node 22、Admin 7.8.23。"
       },
       "0.6.7": {
         "en": "Documentation: rewrote release notes in user-friendly style across all languages.",
