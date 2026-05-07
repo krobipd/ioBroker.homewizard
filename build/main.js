@@ -418,7 +418,7 @@ class HomeWizard extends utils.Adapter {
     if (this.discovery || this.isPairing) {
       return;
     }
-    this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "searchingNewIp"));
+    this.log.debug((0, import_i18n_logs.tLog)(this.systemLang, "searchingNewIp"));
     this.discovery = new import_discovery.HomeWizardDiscovery(this.log);
     this.discovery.start((discovered) => {
       for (const conn of this.connections.values()) {
@@ -457,7 +457,7 @@ class HomeWizard extends utils.Adapter {
       this.stopIpRecovery();
       for (const conn of this.connections.values()) {
         if (!conn.wsAuthenticated && conn.wsFailCount > 0) {
-          this.log.warn(
+          this.log.debug(
             (0, import_i18n_logs.tLog)(this.systemLang, "deviceOfflineRetrying", {
               name: conn.config.productName,
               seconds: WS_RECONNECT_MAX_MS / 1e3

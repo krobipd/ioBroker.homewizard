@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.7.2",
+    "version": "0.7.3",
     "news": {
-      "NEXT": {
+      "0.7.3": {
         "en": "Less log spam for devices that stay offline for longer periods. The initial unreachable warning is enough; hourly mDNS recovery attempts and offline-retry status now log at debug level only.",
         "de": "Weniger Log-Spam für Geräte mit längerem Ausfall. Der erste Unerreichbarkeits-Warnhinweis reicht; stündliche mDNS-Recovery-Versuche und Offline-Retry-Status erscheinen jetzt nur noch im Debug-Log.",
         "ru": "Меньше спама в логе при длительном отсутствии устройства. Первого предупреждения о недоступности достаточно; ежечасные попытки mDNS-восстановления и статусы повторных попыток теперь только в debug.",

@@ -165,7 +165,7 @@ homewizard.0.
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 0.7.3 (2026-05-07)
 - Less log spam when a device stays offline for longer periods — the initial `device unreachable` warning is enough; mDNS recovery attempts and offline-retry status now log at debug level only.
 
 ### 0.7.2 (2026-05-06)
@@ -184,9 +184,6 @@ homewizard.0.
 ### 0.6.7 (2026-05-01)
 - Internal cleanup. No user-facing changes.
 - Documentation: rewrote release notes for v0.6.0–v0.6.6 in user-friendly style across all languages.
-
-### 0.6.6 (2026-04-28)
-- Internal cleanup. No user-facing changes.
 
 ### Support Development
 
