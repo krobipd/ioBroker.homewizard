@@ -505,7 +505,10 @@ class HomeWizard extends utils.Adapter {
       return;
     }
 
-    this.log.info(tLog(this.systemLang, "searchingNewIp"));
+    // Internal recovery — debug only. The initial disconnect already produced
+    // one warn via logDeviceError; repeating that hourly while a device stays
+    // offline is just spam.
+    this.log.debug(tLog(this.systemLang, "searchingNewIp"));
 
     this.discovery = new HomeWizardDiscovery(this.log);
     this.discovery.start(discovered => {
@@ -547,14 +550,18 @@ class HomeWizard extends utils.Adapter {
       }
     });
 
-    // Stop mDNS after timeout — WS reconnect continues with exponential backoff
+    // Stop mDNS after timeout — WS reconnect continues with exponential
+    // backoff. Don't log per-device warns here: the initial disconnect already
+    // produced a `deviceUnreachable` warn via logDeviceError; spamming the
+    // user hourly while the device stays offline adds zero information. If
+    // someone needs to see retry cadence they can enable debug logging.
     this.ipRecoveryTimer = this.setTimeout(() => {
       this.ipRecoveryTimer = undefined;
       this.stopIpRecovery();
 
       for (const conn of this.connections.values()) {
         if (!conn.wsAuthenticated && conn.wsFailCount > 0) {
-          this.log.warn(
+          this.log.debug(
             tLog(this.systemLang, "deviceOfflineRetrying", {
               name: conn.config.productName,
               seconds: WS_RECONNECT_MAX_MS / 1000,

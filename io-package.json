@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.7.2",
     "news": {
+      "NEXT": {
+        "en": "Less log spam for devices that stay offline for longer periods. The initial unreachable warning is enough; hourly mDNS recovery attempts and offline-retry status now log at debug level only.",
+        "de": "Weniger Log-Spam für Geräte mit längerem Ausfall. Der erste Unerreichbarkeits-Warnhinweis reicht; stündliche mDNS-Recovery-Versuche und Offline-Retry-Status erscheinen jetzt nur noch im Debug-Log.",
+        "ru": "Меньше спама в логе при длительном отсутствии устройства. Первого предупреждения о недоступности достаточно; ежечасные попытки mDNS-восстановления и статусы повторных попыток теперь только в debug.",
+        "pt": "Menos spam no log quando um dispositivo permanece offline. O aviso inicial de inacessibilidade é suficiente; tentativas horárias de recuperação por mDNS e status de retry passam agora a debug.",
+        "nl": "Minder log-spam voor apparaten die langer offline blijven. De eerste onbereikbaarheidswaarschuwing volstaat; uurlijkse mDNS-recovery-pogingen en offline-retry-status nu alleen op debug.",
+        "fr": "Moins de spam dans les logs pour les appareils restant hors-ligne. Le premier avertissement suffit ; les tentatives mDNS horaires et le statut de réessai passent en debug.",
+        "it": "Meno spam nel log per dispositivi a lungo offline. Il primo avviso di non raggiungibilità è sufficiente; i tentativi orari di recovery mDNS e lo stato di retry passano a debug.",
+        "es": "Menos spam en el log para dispositivos que permanecen offline mucho tiempo. La advertencia inicial de inalcanzable es suficiente; los intentos horarios de mDNS y el estado de reintentos pasan a debug.",
+        "pl": "Mniej spamu w logu dla urządzeń długo offline. Pierwsze ostrzeżenie o niedostępności wystarczy; cogodzinne próby odzyskiwania mDNS i status ponawiania trafiają teraz do debug.",
+        "uk": "Менше спаму в журналі для пристроїв, що тривалий час офлайн. Першого попередження про недоступність достатньо; погодинні спроби mDNS-відновлення та статус повторних спроб тепер у debug.",
+        "zh-cn": "对长时间离线的设备减少日志噪音。首次「不可达」告警已足够；每小时的 mDNS 恢复尝试与离线重试状态现仅记录在 debug 级别。"
+      },
       "0.7.2": {
         "en": "Internal robustness: stricter number parsing for sensor inputs, parallel state writes, code split for testability, 38 new tests covering the HTTPS client. No user-facing changes.",
         "de": "Interne Härtung: strengere Zahlenprüfung für Sensorwerte, parallele State-Writes, Code-Split für bessere Testbarkeit, 38 neue Tests für den HTTPS-Client. Keine User-sichtbaren Änderungen.",
@@ -80,19 +93,6 @@
         "pl": "Ochrona przed crashem: handlery błędów process-level. Min. js-controller przywrócony do >=6.0.11.",
         "uk": "Захист від збоїв: process-level обробники помилок. Мін. js-controller повернено на >=6.0.11.",
         "zh-cn": "崩溃防护：process-level 错误处理器。最低 js-controller 恢复为 >=6.0.11。"
-      },
-      "0.6.4": {
-        "en": "Internal hardening. No user-facing changes.",
-        "de": "Interne Härtung. Keine User-sichtbaren Änderungen.",
-        "ru": "Внутреннее усиление. Без видимых изменений для пользователя.",
-        "pt": "Endurecimento interno. Sem alterações visíveis para o usuário.",
-        "nl": "Interne verharding. Geen wijzigingen voor de gebruiker.",
-        "fr": "Durcissement interne. Aucune modification visible pour l'utilisateur.",
-        "it": "Hardening interno. Nessuna modifica visibile all'utente.",
-        "es": "Endurecimiento interno. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzne wzmocnienie. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішнє зміцнення. Без помітних для користувача змін.",
-        "zh-cn": "内部加固。对用户无可见变化。"
       }
     },
     "titleLang": {
