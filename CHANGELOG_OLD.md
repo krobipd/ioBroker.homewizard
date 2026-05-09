@@ -1,4 +1,8 @@
 # Older Changes
+## 0.6.7 (2026-05-01)
+- Internal cleanup. No user-facing changes.
+- Documentation: rewrote release notes for v0.6.0–v0.6.6 in user-friendly style across all languages.
+
 ## 0.6.6 (2026-04-28)
 - Internal cleanup. No user-facing changes.
 

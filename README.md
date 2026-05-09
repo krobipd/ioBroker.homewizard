@@ -169,7 +169,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.7.4 (2026-05-09)
 - Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) are unchanged.
 
 ### 0.7.3 (2026-05-07)
@@ -187,10 +187,6 @@ homewizard.0.
 - Power-quality and Belgian capacity-tariff datapoints carry inline descriptions — hover in admin to see what each one means.
 - Battery inputs are checked up-front: an unknown `battery.mode` or malformed `battery.permissions` JSON gives a clear warning instead of a cryptic error.
 - Minimum requirements: Node.js 22 and ioBroker Admin 7.8.23.
-
-### 0.6.7 (2026-05-01)
-- Internal cleanup. No user-facing changes.
-- Documentation: rewrote release notes for v0.6.0–v0.6.6 in user-friendly style across all languages.
 
 ### Support Development
 
