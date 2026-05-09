@@ -6,7 +6,7 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.7.2 (2026-05-06 — strict number parsing + parallel state writes + main-helpers extracted + HTTP-stub tests for the full client)
+- **Version:** 0.7.3 (released 2026-05-07, npm latest) — Log-Spam-Fix bei dauerhaft offline Geräten: stündliches mDNS-Recovery-Pärchen (info „suche neue IP" + warn „offline retry") auf debug runtergesetzt. Der initiale `deviceUnreachable`-warn (via logDeviceError) bleibt einzige user-facing Meldung. v0.7.2 (2026-05-06) brachte strict number parsing + parallel state writes + main-helpers extracted + HTTP-stub tests.
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
@@ -36,7 +36,6 @@ src/lib/discovery.ts         → mDNS (_homewizard._tcp), nur bei Pairing/IP-Rec
 src/lib/homewizard-client.ts → HTTPS-Client (REST)
 src/lib/websocket-client.ts  → WSS-Client (Echtzeit)
 src/lib/state-manager.ts     → State CRUD + Cleanup, MEASUREMENT_STATE_DEFS mit nameKey/descKey
-src/lib/i18n-logs.ts         → Lokalisierte info/warn/error-Strings (21 Keys × 11 Sprachen) + tLog-Helper
 src/lib/i18n-states.ts       → STATE_NAMES + STATE_DESCS + STATE_LABELS (~109 Keys × 11 Sprachen) + tName/tDesc/tLabel
 ```
 

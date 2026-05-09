@@ -165,6 +165,13 @@ homewizard.0.
 ---
 
 ## Changelog
+<!--
+    Placeholder for the next version (at the beginning of the line):
+    ### **WORK IN PROGRESS**
+-->
+### **WORK IN PROGRESS**
+- Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) are unchanged.
+
 ### 0.7.3 (2026-05-07)
 - Less log spam when a device stays offline for longer periods — the initial `device unreachable` warning is enough; mDNS recovery attempts and offline-retry status now log at debug level only.
 
@@ -176,7 +183,7 @@ homewizard.0.
 - Faster state updates: existence checks for datapoints are cached after first creation, saving ~30 Redis lookups per second on a P1 Meter pushing 1 measurement/second.
 
 ### 0.7.0 (2026-05-06)
-- Adapter texts now follow your ioBroker system language: datapoint names, descriptions, dropdown values for `tariff` and `battery.mode`, and user-visible logs in 11 languages (EN, DE, RU, PT, NL, FR, IT, ES, PL, UK, ZH-CN).
+- Adapter texts now follow your ioBroker system language: datapoint names, descriptions, and dropdown values for `tariff` and `battery.mode` in 11 languages (EN, DE, RU, PT, NL, FR, IT, ES, PL, UK, ZH-CN).
 - Power-quality and Belgian capacity-tariff datapoints carry inline descriptions — hover in admin to see what each one means.
 - Battery inputs are checked up-front: an unknown `battery.mode` or malformed `battery.permissions` JSON gives a clear warning instead of a cryptic error.
 - Minimum requirements: Node.js 22 and ioBroker Admin 7.8.23.

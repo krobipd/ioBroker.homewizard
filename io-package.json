@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.7.3",
     "news": {
+      "NEXT": {
+        "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) remain unchanged.",
+        "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen, Beschreibungen und Dropdown-Labels (11 Sprachen) bleiben erhalten.",
+        "ru": "Сообщения журнала теперь только на английском, согласно стандарту сообщества ioBroker. Локализованные имена состояний, описания и подписи (11 языков) сохраняются.",
+        "pt": "As mensagens de log do adaptador agora são apenas em inglês, conforme o padrão da comunidade ioBroker. Nomes de estados, descrições e rótulos localizados (11 idiomas) permanecem inalterados.",
+        "nl": "Adapter-logberichten zijn nu alleen Engels, conform de ioBroker-communitystandaard. Gelokaliseerde statusnamen, beschrijvingen en dropdown-labels (11 talen) blijven ongewijzigd.",
+        "fr": "Les messages de log de l'adaptateur sont désormais uniquement en anglais, conformément au standard de la communauté ioBroker. Les noms d'états, descriptions et libellés localisés (11 langues) restent inchangés.",
+        "it": "I messaggi di log dell'adattatore sono ora solo in inglese, secondo lo standard della community ioBroker. I nomi degli stati, descrizioni ed etichette localizzati (11 lingue) rimangono invariati.",
+        "es": "Los mensajes de registro del adaptador ahora son solo en inglés, conforme al estándar de la comunidad ioBroker. Los nombres de estados, descripciones y etiquetas localizados (11 idiomas) permanecen sin cambios.",
+        "pl": "Komunikaty dziennika adaptera są teraz wyłącznie po angielsku, zgodnie ze standardem społeczności ioBroker. Zlokalizowane nazwy stanów, opisy i etykiety (11 języków) pozostają bez zmian.",
+        "uk": "Повідомлення журналу адаптера тепер лише англійською, відповідно до стандарту спільноти ioBroker. Локалізовані назви станів, описи та мітки (11 мов) залишаються без змін.",
+        "zh-cn": "适配器日志消息现在仅为英文，符合 ioBroker 社区标准。本地化的数据点名称、描述和下拉标签（11 种语言）保持不变。"
+      },
       "0.7.3": {
         "en": "Less log spam for devices that stay offline for longer periods. The initial unreachable warning is enough; hourly mDNS recovery attempts and offline-retry status now log at debug level only.",
         "de": "Weniger Log-Spam für Geräte mit längerem Ausfall. Der erste Unerreichbarkeits-Warnhinweis reicht; stündliche mDNS-Recovery-Versuche und Offline-Retry-Status erscheinen jetzt nur noch im Debug-Log.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
         "uk": "Внутрішнє прибирання. Без помітних для користувача змін.",
         "zh-cn": "内部清理。对用户无可见变化。"
-      },
-      "0.6.5": {
-        "en": "Crash defense: process-level error handlers. Min js-controller restored to >=6.0.11.",
-        "de": "Crash-Schutz: process-level Error-Handler. Min js-controller zurück auf >=6.0.11.",
-        "ru": "Защита от сбоев: process-level обработчики ошибок. Мин. js-controller восстановлен на >=6.0.11.",
-        "pt": "Proteção contra falhas: handlers de erro process-level. Mín. js-controller restaurado para >=6.0.11.",
-        "nl": "Crashbescherming: process-level error-handlers. Min. js-controller hersteld op >=6.0.11.",
-        "fr": "Défense contre les crashs : handlers d'erreur process-level. Min js-controller rétabli à >=6.0.11.",
-        "it": "Difesa anti-crash: handler di errore process-level. Min js-controller ripristinato a >=6.0.11.",
-        "es": "Defensa contra fallos: handlers de error process-level. Mín. js-controller restaurado a >=6.0.11.",
-        "pl": "Ochrona przed crashem: handlery błędów process-level. Min. js-controller przywrócony do >=6.0.11.",
-        "uk": "Захист від збоїв: process-level обробники помилок. Мін. js-controller повернено на >=6.0.11.",
-        "zh-cn": "崩溃防护：process-level 错误处理器。最低 js-controller 恢复为 >=6.0.11。"
       }
     },
     "titleLang": {

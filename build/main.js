@@ -26,7 +26,6 @@ var import_coerce = require("./lib/coerce");
 var import_connection_utils = require("./lib/connection-utils");
 var import_discovery = require("./lib/discovery");
 var import_homewizard_client = require("./lib/homewizard-client");
-var import_i18n_logs = require("./lib/i18n-logs");
 var import_main_helpers = require("./lib/main-helpers");
 var import_state_manager = require("./lib/state-manager");
 var import_websocket_client = require("./lib/websocket-client");
@@ -56,42 +55,27 @@ class HomeWizard extends utils.Adapter {
   discoveredDuringPairing = [];
   unhandledRejectionHandler = null;
   uncaughtExceptionHandler = null;
-  /** ioBroker system language — read once in `onReady` from `system.config`. EN fallback. */
-  systemLang = "en";
   /** @param options Adapter options */
   constructor(options = {}) {
     super({ ...options, name: "homewizard" });
     this.on("ready", () => {
-      this.onReady().catch(
-        (err) => this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "onReadyFailed", { error: (0, import_coerce.errText)(err) }))
-      );
+      this.onReady().catch((err) => this.log.error(`onReady failed: ${(0, import_coerce.errText)(err)}`));
     });
     this.on("stateChange", (id, state) => {
-      this.onStateChange(id, state).catch(
-        (err) => this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "stateChangeFailed", { error: (0, import_coerce.errText)(err) }))
-      );
+      this.onStateChange(id, state).catch((err) => this.log.error(`stateChange failed: ${(0, import_coerce.errText)(err)}`));
     });
     this.on("unload", (callback) => this.onUnload(callback));
     this.unhandledRejectionHandler = (reason) => {
-      this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "unhandledRejection", { error: (0, import_coerce.errText)(reason) }));
+      this.log.error(`Unhandled rejection: ${(0, import_coerce.errText)(reason)}`);
     };
     this.uncaughtExceptionHandler = (err) => {
-      this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "uncaughtException", { error: err.message }));
+      this.log.error(`Uncaught exception: ${err.message}`);
     };
     process.on("unhandledRejection", this.unhandledRejectionHandler);
     process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
   /** Adapter started */
   async onReady() {
-    var _a;
-    try {
-      const sysCfg = await this.getForeignObjectAsync("system.config");
-      const lang = (_a = sysCfg == null ? void 0 : sysCfg.common) == null ? void 0 : _a.language;
-      if (typeof lang === "string" && lang.length > 0) {
-        this.systemLang = lang;
-      }
-    } catch {
-    }
     this.stateManager = new import_state_manager.StateManager(this);
     await this.setStateAsync("startPairing", { val: false, ack: true });
     await this.setStateAsync("pairingIp", { val: "", ack: true });
@@ -106,7 +90,7 @@ class HomeWizard extends utils.Adapter {
     await this.subscribeStatesAsync("*.remove");
     const devices = await this.loadDevicesFromObjects();
     if (devices.length === 0) {
-      this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "noDevicesConfigured"));
+      this.log.info(`No devices configured \u2014 set 'startPairing' to true to add a device`);
       await this.setStateAsync("info.connection", { val: false, ack: true });
     }
     for (const device of devices) {
@@ -199,11 +183,7 @@ class HomeWizard extends utils.Adapter {
     }
     this.discoveredDuringPairing.push(discovered);
     this.log.info(
-      (0, import_i18n_logs.tLog)(this.systemLang, "deviceFound", {
-        name: discovered.name,
-        type: discovered.productType,
-        ip: discovered.ip
-      })
+      `Found ${discovered.name} (${discovered.productType}) at ${discovered.ip} \u2014 press the button on the device to pair`
     );
   }
   /**
@@ -279,7 +259,7 @@ class HomeWizard extends utils.Adapter {
     const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token);
     try {
       if (id.endsWith(".system.reboot")) {
-        this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "rebootingDevice", { name: conn.config.productName, ip: conn.ip }));
+        this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
         await client.reboot();
       } else if (id.endsWith(".system.identify")) {
         await client.identify();
@@ -297,7 +277,7 @@ class HomeWizard extends utils.Adapter {
       } else if (id.endsWith(".battery.mode")) {
         const mode = (0, import_coerce.validateBatteryMode)(String(state.val));
         if (!mode) {
-          this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "invalidBatteryMode", { value: String(state.val) }));
+          this.log.warn(`Invalid battery.mode value: '${String(state.val)}' \u2014 expected one of: zero, to_full, standby`);
           return;
         }
         await client.setBatteries({ mode });
@@ -306,7 +286,7 @@ class HomeWizard extends utils.Adapter {
         const result = (0, import_coerce.parseBatteryPermissions)(String(state.val));
         if (!result.ok) {
           this.log.warn(
-            (0, import_i18n_logs.tLog)(this.systemLang, "invalidPermissionsJson", { error: result.reason, value: result.sample })
+            `Invalid JSON for battery.permissions: ${result.reason} \u2014 expected array, got: ${result.sample}`
           );
           return;
         }
@@ -314,7 +294,7 @@ class HomeWizard extends utils.Adapter {
         await this.setStateAsync(id, { val: state.val, ack: true });
       }
     } catch (err) {
-      this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "failedToSetState", { id, error: (0, import_coerce.errText)(err) }));
+      this.log.warn(`Failed to set ${id}: ${(0, import_coerce.errText)(err)}`);
     }
   }
   /** Start pairing mode — discover devices and attempt to pair */
@@ -331,7 +311,9 @@ class HomeWizard extends utils.Adapter {
     this.pairingManualIp = (ipState == null ? void 0 : ipState.val) ? String(ipState.val).trim() : "";
     await this.setStateAsync("pairingIp", { val: "", ack: true });
     if (this.pairingManualIp) {
-      this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "pairingEnabledManual", { ip: this.pairingManualIp }));
+      this.log.info(
+        `Pairing mode enabled for ${this.pairingManualIp} \u2014 press the button on your HomeWizard device now (60 seconds timeout)`
+      );
       this.discoveredDuringPairing.push({
         ip: this.pairingManualIp,
         productType: "unknown",
@@ -339,7 +321,9 @@ class HomeWizard extends utils.Adapter {
         name: this.pairingManualIp
       });
     } else {
-      this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "pairingEnabledMdns"));
+      this.log.info(
+        `Pairing mode enabled \u2014 searching for devices via mDNS, press the button on your HomeWizard device now (60 seconds timeout)`
+      );
       if (!this.discovery) {
         this.discovery = new import_discovery.HomeWizardDiscovery(this.log);
       }
@@ -352,7 +336,7 @@ class HomeWizard extends utils.Adapter {
     }, PAIRING_POLL_MS);
     this.pairingTimer = this.setTimeout(() => {
       this.stopPairing();
-      this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "pairingTimeout"));
+      this.log.info(`Pairing mode automatically disabled after 60 seconds timeout`);
     }, PAIRING_TIMEOUT_MS);
   }
   /** Poll all discovered devices to attempt pairing */
@@ -362,11 +346,7 @@ class HomeWizard extends utils.Adapter {
         const client = new import_homewizard_client.HomeWizardClient(device.ip);
         const result = await client.requestPairing();
         this.log.info(
-          (0, import_i18n_logs.tLog)(this.systemLang, "pairingSuccess", {
-            name: device.name,
-            type: device.productType,
-            ip: device.ip
-          })
+          `Successfully paired with ${device.name} (${device.productType}) at ${device.ip} \u2014 connecting...`
         );
         const authedClient = new import_homewizard_client.HomeWizardClient(device.ip, result.token);
         const info = await authedClient.getDeviceInfo();
@@ -418,7 +398,7 @@ class HomeWizard extends utils.Adapter {
     if (this.discovery || this.isPairing) {
       return;
     }
-    this.log.debug((0, import_i18n_logs.tLog)(this.systemLang, "searchingNewIp"));
+    this.log.debug(`Device unreachable \u2014 searching for new IP via mDNS`);
     this.discovery = new import_discovery.HomeWizardDiscovery(this.log);
     this.discovery.start((discovered) => {
       for (const conn of this.connections.values()) {
@@ -428,13 +408,7 @@ class HomeWizard extends utils.Adapter {
         if (discovered.ip === conn.ip || conn.wsAuthenticated) {
           return;
         }
-        this.log.info(
-          (0, import_i18n_logs.tLog)(this.systemLang, "foundAtNewIp", {
-            name: conn.config.productName,
-            newIp: discovered.ip,
-            oldIp: conn.ip
-          })
-        );
+        this.log.info(`${conn.config.productName}: found at new IP ${discovered.ip} (was ${conn.ip})`);
         conn.ip = discovered.ip;
         conn.config.ip = discovered.ip;
         conn.wsFailCount = 0;
@@ -458,10 +432,7 @@ class HomeWizard extends utils.Adapter {
       for (const conn of this.connections.values()) {
         if (!conn.wsAuthenticated && conn.wsFailCount > 0) {
           this.log.debug(
-            (0, import_i18n_logs.tLog)(this.systemLang, "deviceOfflineRetrying", {
-              name: conn.config.productName,
-              seconds: WS_RECONNECT_MAX_MS / 1e3
-            })
+            `${conn.config.productName}: device offline \u2014 will keep retrying every ${WS_RECONNECT_MAX_MS / 1e3}s`
           );
         }
       }
@@ -537,9 +508,7 @@ class HomeWizard extends utils.Adapter {
         }
         if (conn.lastErrorCode) {
           this.log.info(
-            (0, import_i18n_logs.tLog)(this.systemLang, this.isUnstable(conn) ? "connectionRestoredUnstable" : "connectionRestored", {
-              name: conn.config.productName
-            })
+            this.isUnstable(conn) ? `${conn.config.productName}: connection restored (unstable mode)` : `${conn.config.productName}: connection restored`
           );
           conn.lastErrorCode = "";
         }
@@ -560,9 +529,9 @@ class HomeWizard extends utils.Adapter {
             conn.recentDisconnects = 0;
           }
           if (transition === "becameUnstable") {
-            this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "unstableDetected", { name: conn.config.productName }));
+            this.log.info(`${conn.config.productName}: unstable connection detected \u2014 using faster reconnect`);
           } else if (transition === "stabilized") {
-            this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "connectionStabilized", { name: conn.config.productName }));
+            this.log.info(`${conn.config.productName}: connection stabilized \u2014 using normal reconnect`);
           }
         }
         conn.wsAuthenticated = false;
@@ -683,9 +652,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     const key = this.stateManager.devicePrefix(conn.config);
-    this.log.info(
-      (0, import_i18n_logs.tLog)(this.systemLang, "removingDevice", { name: conn.config.productName, serial: conn.config.serial })
-    );
+    this.log.info(`Removing device ${conn.config.productName} (${conn.config.serial})`);
     (_a = conn.wsClient) == null ? void 0 : _a.close();
     if (conn.pollTimer) {
       this.clearInterval(conn.pollTimer);
@@ -740,7 +707,7 @@ class HomeWizard extends utils.Adapter {
     if (conn.authFailCount < MAX_AUTH_FAILURES) {
       return true;
     }
-    this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "tokenInvalid", { name: conn.config.productName }));
+    this.log.warn(`${conn.config.productName}: token invalid \u2014 re-pair device to fix`);
     if (cleanupTimers) {
       if (conn.pollTimer) {
         this.clearInterval(conn.pollTimer);
@@ -769,15 +736,9 @@ class HomeWizard extends utils.Adapter {
     if (isRepeat) {
       this.log.debug(`${conn.config.productName} ${context}: ${(0, import_coerce.errText)(err)}`);
     } else if (errorCode === "NETWORK") {
-      this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "deviceUnreachable", { name: conn.config.productName }));
+      this.log.warn(`${conn.config.productName}: device unreachable \u2014 will keep retrying`);
     } else {
-      this.log.warn(
-        (0, import_i18n_logs.tLog)(this.systemLang, "deviceErrorContext", {
-          name: conn.config.productName,
-          context,
-          error: (0, import_coerce.errText)(err)
-        })
-      );
+      this.log.warn(`${conn.config.productName} ${context}: ${(0, import_coerce.errText)(err)}`);
     }
   }
 }
