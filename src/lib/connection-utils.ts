@@ -23,6 +23,8 @@ export function createDeviceConnection(config: DeviceConfig, ip: string): Device
     lastErrorCode: "",
     lastConnectedAt: 0,
     recentDisconnects: 0,
+    recovering: false,
+    removed: false,
   };
 }
 

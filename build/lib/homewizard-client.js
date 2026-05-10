@@ -60,9 +60,13 @@ class HomeWizardClient {
   }
   /** Request pairing token (POST /api/user) — 403 until button pressed */
   async requestPairing() {
-    return this.request("POST", "/api/user", {
+    const result = await this.request("POST", "/api/user", {
       name: "local/iobroker"
     });
+    if (!result || typeof result.token !== "string" || result.token.length === 0) {
+      throw new HomeWizardApiError(200, JSON.stringify(result), "POST /api/user (no token in response)");
+    }
+    return result;
   }
   /** Get current measurement (REST fallback) */
   async getMeasurement() {

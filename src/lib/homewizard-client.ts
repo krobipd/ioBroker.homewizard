@@ -31,9 +31,15 @@ export class HomeWizardClient {
 
   /** Request pairing token (POST /api/user) — 403 until button pressed */
   async requestPairing(): Promise<PairingResponse> {
-    return this.request<PairingResponse>("POST", "/api/user", {
+    const result = await this.request<PairingResponse>("POST", "/api/user", {
       name: "local/iobroker",
     });
+    // Server returned 200 but we still validate the shape — a malformed or
+    // missing token would otherwise crash later in this.encrypt(undefined).
+    if (!result || typeof result.token !== "string" || result.token.length === 0) {
+      throw new HomeWizardApiError(200, JSON.stringify(result), "POST /api/user (no token in response)");
+    }
+    return result;
   }
 
   /** Get current measurement (REST fallback) */

@@ -6,6 +6,7 @@ import {
   coerceString,
   errText,
   isPlainObject,
+  isValidIpv4,
   parseBatteryPermissions,
   validateBatteryMode,
 } from "./coerce";
@@ -210,5 +211,52 @@ describe("parseBatteryPermissions", () => {
     if (!result.ok) {
       expect(result.sample.length).to.equal(200);
     }
+  });
+});
+
+describe("isValidIpv4", () => {
+  it("accepts well-formed IPv4 addresses", () => {
+    expect(isValidIpv4("192.168.1.42")).to.be.true;
+    expect(isValidIpv4("10.0.0.1")).to.be.true;
+    expect(isValidIpv4("0.0.0.0")).to.be.true;
+    expect(isValidIpv4("255.255.255.255")).to.be.true;
+    expect(isValidIpv4("8.8.8.8")).to.be.true;
+  });
+
+  it("rejects octet out of range", () => {
+    expect(isValidIpv4("256.0.0.0")).to.be.false;
+    expect(isValidIpv4("1.2.3.300")).to.be.false;
+    expect(isValidIpv4("999.999.999.999")).to.be.false;
+  });
+
+  it("rejects wrong number of octets", () => {
+    expect(isValidIpv4("1.2.3")).to.be.false;
+    expect(isValidIpv4("1.2.3.4.5")).to.be.false;
+    expect(isValidIpv4("")).to.be.false;
+  });
+
+  it("rejects leading zeros (octal-ambiguous)", () => {
+    expect(isValidIpv4("192.168.01.1")).to.be.false;
+    expect(isValidIpv4("01.0.0.0")).to.be.false;
+  });
+
+  it("rejects non-numeric octets", () => {
+    expect(isValidIpv4("1.2.3.x")).to.be.false;
+    expect(isValidIpv4("a.b.c.d")).to.be.false;
+    expect(isValidIpv4("1.2.3.-4")).to.be.false;
+    expect(isValidIpv4("1.2.3. 4")).to.be.false;
+  });
+
+  it("rejects IPv6 and hostnames", () => {
+    expect(isValidIpv4("::1")).to.be.false;
+    expect(isValidIpv4("fe80::1")).to.be.false;
+    expect(isValidIpv4("homewizard.local")).to.be.false;
+  });
+
+  it("rejects non-string input", () => {
+    expect(isValidIpv4(undefined)).to.be.false;
+    expect(isValidIpv4(null)).to.be.false;
+    expect(isValidIpv4(42)).to.be.false;
+    expect(isValidIpv4({})).to.be.false;
   });
 });

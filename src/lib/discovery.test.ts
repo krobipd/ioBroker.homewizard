@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { HomeWizardDiscovery } from "./discovery";
+import { coerceTxtValue, HomeWizardDiscovery } from "./discovery";
 import type { DiscoveredDevice } from "./types";
 
 interface LogEntry {
@@ -189,5 +189,45 @@ describe("HomeWizardDiscovery", () => {
             expect(result!.productType).to.equal("unknown");
             expect(result!.serial).to.equal("device123");
         });
+
+        it("should accept TXT values delivered as Buffer", () => {
+            const service = {
+                name: "buf-device",
+                addresses: ["192.168.1.5"],
+                txt: {
+                    product_type: Buffer.from("HWE-P1", "utf8"),
+                    serial: Buffer.from("5c2faabbccdd", "utf8"),
+                    product_name: Buffer.from("P1 Meter", "utf8"),
+                },
+            };
+            const result = parseService(discovery, service);
+            expect(result).to.not.be.null;
+            expect(result!.productType).to.equal("HWE-P1");
+            expect(result!.serial).to.equal("5c2faabbccdd");
+            expect(result!.name).to.equal("P1 Meter");
+        });
+    });
+});
+
+describe("coerceTxtValue", () => {
+    it("returns non-empty strings unchanged", () => {
+        expect(coerceTxtValue("HWE-P1")).to.equal("HWE-P1");
+    });
+
+    it("decodes Buffer values as utf8", () => {
+        expect(coerceTxtValue(Buffer.from("hello", "utf8"))).to.equal("hello");
+    });
+
+    it("returns undefined for empty string and empty Buffer", () => {
+        expect(coerceTxtValue("")).to.be.undefined;
+        expect(coerceTxtValue(Buffer.from("", "utf8"))).to.be.undefined;
+    });
+
+    it("returns undefined for unsupported shapes", () => {
+        expect(coerceTxtValue(undefined)).to.be.undefined;
+        expect(coerceTxtValue(null)).to.be.undefined;
+        expect(coerceTxtValue(42)).to.be.undefined;
+        expect(coerceTxtValue({ product_type: "x" })).to.be.undefined;
+        expect(coerceTxtValue([1, 2, 3])).to.be.undefined;
     });
 });

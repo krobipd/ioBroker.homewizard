@@ -24,6 +24,7 @@ __export(coerce_exports, {
   coerceString: () => coerceString,
   errText: () => errText,
   isPlainObject: () => isPlainObject,
+  isValidIpv4: () => isValidIpv4,
   parseBatteryPermissions: () => parseBatteryPermissions,
   validateBatteryMode: () => validateBatteryMode
 });
@@ -53,6 +54,28 @@ function coerceBoolean(value) {
 }
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isValidIpv4(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const parts = value.split(".");
+  if (parts.length !== 4) {
+    return false;
+  }
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) {
+      return false;
+    }
+    const n = Number(part);
+    if (n < 0 || n > 255) {
+      return false;
+    }
+    if (part.length > 1 && part.startsWith("0")) {
+      return false;
+    }
+  }
+  return true;
 }
 const BATTERY_MODES = ["zero", "to_full", "standby"];
 function validateBatteryMode(value) {
@@ -111,6 +134,7 @@ function errText(err) {
   coerceString,
   errText,
   isPlainObject,
+  isValidIpv4,
   parseBatteryPermissions,
   validateBatteryMode
 });

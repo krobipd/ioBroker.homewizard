@@ -1,6 +1,25 @@
 import Bonjour, { type Service } from "bonjour-service";
 import type { DiscoveredDevice } from "./types";
 
+/**
+ * Coerce a raw Bonjour TXT-record value to a string. The library returns
+ * either string, Buffer, or undefined depending on encoding — we normalize
+ * here so downstream code sees one shape. Exported for unit-tests; the
+ * production path uses it via {@link HomeWizardDiscovery#parseService}.
+ *
+ * @param value Raw TXT-record value.
+ */
+export function coerceTxtValue(value: unknown): string | undefined {
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+  if (Buffer.isBuffer(value)) {
+    const decoded = value.toString("utf8");
+    return decoded.length > 0 ? decoded : undefined;
+  }
+  return undefined;
+}
+
 /** Callback for discovered devices */
 export type DiscoveryCallback = (device: DiscoveredDevice) => void;
 
@@ -70,12 +89,13 @@ export class HomeWizardDiscovery {
       return null;
     }
 
-    // TXT records contain product_type, serial, etc.
-    const txt = service.txt as Record<string, string> | undefined;
-    const productType = txt?.product_type ?? "unknown";
-    const serial = txt?.serial ?? service.name ?? "unknown";
-    const name = txt?.product_name ?? service.name ?? productType;
-    const apiVersion = txt?.api_version;
+    // TXT records contain product_type, serial, etc. Library may hand us
+    // strings or Buffers — coerce defensively before use.
+    const txt = (service.txt ?? {}) as Record<string, unknown>;
+    const productType = coerceTxtValue(txt.product_type) ?? "unknown";
+    const serial = coerceTxtValue(txt.serial) ?? service.name ?? "unknown";
+    const name = coerceTxtValue(txt.product_name) ?? service.name ?? productType;
+    const apiVersion = coerceTxtValue(txt.api_version);
 
     if (apiVersion) {
       this.log.debug(`mDNS: TXT api_version=${apiVersion} serial=${serial}`);

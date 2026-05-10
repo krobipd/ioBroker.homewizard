@@ -131,6 +131,8 @@ describe("createDeviceConnection", () => {
     expect(conn.lastErrorCode).to.equal("");
     expect(conn.lastConnectedAt).to.equal(0);
     expect(conn.recentDisconnects).to.equal(0);
+    expect(conn.recovering).to.be.false;
+    expect(conn.removed).to.be.false;
   });
 
   it("should handle empty IP", () => {

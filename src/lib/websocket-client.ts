@@ -3,6 +3,13 @@ import { HW_AGENT } from "./cacert";
 import { isPlainObject } from "./coerce";
 import type { Measurement } from "./types";
 
+/** Auth handshake must complete within this window (Doku says 40s, +5s slack). */
+export const AUTH_TIMEOUT_MS = 45_000;
+/** WS-layer ping interval after `authorized`. */
+export const PING_INTERVAL_MS = 30_000;
+/** Max time to wait for a pong reply before declaring the link dead. */
+export const PONG_TIMEOUT_MS = 10_000;
+
 /** Callback interface for WebSocket events */
 export interface WsCallbacks {
   /** Called when measurement data is received */
@@ -20,7 +27,13 @@ export interface WsCallbacks {
 
 /**
  * WebSocket client for HomeWizard real-time measurement push.
- * Handles auth handshake, subscription, and auto-reconnect.
+ * Handles auth handshake, subscription, heartbeat (WS-layer ping/pong),
+ * and termination of half-dead connections (TCP open, no traffic).
+ *
+ * The push is event-driven (P1 Power ~1/s, Gas ~5min, Battery undocumented),
+ * so we cannot rely on measurement frames as a liveness signal. Instead we
+ * use the WS-layer ping/pong frames, which the device must answer regardless
+ * of data activity.
  */
 export class HomeWizardWebSocket {
   private readonly ip: string;
@@ -28,6 +41,9 @@ export class HomeWizardWebSocket {
   private readonly callbacks: WsCallbacks;
   private ws: WebSocket | null = null;
   private destroyed = false;
+  private authTimer: NodeJS.Timeout | null = null;
+  private pingInterval: NodeJS.Timeout | null = null;
+  private pongTimer: NodeJS.Timeout | null = null;
 
   /**
    * @param ip Device IP address
@@ -56,6 +72,13 @@ export class HomeWizardWebSocket {
       handshakeTimeout: 10_000,
     });
 
+    // Auth-watchdog: server must finish the auth handshake within
+    // AUTH_TIMEOUT_MS or we declare the link dead. Doku timeout is 40s.
+    this.authTimer = setTimeout(() => {
+      this.callbacks.log.debug(`WS auth-timeout (${AUTH_TIMEOUT_MS}ms) — terminating`);
+      this.forceDisconnect();
+    }, AUTH_TIMEOUT_MS);
+
     this.ws.on("open", () => {
       this.callbacks.log.debug(`WS open to ${this.ip}`);
     });
@@ -64,8 +87,17 @@ export class HomeWizardWebSocket {
       this.handleMessage(raw);
     });
 
+    this.ws.on("pong", () => {
+      // Pong arrived in time — clear pending pong-timer.
+      if (this.pongTimer) {
+        clearTimeout(this.pongTimer);
+        this.pongTimer = null;
+      }
+    });
+
     this.ws.on("close", (code: number, reason: Buffer) => {
       this.callbacks.log.debug(`WS closed: ${code} ${reason.toString()}`);
+      this.clearTimers();
       this.ws = null;
       if (!this.destroyed) {
         this.callbacks.onDisconnected();
@@ -130,6 +162,12 @@ export class HomeWizardWebSocket {
       case "authorized":
         this.callbacks.log.debug("WS authorized, subscribing to measurement");
         this.sendRaw({ type: "subscribe", data: "measurement" });
+        // Auth complete — clear auth-watchdog and start the heartbeat.
+        if (this.authTimer) {
+          clearTimeout(this.authTimer);
+          this.authTimer = null;
+        }
+        this.startHeartbeat();
         this.callbacks.onConnected();
         break;
 
@@ -160,8 +198,62 @@ export class HomeWizardWebSocket {
     }
   }
 
+  /**
+   * Start the ping/pong heartbeat. Sends a WS-layer ping every
+   * PING_INTERVAL_MS and arms a pong-timer; a missing pong terminates.
+   * This catches half-dead links where the TCP stream is buffered but the
+   * device has stopped responding (the documented "API-Lockup" mode).
+   */
+  private startHeartbeat(): void {
+    this.pingInterval = setInterval(() => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      // Arm the pong-timer first, then ping. If pong arrives, the pong
+      // handler clears it; if it doesn't, we terminate.
+      this.pongTimer = setTimeout(() => {
+        this.callbacks.log.debug(`WS pong-timeout (${PONG_TIMEOUT_MS}ms) — terminating`);
+        this.forceDisconnect();
+      }, PONG_TIMEOUT_MS);
+      try {
+        this.ws.ping();
+      } catch (err) {
+        this.callbacks.log.debug(`WS ping send failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }, PING_INTERVAL_MS);
+  }
+
+  /** Terminate the socket — triggers close-event → onDisconnected → reconnect. */
+  private forceDisconnect(): void {
+    if (!this.ws) {
+      return;
+    }
+    try {
+      this.ws.terminate();
+    } catch {
+      // ignore — already closed
+    }
+  }
+
+  /** Clear all timers. Called on close, cleanup, and from the close-event. */
+  private clearTimers(): void {
+    if (this.authTimer) {
+      clearTimeout(this.authTimer);
+      this.authTimer = null;
+    }
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    if (this.pongTimer) {
+      clearTimeout(this.pongTimer);
+      this.pongTimer = null;
+    }
+  }
+
   /** Close WebSocket without triggering reconnect */
   private cleanup(): void {
+    this.clearTimers();
     if (this.ws) {
       this.ws.removeAllListeners();
       // Prevent uncaught errors from frames received during close

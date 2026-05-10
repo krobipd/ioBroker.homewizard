@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.7.4",
     "news": {
+      "NEXT": {
+        "en": "Robustness: WebSocket heartbeat detects half-dead connections, auth handshake has a 45 s timeout, IP recovery and re-pair leak no sockets, one bad token no longer blocks the whole adapter.",
+        "de": "Robustheit: WebSocket-Heartbeat erkennt halb-tote Verbindungen, Auth-Handshake mit 45 s Timeout, IP-Recovery und Re-Pair leaken keine Sockets, defekter Token blockiert nicht mehr den Adapter.",
+        "ru": "Надёжность: heartbeat WebSocket видит наполовину мёртвые соединения, тайм-аут авторизации 45 с, восстановление IP и повторное сопряжение без утечек, плохой токен не блокирует адаптер.",
+        "pt": "Robustez: heartbeat WebSocket deteta ligações semi-mortas, autenticação com timeout de 45 s, recuperação de IP e novo emparelhamento sem fugas, token corrompido não bloqueia o adaptador.",
+        "nl": "Robuustheid: WebSocket-heartbeat ziet half-dode verbindingen, auth-handshake met 45 s time-out, IP-herstel en opnieuw koppelen lekken geen sockets, kapot token blokkeert de adapter niet meer.",
+        "fr": "Robustesse : heartbeat WebSocket détecte les connexions à moitié mortes, timeout auth 45 s, récupération IP et ré-appairage sans fuite, un token corrompu ne bloque plus tout l'adaptateur.",
+        "it": "Robustezza: heartbeat WebSocket vede connessioni semi-morte, handshake auth con timeout 45 s, recupero IP e riaccoppiamento senza fughe, un token corrotto non blocca più l'adattatore.",
+        "es": "Robustez: heartbeat WebSocket ve conexiones medio-muertas, timeout de auth 45 s, recuperación de IP y reemparejamiento sin fugas, un token corrupto ya no bloquea todo el adaptador.",
+        "pl": "Stabilność: heartbeat WebSocket wykrywa półmartwe połączenia, limit auth 45 s, odzyskiwanie IP i ponowne parowanie bez wycieków, uszkodzony token nie blokuje już adaptera.",
+        "uk": "Надійність: heartbeat WebSocket бачить напівмертві з'єднання, тайм-аут авторизації 45 с, відновлення IP та повторне сполучення без витоків, поганий токен не блокує адаптер.",
+        "zh-cn": "稳健性：WebSocket 心跳识别半死链接，认证握手 45 秒超时，IP 恢复与重新配对不再泄漏 socket，单个损坏令牌不再阻塞整个适配器。"
+      },
       "0.7.4": {
         "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) remain unchanged.",
         "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen, Beschreibungen und Dropdown-Labels (11 Sprachen) bleiben erhalten.",
@@ -80,19 +93,6 @@
         "pl": "Dokumentacja: notatki wydania przepisane w przyjaznym dla użytkownika stylu we wszystkich językach.",
         "uk": "Документація: нотатки до релізу переписано у дружньому до користувача стилі усіма мовами.",
         "zh-cn": "文档：所有语言的发布说明已重写为用户友好的风格。"
-      },
-      "0.6.6": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Bereinigung. Keine User-sichtbaren Änderungen.",
-        "ru": "Внутренняя очистка. Без видимых изменений для пользователя.",
-        "pt": "Limpeza interna. Sem alterações visíveis para o usuário.",
-        "nl": "Interne opschoning. Geen wijzigingen voor de gebruiker.",
-        "fr": "Nettoyage interne. Aucune modification visible pour l'utilisateur.",
-        "it": "Pulizia interna. Nessuna modifica visibile all'utente.",
-        "es": "Limpieza interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішнє прибирання. Без помітних для користувача змін.",
-        "zh-cn": "内部清理。对用户无可见变化。"
       }
     },
     "titleLang": {

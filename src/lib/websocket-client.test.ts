@@ -1,5 +1,11 @@
 import { expect } from "chai";
-import { HomeWizardWebSocket, type WsCallbacks } from "./websocket-client";
+import {
+    AUTH_TIMEOUT_MS,
+    HomeWizardWebSocket,
+    PING_INTERVAL_MS,
+    PONG_TIMEOUT_MS,
+    type WsCallbacks,
+} from "./websocket-client";
 
 interface LogEntry {
     level: string;
@@ -278,6 +284,83 @@ describe("HomeWizardWebSocket", () => {
             expect((tracker.measurements[0] as { power_w: number }).power_w).to.equal(456);
 
             ws.close();
+        });
+    });
+
+    describe("heartbeat constants (Doku-aligned)", () => {
+        it("AUTH_TIMEOUT_MS exceeds documented 40 s window", () => {
+            // Doku: "Timeout: 40 Sekunden für Auth" — we add a 5 s margin so
+            // a slow but valid handshake doesn't false-positive into terminate.
+            expect(AUTH_TIMEOUT_MS).to.be.at.least(40_000);
+        });
+
+        it("PING_INTERVAL_MS shorter than P1 5-min gas-update gap", () => {
+            // Push is event-driven (Power 1/s, Gas ~5 min, Battery undocumented).
+            // Frame-stille is NOT a liveness signal, that's what ping/pong is for.
+            // The ping cadence must fit comfortably within the longest expected
+            // user-tolerated outage (sub-minute).
+            expect(PING_INTERVAL_MS).to.be.at.most(60_000);
+            expect(PING_INTERVAL_MS).to.be.at.least(10_000);
+        });
+
+        it("PONG_TIMEOUT_MS leaves room for slow LAN round-trip", () => {
+            // 10 s is ample for any reasonable LAN; below 5 s would risk false-
+            // positives on briefly congested WiFi.
+            expect(PONG_TIMEOUT_MS).to.be.at.least(5_000);
+            expect(PONG_TIMEOUT_MS).to.be.at.most(PING_INTERVAL_MS / 2);
+        });
+    });
+
+    describe("heartbeat lifecycle (internal-state inspection)", () => {
+        type Internal = {
+            authTimer: NodeJS.Timeout | null;
+            pingInterval: NodeJS.Timeout | null;
+            pongTimer: NodeJS.Timeout | null;
+            startHeartbeat: () => void;
+            clearTimers: () => void;
+        };
+
+        it("close() leaves no leaked timers", () => {
+            const { callbacks } = createCallbackTracker();
+            const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks);
+            const internal = ws as unknown as Internal;
+
+            // Force timers into all three slots, then close: we must end up
+            // with all of them cleared so the process can exit cleanly even
+            // after an aborted connect cycle.
+            internal.authTimer = setTimeout(() => {}, 100_000);
+            internal.pingInterval = setInterval(() => {}, 100_000);
+            internal.pongTimer = setTimeout(() => {}, 100_000);
+
+            ws.close();
+            expect(internal.authTimer).to.be.null;
+            expect(internal.pingInterval).to.be.null;
+            expect(internal.pongTimer).to.be.null;
+        });
+
+        it("clearTimers is idempotent", () => {
+            const { callbacks } = createCallbackTracker();
+            const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks);
+            const internal = ws as unknown as Internal;
+
+            internal.clearTimers();
+            internal.clearTimers();
+            expect(internal.authTimer).to.be.null;
+            expect(internal.pingInterval).to.be.null;
+            expect(internal.pongTimer).to.be.null;
+            ws.close();
+        });
+
+        it("startHeartbeat installs a recurring ping interval", () => {
+            const { callbacks } = createCallbackTracker();
+            const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks);
+            const internal = ws as unknown as Internal;
+
+            internal.startHeartbeat();
+            expect(internal.pingInterval).to.not.be.null;
+
+            ws.close();
+            expect(internal.pingInterval).to.be.null;
         });
     });
 });

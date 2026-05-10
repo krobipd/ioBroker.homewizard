@@ -37,7 +37,9 @@ function createDeviceConnection(config, ip) {
     authFailCount: 0,
     lastErrorCode: "",
     lastConnectedAt: 0,
-    recentDisconnects: 0
+    recentDisconnects: 0,
+    recovering: false,
+    removed: false
   };
 }
 function classifyError(err) {

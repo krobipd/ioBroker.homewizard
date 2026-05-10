@@ -229,6 +229,42 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
                 }
             }
         });
+
+        it("rejects 200 response without token (malformed device reply)", async () => {
+            const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
+            stub.queue.push({ statusCode: 200, body: {} });
+            try {
+                await bareClient.requestPairing();
+                expect.fail("expected throw");
+            } catch (err) {
+                expect(err).to.be.instanceOf(HomeWizardApiError);
+                if (err instanceof HomeWizardApiError) {
+                    expect(err.message).to.contain("no token");
+                }
+            }
+        });
+
+        it("rejects 200 response with non-string token", async () => {
+            const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
+            stub.queue.push({ statusCode: 200, body: { token: null } });
+            try {
+                await bareClient.requestPairing();
+                expect.fail("expected throw");
+            } catch (err) {
+                expect(err).to.be.instanceOf(HomeWizardApiError);
+            }
+        });
+
+        it("rejects 200 response with empty-string token", async () => {
+            const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
+            stub.queue.push({ statusCode: 200, body: { token: "" } });
+            try {
+                await bareClient.requestPairing();
+                expect.fail("expected throw");
+            } catch (err) {
+                expect(err).to.be.instanceOf(HomeWizardApiError);
+            }
+        });
     });
 
     describe("getMeasurement (GET /api/measurement)", () => {

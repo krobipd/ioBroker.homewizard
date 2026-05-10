@@ -28,10 +28,21 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var discovery_exports = {};
 __export(discovery_exports, {
-  HomeWizardDiscovery: () => HomeWizardDiscovery
+  HomeWizardDiscovery: () => HomeWizardDiscovery,
+  coerceTxtValue: () => coerceTxtValue
 });
 module.exports = __toCommonJS(discovery_exports);
 var import_bonjour_service = __toESM(require("bonjour-service"));
+function coerceTxtValue(value) {
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+  if (Buffer.isBuffer(value)) {
+    const decoded = value.toString("utf8");
+    return decoded.length > 0 ? decoded : void 0;
+  }
+  return void 0;
+}
 class HomeWizardDiscovery {
   bonjour = null;
   browser = null;
@@ -78,17 +89,17 @@ class HomeWizardDiscovery {
    * @param service Bonjour service record
    */
   parseService(service) {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g;
     const ip = (_a = service.addresses) == null ? void 0 : _a.find((addr) => addr.includes("."));
     if (!ip) {
       this.log.debug(`mDNS: no IPv4 address for ${service.name}`);
       return null;
     }
-    const txt = service.txt;
-    const productType = (_b = txt == null ? void 0 : txt.product_type) != null ? _b : "unknown";
-    const serial = (_d = (_c = txt == null ? void 0 : txt.serial) != null ? _c : service.name) != null ? _d : "unknown";
-    const name = (_f = (_e = txt == null ? void 0 : txt.product_name) != null ? _e : service.name) != null ? _f : productType;
-    const apiVersion = txt == null ? void 0 : txt.api_version;
+    const txt = (_b = service.txt) != null ? _b : {};
+    const productType = (_c = coerceTxtValue(txt.product_type)) != null ? _c : "unknown";
+    const serial = (_e = (_d = coerceTxtValue(txt.serial)) != null ? _d : service.name) != null ? _e : "unknown";
+    const name = (_g = (_f = coerceTxtValue(txt.product_name)) != null ? _f : service.name) != null ? _g : productType;
+    const apiVersion = coerceTxtValue(txt.api_version);
     if (apiVersion) {
       this.log.debug(`mDNS: TXT api_version=${apiVersion} serial=${serial}`);
     }
@@ -97,6 +108,7 @@ class HomeWizardDiscovery {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  HomeWizardDiscovery
+  HomeWizardDiscovery,
+  coerceTxtValue
 });
 //# sourceMappingURL=discovery.js.map

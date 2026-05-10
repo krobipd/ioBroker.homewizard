@@ -61,6 +61,36 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Validate that a string is an IPv4 address (octets 0-255, exactly 4 parts).
+ * Used to fail manual-pairing input fast instead of waiting on a 60s timeout.
+ *
+ * @param value Raw user input.
+ */
+export function isValidIpv4(value: unknown): boolean {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const parts = value.split(".");
+  if (parts.length !== 4) {
+    return false;
+  }
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) {
+      return false;
+    }
+    const n = Number(part);
+    if (n < 0 || n > 255) {
+      return false;
+    }
+    // Reject leading zeros: "01" / "001" — ambiguous, may be parsed as octal elsewhere.
+    if (part.length > 1 && part.startsWith("0")) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /** Allowed values for `battery.mode` per HomeWizard API v2. */
 export const BATTERY_MODES = ["zero", "to_full", "standby"] as const;
 export type BatteryMode = (typeof BATTERY_MODES)[number];

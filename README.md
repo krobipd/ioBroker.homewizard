@@ -155,8 +155,9 @@ homewizard.0.
 - Check that multicast/mDNS traffic is not blocked by your router/firewall
 
 ### WebSocket keeps disconnecting
-- Check `info.wifi_rssi_db` — anything above -75 dBm is fine, weaker than -85 dBm explains frequent drops
+- Check `info.wifi_rssi_db` — above -75 dBm is comfortable, weaker than -85 dBm explains frequent drops
 - For devices with weak WiFi the adapter switches to a faster reconnect interval (60 s instead of 5 min) and keeps REST polling in the background so you don't lose data
+- A WebSocket-layer ping/pong heartbeat (~30 s ping, 10 s pong window) catches half-dead links where the TCP stream is buffered but the device has stopped responding. Such links are torn down and reconnected automatically — you no longer end up with a stale "connected" status while measurement values stop updating.
 - IP changes are picked up via mDNS — no manual reconfiguration needed
 
 ### Token invalid after factory reset
@@ -169,6 +170,16 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- Half-dead WebSocket connections are now detected via WS-layer ping/pong (30 s ping, 10 s pong window) and torn down — fixes cases where the device stopped responding but the adapter still showed "connected" with stale measurement values.
+- WebSocket auth handshake now has a 45 s timeout (was unbounded) — devices that accept the TCP connection but never reply to the auth protocol no longer hang forever.
+- IP recovery, manual re-pair after factory reset, and parallel mDNS broadcasts no longer leak the previous WebSocket — reconnects are now race-free.
+- Battery endpoint errors are no longer fully swallowed: 404 stays silent (device has no battery), other errors log at debug level so post-mortem diagnosis is possible.
+- Manual pairing IP is validated as IPv4 up front — invalid input fails fast with a warn instead of a silent 60 s pairing timeout.
+- A single corrupted device token can no longer take down the whole adapter — affected device is skipped with a re-pair hint, the others come up normally.
+- Pairing supports multiple devices in one 60 s window: button-press additional devices and they are added one after the other instead of the session ending after the first.
+- Internal robustness: parallel system polling for multi-device setups, productName drift sync after firmware updates, race protection on adapter unload, defensive guards on TXT records and adapter config shape.
+
 ### 0.7.4 (2026-05-09)
 - Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) are unchanged.
 
