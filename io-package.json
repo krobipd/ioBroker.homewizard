@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.7.4",
+    "version": "0.7.5",
     "news": {
-      "NEXT": {
+      "0.7.5": {
         "en": "Robustness: WebSocket heartbeat detects half-dead connections, auth handshake has a 45 s timeout, IP recovery and re-pair leak no sockets, one bad token no longer blocks the whole adapter.",
         "de": "Robustheit: WebSocket-Heartbeat erkennt halb-tote Verbindungen, Auth-Handshake mit 45 s Timeout, IP-Recovery und Re-Pair leaken keine Sockets, defekter Token blockiert nicht mehr den Adapter.",
         "ru": "Надёжность: heartbeat WebSocket видит наполовину мёртвые соединения, тайм-аут авторизации 45 с, восстановление IP и повторное сопряжение без утечек, плохой токен не блокирует адаптер.",

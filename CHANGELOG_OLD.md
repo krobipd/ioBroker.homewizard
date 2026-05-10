@@ -1,4 +1,10 @@
 # Older Changes
+## 0.7.0 (2026-05-06)
+- Adapter texts now follow your ioBroker system language: datapoint names, descriptions, and dropdown values for `tariff` and `battery.mode` in 11 languages (EN, DE, RU, PT, NL, FR, IT, ES, PL, UK, ZH-CN).
+- Power-quality and Belgian capacity-tariff datapoints carry inline descriptions — hover in admin to see what each one means.
+- Battery inputs are checked up-front: an unknown `battery.mode` or malformed `battery.permissions` JSON gives a clear warning instead of a cryptic error.
+- Minimum requirements: Node.js 22 and ioBroker Admin 7.8.23.
+
 ## 0.6.7 (2026-05-01)
 - Internal cleanup. No user-facing changes.
 - Documentation: rewrote release notes for v0.6.0–v0.6.6 in user-friendly style across all languages.
