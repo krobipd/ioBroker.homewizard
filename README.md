@@ -170,6 +170,10 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- The battery mode dropdown and the tariff state no longer crash the admin with "Error in GUI" when opened.
+
 ### 0.7.5 (2026-05-10)
 - Half-dead connections are now detected and torn down — fixes cases where the device stopped responding but the adapter still showed "connected" with stale measurement values.
 - The auth handshake now has a 45-second timeout — devices that accept the TCP connection but never reply to the auth protocol no longer hang forever.

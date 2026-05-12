@@ -1330,7 +1330,19 @@ export const STATE_DESCS: Record<string, StateName> = {
   },
 };
 
-/** Dropdown labels for `common.states` maps (admin v6+ renders translation objects per value). */
+/**
+ * Dropdown labels.
+ *
+ * **Do NOT pass `tLabel(key)` directly into `common.states` VALUES** — Admin
+ * renders states-values as React children, and a `{en, de, …}` translation
+ * object triggers React Error #31 → fatal "Error in GUI" on dropdown open.
+ *
+ * For `common.states` use {@link resolveLabel} instead (plain-string with
+ * EN-fallback resolved in `system.config.language` once at adapter start).
+ *
+ * `common.name` and `common.desc` accept translation objects (Admin/vis
+ * lookup automatically). Only `common.states` VALUES need plain-string.
+ */
 export const STATE_LABELS: Record<string, StateName> = {
   // ──────── Tariff (1-4) ────────
   tariff1: {
@@ -1448,11 +1460,32 @@ export function tDesc(key: keyof typeof STATE_DESCS): StateName {
 }
 
 /**
- * Translation object for a dropdown label inside a `common.states` map.
- * Admin v6+ renders translation objects per value.
+ * Translation object for a dropdown label.
+ *
+ * **WARNING:** the return value is a translation object (`{en, de, …}`) — it
+ * MUST NOT be used directly as a `common.states` VALUE. Admin renders
+ * states-values as React children and triggers React Error #31 on objects.
+ * Use {@link resolveLabel} for `common.states`-VALUES.
  *
  * @param key Translation key in {@link STATE_LABELS}.
  */
 export function tLabel(key: keyof typeof STATE_LABELS): StateName {
   return STATE_LABELS[key];
+}
+
+/**
+ * Resolve a label to a plain-string in the given language with EN-fallback.
+ * Use this for `common.states`-VALUES — Admin requires plain-string there.
+ *
+ * @param key  Translation key in {@link STATE_LABELS}.
+ * @param lang Two-letter ISO language code (e.g. `system.config.language`).
+ *             Falls back to `en` if the key is missing the requested language.
+ */
+export function resolveLabel(key: keyof typeof STATE_LABELS, lang: string): string {
+  const obj = STATE_LABELS[key];
+  if (typeof obj === "string") {
+    return obj;
+  }
+  const dict = obj as unknown as Record<string, string>;
+  return dict[lang] ?? dict.en ?? key;
 }

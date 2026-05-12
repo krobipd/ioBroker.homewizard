@@ -1,7 +1,7 @@
 import type * as utils from "@iobroker/adapter-core";
 import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject } from "./coerce";
-import type { StateName, STATE_DESCS, STATE_NAMES } from "./i18n-states";
-import { tDesc, tLabel, tName } from "./i18n-states";
+import type { STATE_DESCS, STATE_NAMES, StateName } from "./i18n-states";
+import { resolveLabel, tDesc, tName } from "./i18n-states";
 import type { BatteryControl, DeviceConfig, Measurement, SystemInfo } from "./types";
 
 /** Measurement field to state definition mapping */
@@ -410,20 +410,35 @@ function asName(name: StateName): ioBroker.StringOrTranslated {
   return name;
 }
 
-/** Build a `common.states` map where the values are translation objects (admin v6+). */
-function tariffStates(): Record<string, string> {
+/**
+ * Build a `common.states` map for tariff (T1-T4) with plain-string labels.
+ *
+ * **VALUES MUST be plain-string** — Admin renders states-values as React
+ * children. Translation objects trigger React Error #31 → fatal "Error in GUI"
+ * on dropdown open (verified hassemu v1.28.4, 2026-05-12).
+ *
+ * @param lang Two-letter ISO language code (use `adapter.language ?? "en"`).
+ */
+function tariffStates(lang: string): Record<string, string> {
   return {
-    1: tLabel("tariff1") as unknown as string,
-    2: tLabel("tariff2") as unknown as string,
-    3: tLabel("tariff3") as unknown as string,
-    4: tLabel("tariff4") as unknown as string,
+    1: resolveLabel("tariff1", lang),
+    2: resolveLabel("tariff2", lang),
+    3: resolveLabel("tariff3", lang),
+    4: resolveLabel("tariff4", lang),
   };
 }
-function batteryModeStates(): Record<string, string> {
+
+/**
+ * Build a `common.states` map for HWE-BAT battery.mode with plain-string labels.
+ * Same constraint as {@link tariffStates}.
+ *
+ * @param lang Two-letter ISO language code.
+ */
+function batteryModeStates(lang: string): Record<string, string> {
   return {
-    zero: tLabel("modeZero") as unknown as string,
-    to_full: tLabel("modeToFull") as unknown as string,
-    standby: tLabel("modeStandby") as unknown as string,
+    zero: resolveLabel("modeZero", lang),
+    to_full: resolveLabel("modeToFull", lang),
+    standby: resolveLabel("modeStandby", lang),
   };
 }
 
@@ -532,7 +547,7 @@ export class StateManager {
             def.unit,
             undefined,
             def.descKey ? tDesc(def.descKey) : undefined,
-            def.key === "tariff" ? tariffStates() : undefined,
+            def.key === "tariff" ? tariffStates(this.adapter.language ?? "en") : undefined,
           ),
         );
       }
@@ -680,7 +695,7 @@ export class StateManager {
         undefined,
         true,
         tDesc("batteryModeDesc"),
-        batteryModeStates(),
+        batteryModeStates(this.adapter.language ?? "en"),
       );
     }
     if (Array.isArray(record.permissions)) {
@@ -864,7 +879,44 @@ export class StateManager {
       common: common as ioBroker.StateCommon,
       native: {},
     });
+    if (states) {
+      // Existing datapoints from earlier releases may carry translation-object
+      // VALUES in `common.states` (v0.7.0 introduced tLabel-as-string casts).
+      // setObjectNotExistsAsync is a no-op for those — actively replace if any
+      // value is not plain-string. Admin renders states-values as React child:
+      // an object triggers React Error #31 → fatal "Error in GUI" on dropdown.
+      await this.repairCommonStatesIfBuggy(id, states);
+    }
     this.createdIds.add(id);
+  }
+
+  /**
+   * If the persisted object at `id` has `common.states` values that are not
+   * plain-string (= translation objects from older releases), replace
+   * `common.states` with the fresh map via `setObjectAsync`. Otherwise no-op.
+   *
+   * `extendObjectAsync` deep-merges and CANNOT replace an object-value with
+   * a string — only a full `setObjectAsync` replaces. Pattern proven in
+   * hassemu v1.27.2 (URL-dropdown) and v1.28.4 (mode-dropdown).
+   *
+   * @param id    State ID to repair.
+   * @param fresh Plain-string `common.states` map to write.
+   */
+  private async repairCommonStatesIfBuggy(id: string, fresh: Record<string, string>): Promise<void> {
+    const existing = await this.adapter.getObjectAsync(id);
+    if (!existing) {
+      return;
+    }
+    const states = existing.common?.states;
+    if (!states || typeof states !== "object") {
+      return;
+    }
+    const buggy = Object.values(states as Record<string, unknown>).some(v => typeof v !== "string");
+    if (!buggy) {
+      return;
+    }
+    existing.common = { ...existing.common, states: fresh } as ioBroker.StateCommon;
+    await this.adapter.setObjectAsync(id, existing);
   }
 
   /**

@@ -398,19 +398,19 @@ const MEASUREMENT_STATE_DEFS = [
 function asName(name) {
   return name;
 }
-function tariffStates() {
+function tariffStates(lang) {
   return {
-    1: (0, import_i18n_states.tLabel)("tariff1"),
-    2: (0, import_i18n_states.tLabel)("tariff2"),
-    3: (0, import_i18n_states.tLabel)("tariff3"),
-    4: (0, import_i18n_states.tLabel)("tariff4")
+    1: (0, import_i18n_states.resolveLabel)("tariff1", lang),
+    2: (0, import_i18n_states.resolveLabel)("tariff2", lang),
+    3: (0, import_i18n_states.resolveLabel)("tariff3", lang),
+    4: (0, import_i18n_states.resolveLabel)("tariff4", lang)
   };
 }
-function batteryModeStates() {
+function batteryModeStates(lang) {
   return {
-    zero: (0, import_i18n_states.tLabel)("modeZero"),
-    to_full: (0, import_i18n_states.tLabel)("modeToFull"),
-    standby: (0, import_i18n_states.tLabel)("modeStandby")
+    zero: (0, import_i18n_states.resolveLabel)("modeZero", lang),
+    to_full: (0, import_i18n_states.resolveLabel)("modeToFull", lang),
+    standby: (0, import_i18n_states.resolveLabel)("modeStandby", lang)
   };
 }
 class StateManager {
@@ -472,6 +472,7 @@ class StateManager {
    * @param data Measurement data
    */
   async updateMeasurement(config, data) {
+    var _a;
     if (!(0, import_coerce.isPlainObject)(data)) {
       return;
     }
@@ -499,7 +500,7 @@ class StateManager {
             def.unit,
             void 0,
             def.descKey ? (0, import_i18n_states.tDesc)(def.descKey) : void 0,
-            def.key === "tariff" ? tariffStates() : void 0
+            def.key === "tariff" ? tariffStates((_a = this.adapter.language) != null ? _a : "en") : void 0
           )
         );
       }
@@ -607,6 +608,7 @@ class StateManager {
    * @param battery Battery control data
    */
   async updateBattery(config, battery) {
+    var _a;
     if (!(0, import_coerce.isPlainObject)(battery)) {
       return;
     }
@@ -624,7 +626,7 @@ class StateManager {
         void 0,
         true,
         (0, import_i18n_states.tDesc)("batteryModeDesc"),
-        batteryModeStates()
+        batteryModeStates((_a = this.adapter.language) != null ? _a : "en")
       );
     }
     if (Array.isArray(record.permissions)) {
@@ -780,7 +782,39 @@ class StateManager {
       common,
       native: {}
     });
+    if (states) {
+      await this.repairCommonStatesIfBuggy(id, states);
+    }
     this.createdIds.add(id);
+  }
+  /**
+   * If the persisted object at `id` has `common.states` values that are not
+   * plain-string (= translation objects from older releases), replace
+   * `common.states` with the fresh map via `setObjectAsync`. Otherwise no-op.
+   *
+   * `extendObjectAsync` deep-merges and CANNOT replace an object-value with
+   * a string — only a full `setObjectAsync` replaces. Pattern proven in
+   * hassemu v1.27.2 (URL-dropdown) and v1.28.4 (mode-dropdown).
+   *
+   * @param id    State ID to repair.
+   * @param fresh Plain-string `common.states` map to write.
+   */
+  async repairCommonStatesIfBuggy(id, fresh) {
+    var _a;
+    const existing = await this.adapter.getObjectAsync(id);
+    if (!existing) {
+      return;
+    }
+    const states = (_a = existing.common) == null ? void 0 : _a.states;
+    if (!states || typeof states !== "object") {
+      return;
+    }
+    const buggy = Object.values(states).some((v) => typeof v !== "string");
+    if (!buggy) {
+      return;
+    }
+    existing.common = { ...existing.common, states: fresh };
+    await this.adapter.setObjectAsync(id, existing);
   }
   /**
    * Create a button state (read: false, write: true) with initial value false

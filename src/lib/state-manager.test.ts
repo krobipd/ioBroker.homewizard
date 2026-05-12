@@ -24,12 +24,14 @@ interface StateValue {
 
 interface MockAdapter {
     namespace: string;
+    language: string;
     objects: Map<string, ObjectDef>;
     states: Map<string, StateValue>;
     metrics: MockAdapterMetrics;
     log: { debug: (msg: string) => void };
     extendObjectAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
     setObjectNotExistsAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
+    setObjectAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
     getObjectAsync: (id: string) => Promise<ObjectDef | null>;
     setStateAsync: (id: string, state: StateValue) => Promise<void>;
     delObjectAsync: (id: string, opts?: { recursive: boolean }) => Promise<void>;
@@ -42,6 +44,7 @@ function createMockAdapter(): MockAdapter {
 
     return {
         namespace: "homewizard.0",
+        language: "en",
         objects,
         states,
         metrics,
@@ -59,6 +62,13 @@ function createMockAdapter(): MockAdapter {
             if (objects.has(id)) {
                 return;
             }
+            objects.set(id, {
+                type: obj.type || "",
+                common: obj.common || {},
+                native: obj.native || {},
+            });
+        },
+        setObjectAsync: async (id: string, obj: Partial<ObjectDef>): Promise<void> => {
             objects.set(id, {
                 type: obj.type || "",
                 common: obj.common || {},
@@ -347,12 +357,16 @@ describe("StateManager", () => {
             expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.timestamp")?.val).to.equal("2026-04-04T12:00:00");
             expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.tariff")?.val).to.equal(2);
 
-            // tariff has translated dropdown labels for the 4 supported tariff values
+            // tariff dropdown labels are plain-string in system language
+            // (Admin renders states-values as React child; translation objects
+            // trigger React Error #31 → "Error in GUI" on dropdown open).
             const tariffObj = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.tariff");
-            const states = tariffObj!.common.states as Record<string, CommonNameTranslated>;
-            expect(states["1"].en).to.contain("Tariff 1");
-            expect(states["1"].de).to.contain("Tarif 1");
-            expect(states["4"].en).to.contain("Tariff 4");
+            const states = tariffObj!.common.states as Record<string, string>;
+            expect(states["1"]).to.contain("Tariff 1");
+            expect(states["4"]).to.contain("Tariff 4");
+            for (const v of Object.values(states)) {
+                expect(typeof v).to.equal("string");
+            }
         });
 
         it("should attach common.desc for power-quality and Belgian capacity tariff states", async () => {
@@ -495,12 +509,15 @@ describe("StateManager", () => {
             expect(mode?.common.write).to.be.true;
             expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.mode")?.val).to.equal("zero");
 
-            // Dropdown labels — admin v6+ renders translation objects per value
-            const states = mode!.common.states as Record<string, CommonNameTranslated>;
-            expect(states.zero.en).to.contain("Zero");
-            expect(states.zero.de).to.contain("Zero");
-            expect(states.to_full.en).to.contain("To full");
-            expect(states.standby.en).to.equal("Standby");
+            // Dropdown labels — plain-string in system language
+            // (translation-object as states-value → React Error #31 in Admin)
+            const states = mode!.common.states as Record<string, string>;
+            expect(states.zero).to.contain("Zero");
+            expect(states.to_full).to.contain("To full");
+            expect(states.standby).to.equal("Standby");
+            for (const v of Object.values(states)) {
+                expect(typeof v).to.equal("string");
+            }
         });
 
         it("should store permissions as JSON string", async () => {
@@ -540,6 +557,54 @@ describe("StateManager", () => {
             expect(adapter.states.has("hwe-p1_aabbccddeeff.battery.permissions")).to.be.false;
             expect(adapter.states.has("hwe-p1_aabbccddeeff.battery.battery_count")).to.be.false;
             expect(adapter.states.has("hwe-p1_aabbccddeeff.battery.power_w")).to.be.false;
+        });
+    });
+
+    describe("common.states plain-string invariant (React #31, v0.7.6)", () => {
+        it("tariff common.states VALUES are plain-string in system language", async () => {
+            await manager.updateMeasurement(testDevice, { tariff: 2 });
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.tariff");
+            const states = obj!.common.states as Record<string, unknown>;
+            for (const [k, v] of Object.entries(states)) {
+                expect(typeof v).to.equal("string", `tariff states[${k}] must be plain-string, got ${typeof v}`);
+            }
+        });
+
+        it("battery.mode common.states VALUES are plain-string in system language", async () => {
+            const battery: BatteryControl = { mode: "zero" };
+            await manager.updateBattery(testDevice, battery);
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.battery.mode");
+            const states = obj!.common.states as Record<string, unknown>;
+            for (const [k, v] of Object.entries(states)) {
+                expect(typeof v).to.equal("string", `battery.mode states[${k}] must be plain-string, got ${typeof v}`);
+            }
+        });
+
+        it("repairs existing object that has translation-object VALUES in common.states", async () => {
+            // Seed object with the buggy shape that v0.7.0-v0.7.5 wrote
+            adapter.objects.set("hwe-p1_aabbccddeeff.measurement.tariff", {
+                type: "state",
+                common: {
+                    name: "Tariff",
+                    type: "number",
+                    role: "value",
+                    read: true,
+                    write: false,
+                    states: {
+                        1: { en: "Tariff 1", de: "Tarif 1" } as unknown as string,
+                        2: { en: "Tariff 2", de: "Tarif 2" } as unknown as string,
+                    },
+                },
+                native: {},
+            });
+            await manager.updateMeasurement(testDevice, { tariff: 1 });
+            const obj = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.tariff");
+            const states = obj!.common.states as Record<string, unknown>;
+            // After repair: all values plain-string, all 4 tariff keys present
+            expect(Object.keys(states)).to.have.lengthOf(4);
+            for (const v of Object.values(states)) {
+                expect(typeof v).to.equal("string");
+            }
         });
     });
 

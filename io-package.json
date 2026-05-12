@@ -81,18 +81,18 @@
         "uk": "Багатомовність: імена та описи датапоінтів, значення меню (tariff, battery.mode) та логи мовою системи ioBroker (11 мов). Перевірка вводу для батареї. Мін. Node 22, Admin 7.8.23.",
         "zh-cn": "多语言：数据点名称、描述、下拉值（tariff、battery.mode）和用户日志使用 ioBroker 系统语言（11 种）。电池输入会被校验。最低 Node 22、Admin 7.8.23。"
       },
-      "0.6.7": {
-        "en": "Documentation: rewrote release notes in user-friendly style across all languages.",
-        "de": "Dokumentation: Release-Notes in alle Sprachen User-orientiert neu geschrieben.",
-        "ru": "Документация: примечания к релизу переписаны в дружественном к пользователю стиле на всех языках.",
-        "pt": "Documentação: notas de release reescritas em estilo amigável ao usuário em todos os idiomas.",
-        "nl": "Documentatie: release-notes herschreven in gebruikersvriendelijke stijl in alle talen.",
-        "fr": "Documentation : notes de version réécrites dans un style adapté à l'utilisateur dans toutes les langues.",
-        "it": "Documentazione: note di release riscritte in stile user-friendly in tutte le lingue.",
-        "es": "Documentación: notas de versión reescritas en estilo amigable para el usuario en todos los idiomas.",
-        "pl": "Dokumentacja: notatki wydania przepisane w przyjaznym dla użytkownika stylu we wszystkich językach.",
-        "uk": "Документація: нотатки до релізу переписано у дружньому до користувача стилі усіма мовами.",
-        "zh-cn": "文档：所有语言的发布说明已重写为用户友好的风格。"
+      "NEXT": {
+        "en": "The battery mode dropdown and the tariff state no longer crash the admin with \"Error in GUI\" when opened.",
+        "de": "Das Battery-Mode-Dropdown und der Tariff-State stürzen beim Öffnen im Admin nicht mehr mit \"Error in GUI\" ab.",
+        "ru": "Выпадающий список battery mode и состояние tariff больше не падают в админке с \"Error in GUI\" при открытии.",
+        "pt": "O dropdown de battery mode e o estado tariff já não falham com \"Error in GUI\" ao serem abertos no admin.",
+        "nl": "De battery-mode-dropdown en de tariff-state crashen niet meer met \"Error in GUI\" bij het openen in admin.",
+        "fr": "Le dropdown battery mode et l'état tariff ne plantent plus avec \"Error in GUI\" à l'ouverture dans l'admin.",
+        "it": "Il dropdown battery mode e lo stato tariff non si bloccano più con \"Error in GUI\" all'apertura nell'admin.",
+        "es": "El dropdown de battery mode y el estado tariff ya no fallan con \"Error in GUI\" al abrirse en el admin.",
+        "pl": "Lista battery mode i stan tariff nie zawieszają się już z \"Error in GUI\" przy otwieraniu w adminie.",
+        "uk": "Випадаючий список battery mode і стан tariff більше не падають в адміні з \"Error in GUI\" при відкритті.",
+        "zh-cn": "battery mode 下拉框和 tariff 状态在 admin 中打开时不再因 \"Error in GUI\" 崩溃。"
       }
     },
     "titleLang": {
