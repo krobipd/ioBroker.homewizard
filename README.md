@@ -170,7 +170,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.7.6 (2026-05-12)
 
 - The battery mode dropdown and the tariff state no longer crash the admin with "Error in GUI" when opened.
 
@@ -192,10 +192,6 @@ homewizard.0.
 
 ### 0.7.2 (2026-05-06)
 - Internal hardening: stricter number parsing for sensor inputs, parallel state writes, code split for testability, 38 new tests covering the HTTPS client. No user-facing changes.
-
-### 0.7.1 (2026-05-06)
-- WiFi signal strength is now reported in dBm (was incorrectly labelled `dB`).
-- Faster state updates: existence checks for datapoints are cached after first creation, saving ~30 Redis lookups per second on a P1 Meter pushing 1 measurement/second.
 
 ### Support Development
 

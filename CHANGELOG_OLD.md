@@ -1,4 +1,8 @@
 # Older Changes
+## 0.7.1 (2026-05-06)
+- WiFi signal strength is now reported in dBm (was incorrectly labelled `dB`).
+- Faster state updates: existence checks for datapoints are cached after first creation, saving ~30 Redis lookups per second on a P1 Meter pushing 1 measurement/second.
+
 ## 0.7.0 (2026-05-06)
 - Adapter texts now follow your ioBroker system language: datapoint names, descriptions, and dropdown values for `tariff` and `battery.mode` in 11 languages (EN, DE, RU, PT, NL, FR, IT, ES, PL, UK, ZH-CN).
 - Power-quality and Belgian capacity-tariff datapoints carry inline descriptions — hover in admin to see what each one means.
