@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.7.6",
+    "version": "0.7.7",
     "news": {
-      "NEXT": {
+      "0.7.7": {
         "en": "Devices with chronic WiFi drop-outs no longer flood the log — max 1 warn/h per device, full timeline at debug level. Internal mode-switches moved to debug.",
         "de": "Geräte mit dauerhaft schlechtem WLAN spammen das Log nicht mehr — max 1 Warnung pro Stunde pro Gerät, voller Verlauf im Debug. Interne Modus-Wechsel auf Debug verschoben.",
         "ru": "Устройства с постоянными WiFi-обрывами больше не засоряют лог — макс. 1 предупреждение/час на устройство, полный лог на debug. Внутренние смены режима теперь на debug.",
