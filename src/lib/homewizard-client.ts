@@ -2,6 +2,16 @@ import * as https from "node:https";
 import { HW_AGENT } from "./cacert";
 import type { BatteryControl, DeviceInfo, Measurement, PairingResponse, SystemInfo } from "./types";
 
+/** Minimal logger surface — only debug needed for HTTPS-trace. */
+export interface HomeWizardClientLogger {
+  /**
+   * Debug-log delegate.
+   *
+   * @param msg Log message
+   */
+  debug(msg: string): void;
+}
+
 /** HTTPS client for HomeWizard API v2 */
 export class HomeWizardClient {
   private readonly ip: string;
@@ -9,6 +19,8 @@ export class HomeWizardClient {
   private readonly agent: https.Agent;
   /** Override target port — only used by tests against a local stub-server. */
   private readonly port: number;
+  /** Optional logger for per-call debug-trace (request entry + response success/fail). */
+  private readonly log: HomeWizardClientLogger | null;
 
   /**
    * @param ip      Device IP address
@@ -16,12 +28,18 @@ export class HomeWizardClient {
    * @param options Optional overrides — primarily for unit tests against a local TLS stub.
    * @param options.agent HTTPS agent to use; defaults to {@link HW_AGENT} (with HomeWizard CA pinning).
    * @param options.port  Target port; defaults to 443.
+   * @param options.log   Optional logger for per-call debug-trace (request/success/fail).
    */
-  constructor(ip: string, token: string = "", options: { agent?: https.Agent; port?: number } = {}) {
+  constructor(
+    ip: string,
+    token: string = "",
+    options: { agent?: https.Agent; port?: number; log?: HomeWizardClientLogger } = {},
+  ) {
     this.ip = ip;
     this.token = token;
     this.agent = options.agent ?? HW_AGENT;
     this.port = options.port ?? 443;
+    this.log = options.log ?? null;
   }
 
   /** Get device info (GET /api) */
@@ -105,6 +123,13 @@ export class HomeWizardClient {
         headers["Content-Length"] = Buffer.byteLength(bodyStr).toString();
       }
 
+      // Per mcm-Linie + reference_iobroker_logging_levels: every API call gets
+      // an entry-trace so a user-debug-log shows what the adapter actually
+      // tried — not just what failed. auth=bearer/none discloses presence,
+      // never the token itself.
+      const startMs = Date.now();
+      this.log?.debug(`HTTPS ${method} ${path} ip=${this.ip} auth=${this.token ? "bearer" : "none"}`);
+
       const req = https.request(
         {
           hostname: this.ip,
@@ -121,11 +146,24 @@ export class HomeWizardClient {
           res.on("data", (chunk: Buffer) => chunks.push(chunk));
           res.on("end", () => {
             const data = Buffer.concat(chunks).toString();
-            if (!res.statusCode || res.statusCode >= 400) {
-              const error = new HomeWizardApiError(res.statusCode ?? 0, data, `${method} ${path}`);
+            const elapsedMs = Date.now() - startMs;
+            const statusCode = res.statusCode ?? 0;
+            if (!statusCode || statusCode >= 400) {
+              // Fail: emit detailed trace BEFORE constructing the error so the
+              // body snippet is in the log even when the caller catches the
+              // throw silently. 200-char snippet cap mirrors the HomeWizardApiError
+              // constructor's parsing depth.
+              const snippet = data.length > 200 ? `${data.slice(0, 200)}…` : data;
+              this.log?.debug(`HTTPS ${method} ${path}: status=${statusCode} elapsed=${elapsedMs}ms body="${snippet}"`);
+              const error = new HomeWizardApiError(statusCode, data, `${method} ${path}`);
               reject(error);
               return;
             }
+            // Success: status + size + timing. Body itself stays out — too
+            // big to log on debug, available at silly if ever wired.
+            this.log?.debug(
+              `HTTPS ${method} ${path}: status=${statusCode} elapsed=${elapsedMs}ms bytes=${data.length}`,
+            );
             if (!data) {
               resolve(undefined as T);
               return;
@@ -139,7 +177,12 @@ export class HomeWizardClient {
         },
       );
 
-      req.on("error", reject);
+      req.on("error", err => {
+        // Pre-response errors (DNS, TCP reset, TLS): log endpoint + elapsed so
+        // chronic-bouncing patterns are correlatable in the per-device trace.
+        this.log?.debug(`HTTPS ${method} ${path}: error="${err.message}" elapsed=${Date.now() - startMs}ms`);
+        reject(err);
+      });
       req.on("timeout", () => {
         req.destroy(new Error(`Timeout: ${method} ${path}`));
       });

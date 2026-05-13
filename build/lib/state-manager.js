@@ -434,6 +434,7 @@ class StateManager {
    */
   async createDeviceStates(config) {
     const prefix = this.devicePrefix(config);
+    this.adapter.log.debug(`state-manager: createDeviceStates ${prefix} (productType=${config.productType})`);
     await this.adapter.extendObjectAsync(prefix, {
       type: "device",
       common: {
@@ -693,12 +694,16 @@ class StateManager {
    */
   async removeDevice(config) {
     const prefix = this.devicePrefix(config);
+    this.adapter.log.debug(`state-manager: removeDevice ${prefix}`);
     await this.adapter.delObjectAsync(prefix, { recursive: true });
+    let dropped = 0;
     for (const id of this.createdIds) {
       if (id === prefix || id.startsWith(`${prefix}.`)) {
         this.createdIds.delete(id);
+        dropped++;
       }
     }
+    this.adapter.log.debug(`state-manager: removeDevice ${prefix} done (dropped ${dropped} cached IDs)`);
   }
   /**
    * Remove measurement states from old locations (pre-v0.4.0: device root instead of measurement/ channel)
@@ -707,16 +712,22 @@ class StateManager {
    */
   async cleanupMovedStates(config) {
     const prefix = this.devicePrefix(config);
+    this.adapter.log.debug(`state-manager: cleanupMovedStates ${prefix} (scanning pre-v0.4.0 paths)`);
     const oldIds = [];
     for (const def of MEASUREMENT_STATE_DEFS) {
       oldIds.push(`${prefix}.${def.id}`);
     }
     oldIds.push(`${prefix}.external`);
+    let removed = 0;
     for (const id of oldIds) {
       if (await this.adapter.getObjectAsync(id)) {
         await this.adapter.delObjectAsync(id, { recursive: true });
         this.adapter.log.debug(`Removed obsolete state: ${id}`);
+        removed++;
       }
+    }
+    if (removed > 0) {
+      this.adapter.log.debug(`state-manager: cleanupMovedStates ${prefix} done (removed ${removed} obsolete paths)`);
     }
   }
   /**

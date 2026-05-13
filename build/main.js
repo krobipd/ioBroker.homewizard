@@ -281,7 +281,7 @@ class HomeWizard extends utils.Adapter {
     if (!conn || !conn.ip) {
       return;
     }
-    const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token);
+    const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
     try {
       if (id.endsWith(".system.reboot")) {
         this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
@@ -375,12 +375,12 @@ class HomeWizard extends utils.Adapter {
     var _a;
     for (const device of this.discoveredDuringPairing) {
       try {
-        const client = new import_homewizard_client.HomeWizardClient(device.ip);
+        const client = new import_homewizard_client.HomeWizardClient(device.ip, "", { log: this.log });
         const result = await client.requestPairing();
         this.log.info(
           `Successfully paired with ${device.name} (${device.productType}) at ${device.ip} \u2014 connecting...`
         );
-        const authedClient = new import_homewizard_client.HomeWizardClient(device.ip, result.token);
+        const authedClient = new import_homewizard_client.HomeWizardClient(device.ip, result.token, { log: this.log });
         const info = await authedClient.getDeviceInfo();
         const deviceConfig = {
           token: result.token,
@@ -506,7 +506,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     try {
-      const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token);
+      const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
       const info = await client.getDeviceInfo();
       if (this.unloading || conn.removed) {
         return;
@@ -656,7 +656,7 @@ class HomeWizard extends utils.Adapter {
     }
     const unstable = this.isUnstable(conn);
     const interval = (0, import_main_helpers.pickRestPollInterval)(unstable, REST_POLL_MS, REST_POLL_UNSTABLE_MS);
-    const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token);
+    const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
     conn.pollTimer = this.setInterval(async () => {
       if (conn.removed || this.unloading) {
         return;
@@ -706,7 +706,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     try {
-      const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token);
+      const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
       const system = await client.getSystem();
       if (conn.removed || this.unloading) {
         return;

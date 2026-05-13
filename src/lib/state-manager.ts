@@ -467,6 +467,8 @@ export class StateManager {
   async createDeviceStates(config: DeviceConfig): Promise<void> {
     const prefix = this.devicePrefix(config);
 
+    this.adapter.log.debug(`state-manager: createDeviceStates ${prefix} (productType=${config.productType})`);
+
     // Device-Object: common.name keeps the user-supplied product name (or product type as fallback) —
     // these are device-specific identifiers, NOT translatable.
     await this.adapter.extendObjectAsync(prefix, {
@@ -771,14 +773,18 @@ export class StateManager {
    */
   async removeDevice(config: DeviceConfig): Promise<void> {
     const prefix = this.devicePrefix(config);
+    this.adapter.log.debug(`state-manager: removeDevice ${prefix}`);
     await this.adapter.delObjectAsync(prefix, { recursive: true });
     // Drop cache entries belonging to this device — re-pairing the same
     // device must re-create channels/states from scratch.
+    let dropped = 0;
     for (const id of this.createdIds) {
       if (id === prefix || id.startsWith(`${prefix}.`)) {
         this.createdIds.delete(id);
+        dropped++;
       }
     }
+    this.adapter.log.debug(`state-manager: removeDevice ${prefix} done (dropped ${dropped} cached IDs)`);
   }
 
   /**
@@ -788,6 +794,7 @@ export class StateManager {
    */
   async cleanupMovedStates(config: DeviceConfig): Promise<void> {
     const prefix = this.devicePrefix(config);
+    this.adapter.log.debug(`state-manager: cleanupMovedStates ${prefix} (scanning pre-v0.4.0 paths)`);
 
     // Old paths: states were at device root, now under measurement/
     const oldIds: string[] = [];
@@ -797,11 +804,16 @@ export class StateManager {
     // External was at device root too
     oldIds.push(`${prefix}.external`);
 
+    let removed = 0;
     for (const id of oldIds) {
       if (await this.adapter.getObjectAsync(id)) {
         await this.adapter.delObjectAsync(id, { recursive: true });
         this.adapter.log.debug(`Removed obsolete state: ${id}`);
+        removed++;
       }
+    }
+    if (removed > 0) {
+      this.adapter.log.debug(`state-manager: cleanupMovedStates ${prefix} done (removed ${removed} obsolete paths)`);
     }
   }
 

@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.7.7",
     "news": {
+      "NEXT": {
+        "en": "Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.",
+        "de": "Debug-Log spurt jetzt jeden HTTPS-API-Call und den Device-State-Lifecycle — bessere Diagnose bei chronischem Bouncing oder Pairing/Recovery-Problemen.",
+        "ru": "Debug-лог теперь трассирует каждый HTTPS-API-вызов и жизненный цикл состояний устройства — лучше диагностировать хроническое прерывание и проблемы pairing/recovery.",
+        "pt": "Log de debug agora rastreia cada chamada HTTPS da API e o ciclo de vida dos estados do dispositivo — diagnóstico mais fácil para bouncing crônico ou problemas de pairing/recovery.",
+        "nl": "Debug-log traceert nu elke HTTPS-API-aanroep en de device-state-lifecycle — eenvoudiger diagnose bij chronisch bouncing of pairing/recovery-problemen.",
+        "fr": "Le log debug trace désormais chaque appel HTTPS de l'API et le cycle de vie des états — diagnostic facilité pour le bouncing chronique ou les problèmes de pairing/recovery.",
+        "it": "Il log di debug ora traccia ogni chiamata HTTPS dell'API e il ciclo di vita degli stati — diagnosi più facile per bouncing cronico o problemi di pairing/recovery.",
+        "es": "El log de debug ahora traza cada llamada HTTPS de la API y el ciclo de vida de los estados — diagnóstico más fácil para bouncing crónico o problemas de pairing/recovery.",
+        "pl": "Log debug śledzi teraz każde wywołanie HTTPS API i cykl życia stanów urządzenia — łatwiejsza diagnostyka chronicznego bouncingu lub problemów z pairing/recovery.",
+        "uk": "Debug-лог тепер трасує кожен HTTPS-API-виклик та життєвий цикл станів пристрою — простіша діагностика хронічного bouncing або проблем pairing/recovery.",
+        "zh-cn": "调试日志现在跟踪每个 HTTPS API 调用和设备状态生命周期 — 更容易诊断持续断线或配对/恢复问题。"
+      },
       "0.7.7": {
         "en": "Devices with chronic WiFi drop-outs no longer flood the log — max 1 warn/h per device, full timeline at debug level. Internal mode-switches moved to debug.",
         "de": "Geräte mit dauerhaft schlechtem WLAN spammen das Log nicht mehr — max 1 Warnung pro Stunde pro Gerät, voller Verlauf im Debug. Interne Modus-Wechsel auf Debug verschoben.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzne wzmocnienie: ściślejsze sprawdzanie liczb, równoległe zapisy stanów, podział kodu, 38 nowych testów klienta HTTPS. Brak zmian dla użytkownika.",
         "uk": "Внутрішнє зміцнення: строгіша перевірка чисел для сенсорів, паралельні записи станів, розділення коду для тестованості, 38 нових тестів HTTPS-клієнта. Без видимих змін.",
         "zh-cn": "内部加固：传感器数值校验更严格、状态写入并行化、代码拆分以提升可测试性，HTTPS 客户端新增 38 个测试。对用户无可见变化。"
-      },
-      "0.7.1": {
-        "en": "Performance: state existence checks are cached after first creation — saves ~30 redis lookups per second on a P1 meter. WiFi signal unit corrected to dBm.",
-        "de": "Performance: Existenz-Prüfung für Datenpunkte wird nach dem ersten Anlegen gecacht — spart ca. 30 Redis-Lookups pro Sekunde bei einem P1-Meter. WLAN-Signalstärke jetzt in dBm.",
-        "ru": "Производительность: проверка существования датчиков кэшируется после первого создания — экономит около 30 redis-запросов в секунду на P1-счётчике. Единица WiFi-сигнала dBm.",
-        "pt": "Desempenho: verificação de existência de datapoints é cacheada após a primeira criação — poupa ~30 lookups redis por segundo num P1 Meter. Unidade do sinal WiFi em dBm.",
-        "nl": "Performance: bestaanscheck voor datapoints wordt na het eerste aanmaken gecachet — bespaart ~30 redis-lookups per seconde op een P1 Meter. WiFi-signaaleenheid nu dBm.",
-        "fr": "Performance : la vérification d'existence des datapoints est mise en cache après la première création — économise ~30 lookups redis par seconde sur un P1 Meter. Unité du signal WiFi en dBm.",
-        "it": "Performance: la verifica di esistenza dei datapoint viene memorizzata in cache dopo la prima creazione — risparmia ~30 lookup redis al secondo su un P1 Meter. Unità segnale WiFi ora dBm.",
-        "es": "Rendimiento: la comprobación de existencia de datapoints se guarda en caché tras la primera creación — ahorra ~30 lookups redis por segundo en un P1 Meter. Unidad de señal WiFi en dBm.",
-        "pl": "Wydajność: sprawdzanie istnienia datapointów jest cache'owane po pierwszym utworzeniu — oszczędza ~30 zapytań redis na sekundę przy P1 Meter. Jednostka sygnału WiFi to dBm.",
-        "uk": "Продуктивність: перевірка існування датапоінтів кешується після першого створення — економить ~30 redis-запитів на секунду на P1 Meter. Одиниця сигналу WiFi — dBm.",
-        "zh-cn": "性能：数据点存在检查在首次创建后会缓存——P1 Meter 每秒节省约 30 次 Redis 查询。WiFi 信号单位修正为 dBm。"
       }
     },
     "titleLang": {

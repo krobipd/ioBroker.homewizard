@@ -40,19 +40,23 @@ class HomeWizardClient {
   agent;
   /** Override target port — only used by tests against a local stub-server. */
   port;
+  /** Optional logger for per-call debug-trace (request entry + response success/fail). */
+  log;
   /**
    * @param ip      Device IP address
    * @param token   Bearer token (empty string for pairing requests)
    * @param options Optional overrides — primarily for unit tests against a local TLS stub.
    * @param options.agent HTTPS agent to use; defaults to {@link HW_AGENT} (with HomeWizard CA pinning).
    * @param options.port  Target port; defaults to 443.
+   * @param options.log   Optional logger for per-call debug-trace (request/success/fail).
    */
   constructor(ip, token = "", options = {}) {
-    var _a, _b;
+    var _a, _b, _c;
     this.ip = ip;
     this.token = token;
     this.agent = (_a = options.agent) != null ? _a : import_cacert.HW_AGENT;
     this.port = (_b = options.port) != null ? _b : 443;
+    this.log = (_c = options.log) != null ? _c : null;
   }
   /** Get device info (GET /api) */
   async getDeviceInfo() {
@@ -111,6 +115,7 @@ class HomeWizardClient {
    */
   request(method, path, body) {
     return new Promise((resolve, reject) => {
+      var _a;
       const bodyStr = body ? JSON.stringify(body) : void 0;
       const headers = {
         "X-Api-Version": "2"
@@ -122,6 +127,8 @@ class HomeWizardClient {
         headers["Content-Type"] = "application/json";
         headers["Content-Length"] = Buffer.byteLength(bodyStr).toString();
       }
+      const startMs = Date.now();
+      (_a = this.log) == null ? void 0 : _a.debug(`HTTPS ${method} ${path} ip=${this.ip} auth=${this.token ? "bearer" : "none"}`);
       const req = https.request(
         {
           hostname: this.ip,
@@ -137,13 +144,20 @@ class HomeWizardClient {
           res.on("error", reject);
           res.on("data", (chunk) => chunks.push(chunk));
           res.on("end", () => {
-            var _a;
+            var _a2, _b, _c;
             const data = Buffer.concat(chunks).toString();
-            if (!res.statusCode || res.statusCode >= 400) {
-              const error = new HomeWizardApiError((_a = res.statusCode) != null ? _a : 0, data, `${method} ${path}`);
+            const elapsedMs = Date.now() - startMs;
+            const statusCode = (_a2 = res.statusCode) != null ? _a2 : 0;
+            if (!statusCode || statusCode >= 400) {
+              const snippet = data.length > 200 ? `${data.slice(0, 200)}\u2026` : data;
+              (_b = this.log) == null ? void 0 : _b.debug(`HTTPS ${method} ${path}: status=${statusCode} elapsed=${elapsedMs}ms body="${snippet}"`);
+              const error = new HomeWizardApiError(statusCode, data, `${method} ${path}`);
               reject(error);
               return;
             }
+            (_c = this.log) == null ? void 0 : _c.debug(
+              `HTTPS ${method} ${path}: status=${statusCode} elapsed=${elapsedMs}ms bytes=${data.length}`
+            );
             if (!data) {
               resolve(void 0);
               return;
@@ -156,7 +170,11 @@ class HomeWizardClient {
           });
         }
       );
-      req.on("error", reject);
+      req.on("error", (err) => {
+        var _a2;
+        (_a2 = this.log) == null ? void 0 : _a2.debug(`HTTPS ${method} ${path}: error="${err.message}" elapsed=${Date.now() - startMs}ms`);
+        reject(err);
+      });
       req.on("timeout", () => {
         req.destroy(new Error(`Timeout: ${method} ${path}`));
       });
