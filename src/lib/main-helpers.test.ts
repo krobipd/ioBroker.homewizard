@@ -4,6 +4,7 @@ import {
   decideUnstableTransition,
   findConnectionForState,
   pickRestPollInterval,
+  shouldEmitAfterCooldown,
   shouldStartIpRecovery,
   stripNamespace,
 } from "./main-helpers";
@@ -164,5 +165,44 @@ describe("findConnectionForState", () => {
     const conns: [string, DeviceConnection][] = [["hwe-p1_aabb", long]];
     // A state-ID for a hypothetical short-prefix device must NOT pick up the long one.
     expect(findConnectionForState("homewizard.0.hwe-p1.foo", "homewizard.0", conns)).to.be.undefined;
+  });
+});
+
+describe("shouldEmitAfterCooldown", () => {
+  const COOLDOWN = 60 * 60 * 1000; // 1h
+
+  it("emits when never seen before (lastMs=0)", () => {
+    expect(shouldEmitAfterCooldown(0, 1_700_000_000_000, COOLDOWN)).to.equal(true);
+  });
+
+  it("suppresses when same instant as last emit", () => {
+    expect(shouldEmitAfterCooldown(1_700_000_000_000, 1_700_000_000_000, COOLDOWN)).to.equal(false);
+  });
+
+  it("suppresses well inside the window (30 min after)", () => {
+    const last = 1_700_000_000_000;
+    expect(shouldEmitAfterCooldown(last, last + 30 * 60 * 1000, COOLDOWN)).to.equal(false);
+  });
+
+  it("emits at the window boundary (exactly cooldownMs later)", () => {
+    const last = 1_700_000_000_000;
+    expect(shouldEmitAfterCooldown(last, last + COOLDOWN, COOLDOWN)).to.equal(true);
+  });
+
+  it("emits well past the window (1h + 1 min)", () => {
+    const last = 1_700_000_000_000;
+    expect(shouldEmitAfterCooldown(last, last + COOLDOWN + 60_000, COOLDOWN)).to.equal(true);
+  });
+
+  it("scales with cooldownMs (1s window)", () => {
+    const last = 1_700_000_000_000;
+    expect(shouldEmitAfterCooldown(last, last + 500, 1_000)).to.equal(false);
+    expect(shouldEmitAfterCooldown(last, last + 1_000, 1_000)).to.equal(true);
+  });
+
+  it("handles zero-cooldown (every call emits)", () => {
+    const last = 1_700_000_000_000;
+    expect(shouldEmitAfterCooldown(last, last, 0)).to.equal(true);
+    expect(shouldEmitAfterCooldown(last, last + 1, 0)).to.equal(true);
   });
 });

@@ -22,6 +22,7 @@ __export(main_helpers_exports, {
   decideUnstableTransition: () => decideUnstableTransition,
   findConnectionForState: () => findConnectionForState,
   pickRestPollInterval: () => pickRestPollInterval,
+  shouldEmitAfterCooldown: () => shouldEmitAfterCooldown,
   shouldStartIpRecovery: () => shouldStartIpRecovery,
   stripNamespace: () => stripNamespace
 });
@@ -61,12 +62,19 @@ function findConnectionForState(stateId, namespace, connections) {
   }
   return void 0;
 }
+function shouldEmitAfterCooldown(lastMs, now, cooldownMs) {
+  if (lastMs === 0) {
+    return true;
+  }
+  return now - lastMs >= cooldownMs;
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   computeReconnectDelay,
   decideUnstableTransition,
   findConnectionForState,
   pickRestPollInterval,
+  shouldEmitAfterCooldown,
   shouldStartIpRecovery,
   stripNamespace
 });

@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.7.6",
     "news": {
+      "NEXT": {
+        "en": "Devices with chronic WiFi drop-outs no longer flood the log — max 1 warn/h per device, full timeline at debug level. Internal mode-switches moved to debug.",
+        "de": "Geräte mit dauerhaft schlechtem WLAN spammen das Log nicht mehr — max 1 Warnung pro Stunde pro Gerät, voller Verlauf im Debug. Interne Modus-Wechsel auf Debug verschoben.",
+        "ru": "Устройства с постоянными WiFi-обрывами больше не засоряют лог — макс. 1 предупреждение/час на устройство, полный лог на debug. Внутренние смены режима теперь на debug.",
+        "pt": "Dispositivos com quedas constantes de WiFi já não enchem o log — máx. 1 aviso/hora por dispositivo, histórico completo em debug. Mudanças internas de modo movidas para debug.",
+        "nl": "Apparaten met chronisch slechte WiFi vullen het log niet meer — max 1 waarschuwing/uur per apparaat, volledige tijdlijn op debug. Interne modus-wisselingen naar debug.",
+        "fr": "Les appareils avec un WiFi chroniquement instable n'inondent plus le journal — max 1 avertissement/h par appareil, historique complet en debug. Les changements de mode internes passent en debug.",
+        "it": "I dispositivi con WiFi cronicamente instabile non riempiono più il log — max 1 avviso/ora per dispositivo, cronologia completa in debug. Cambi di modalità interni spostati su debug.",
+        "es": "Los dispositivos con WiFi crónicamente malo ya no inundan el log — máx. 1 aviso/h por dispositivo, historial completo en debug. Cambios de modo internos movidos a debug.",
+        "pl": "Urządzenia z chronicznie słabym WiFi nie zalewają już logu — maks. 1 ostrzeżenie/h na urządzenie, pełna oś czasu na poziomie debug. Wewnętrzne zmiany trybu przeniesione na debug.",
+        "uk": "Пристрої з хронічно поганим WiFi більше не заповнюють лог — максимум 1 попередження/год на пристрій, повний журнал на debug. Внутрішні зміни режиму перенесено на debug.",
+        "zh-cn": "WiFi 长期不稳定的设备不再淹没日志——每台设备每小时至多 1 条警告，完整时间线保留在 debug 级别。内部模式切换改到 debug。"
+      },
       "0.7.6": {
         "en": "The battery mode dropdown and the tariff state no longer crash the admin with \"Error in GUI\" when opened.",
         "de": "Das Battery-Mode-Dropdown und der Tariff-State stürzen beim Öffnen im Admin nicht mehr mit \"Error in GUI\" ab.",
@@ -80,19 +93,6 @@
         "pl": "Wydajność: sprawdzanie istnienia datapointów jest cache'owane po pierwszym utworzeniu — oszczędza ~30 zapytań redis na sekundę przy P1 Meter. Jednostka sygnału WiFi to dBm.",
         "uk": "Продуктивність: перевірка існування датапоінтів кешується після першого створення — економить ~30 redis-запитів на секунду на P1 Meter. Одиниця сигналу WiFi — dBm.",
         "zh-cn": "性能：数据点存在检查在首次创建后会缓存——P1 Meter 每秒节省约 30 次 Redis 查询。WiFi 信号单位修正为 dBm。"
-      },
-      "0.7.0": {
-        "en": "Multi-language: state names, descriptions, dropdown values (tariff, battery.mode) and user logs in your ioBroker system language (11 languages). Battery inputs validated. Min Node 22, Admin 7.8.23.",
-        "de": "Mehrsprachig: Datenpunkt-Namen, -Beschreibungen, Dropdown-Werte (tariff, battery.mode) und User-Logs in der ioBroker-Systemsprache (11 Sprachen). Batterie-Eingaben werden geprüft. Min Node 22, Admin 7.8.23.",
-        "ru": "Многоязычность: имена и описания датчиков, значения списков (tariff, battery.mode) и пользовательские логи в системном языке ioBroker (11 языков). Проверка ввода для батареи. Мин. Node 22, Admin 7.8.23.",
-        "pt": "Multilíngue: nomes e descrições de datapoints, valores de dropdown (tariff, battery.mode) e logs no idioma do sistema ioBroker (11 idiomas). Validação de entradas de bateria. Mín. Node 22, Admin 7.8.23.",
-        "nl": "Meertalig: datapoint-namen, beschrijvingen, dropdown-waarden (tariff, battery.mode) en gebruikerslogs in de ioBroker-systeemtaal (11 talen). Batterij-invoer wordt gecontroleerd. Min. Node 22, Admin 7.8.23.",
-        "fr": "Multilingue : noms et descriptions des datapoints, valeurs déroulantes (tariff, battery.mode) et logs dans la langue système ioBroker (11 langues). Saisies batterie validées. Min Node 22, Admin 7.8.23.",
-        "it": "Multilingua: nomi e descrizioni dei datapoint, valori dei menu (tariff, battery.mode) e log utente nella lingua di sistema ioBroker (11 lingue). Input batteria validati. Min Node 22, Admin 7.8.23.",
-        "es": "Multilingüe: nombres y descripciones de datapoints, valores de menús (tariff, battery.mode) y logs en el idioma del sistema ioBroker (11 idiomas). Entradas de batería validadas. Mín. Node 22, Admin 7.8.23.",
-        "pl": "Wiele języków: nazwy i opisy datapointów, wartości menu (tariff, battery.mode) i logi w języku systemu ioBroker (11 języków). Walidacja wprowadzania baterii. Min Node 22, Admin 7.8.23.",
-        "uk": "Багатомовність: імена та описи датапоінтів, значення меню (tariff, battery.mode) та логи мовою системи ioBroker (11 мов). Перевірка вводу для батареї. Мін. Node 22, Admin 7.8.23.",
-        "zh-cn": "多语言：数据点名称、描述、下拉值（tariff、battery.mode）和用户日志使用 ioBroker 系统语言（11 种）。电池输入会被校验。最低 Node 22、Admin 7.8.23。"
       }
     },
     "titleLang": {

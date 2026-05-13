@@ -8,6 +8,7 @@ import {
   decideUnstableTransition,
   findConnectionForState as resolveConnectionForState,
   pickRestPollInterval,
+  shouldEmitAfterCooldown,
   shouldStartIpRecovery,
 } from "./lib/main-helpers";
 import { StateManager } from "./lib/state-manager";
@@ -40,11 +41,32 @@ const STABLE_THRESHOLD_MS = 600_000;
 const WS_RECONNECT_MAX_UNSTABLE_MS = 60_000;
 /** REST fallback interval for unstable devices (slower, not stopped) */
 const REST_POLL_UNSTABLE_MS = 30_000;
+/**
+ * Cooldown window for `device unreachable` warns. Per-device, category-
+ * spanning: bouncing hardware should produce max 1× warn per window, regardless
+ * of whether each cycle's failure was TIMEOUT, NETWORK, or HTTP_503. Survives
+ * the lastErrorCode-reset on recovery so chronic bouncing doesn't flap warn /
+ * debug at every cycle.
+ */
+const WARN_COOLDOWN_MS = 60 * 60 * 1000;
+/** Cooldown window for `connection restored` infos — analog to warn cooldown. */
+const INFO_COOLDOWN_MS = 60 * 60 * 1000;
 
 class HomeWizard extends utils.Adapter {
   private stateManager!: StateManager;
   private discovery: HomeWizardDiscovery | null = null;
   private readonly connections = new Map<string, DeviceConnection>();
+  /**
+   * Per-device last-warn timestamp for chronic-bouncing cooldown. Key =
+   * `conn.config.serial` (kategorienübergreifend). The classifyError-based
+   * `lastErrorCode`-Dedup in {@link logDeviceError} resets on every recovery,
+   * so on chronic bouncing a new disconnect counts as "first occurrence"
+   * → wieder warn. This cooldown stamp persists across recoveries so the user
+   * sees max one warn per WARN_COOLDOWN_MS per device.
+   */
+  private readonly lastWarnAt = new Map<string, number>();
+  /** Per-device last-info timestamp for `connection restored`. Analog cooldown. */
+  private readonly lastInfoAt = new Map<string, number>();
   private pairingTimer: ioBroker.Timeout | undefined = undefined;
   private pairingPollTimer: ioBroker.Interval | undefined = undefined;
   private systemPollTimer: ioBroker.Interval | undefined = undefined;
@@ -713,13 +735,22 @@ class HomeWizard extends utils.Adapter {
           }
         }
 
-        // Log restoration if we had errors before
+        // Log restoration if we had errors before. Per-device cooldown
+        // (analog to logDeviceError) so chronic bouncing doesn't emit one
+        // info per cycle — bouncing hardware is one phenomenon and one
+        // restoration-info per hour is enough. Repeats go to debug.
         if (conn.lastErrorCode) {
-          this.log.info(
-            this.isUnstable(conn)
-              ? `${conn.config.productName}: connection restored (unstable mode)`
-              : `${conn.config.productName}: connection restored`,
-          );
+          const now = Date.now();
+          const lastInfo = this.lastInfoAt.get(conn.config.serial) ?? 0;
+          const msg = this.isUnstable(conn)
+            ? `${conn.config.productName}: connection restored (unstable mode)`
+            : `${conn.config.productName}: connection restored`;
+          if (shouldEmitAfterCooldown(lastInfo, now, INFO_COOLDOWN_MS)) {
+            this.lastInfoAt.set(conn.config.serial, now);
+            this.log.info(msg);
+          } else {
+            this.log.debug(`${msg} (cooldown)`);
+          }
           conn.lastErrorCode = "";
         }
 
@@ -746,10 +777,14 @@ class HomeWizard extends utils.Adapter {
           } else {
             conn.recentDisconnects = 0;
           }
+          // Hysterese-transitions are internal reconnect-strategy adjustments,
+          // not user-actionable events. Per the geschärfte mcm-Linie
+          // (reference_iobroker_logging_levels HART-block): diagnostische
+          // Prefixe / interne Hysterese-State gehören auf debug, nicht info.
           if (transition === "becameUnstable") {
-            this.log.info(`${conn.config.productName}: unstable connection detected — using faster reconnect`);
+            this.log.debug(`${conn.config.productName}: unstable connection detected — using faster reconnect`);
           } else if (transition === "stabilized") {
-            this.log.info(`${conn.config.productName}: connection stabilized — using normal reconnect`);
+            this.log.debug(`${conn.config.productName}: connection stabilized — using normal reconnect`);
           }
         }
 
@@ -1019,8 +1054,21 @@ class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Log device error with deduplication (based on error category, not context).
-   * First occurrence of a new error category logs as warn, repeats as debug.
+   * Log device error with deduplication.
+   *
+   * Two-stage dedup:
+   * 1. `lastErrorCode` per connection — repeats of the same error category go
+   *    to debug. Resets on recovery (`onConnected` clears it) so a new category
+   *    after recovery surfaces as warn again. Designtechnisch correct for
+   *    „new failure mode" but blind to chronic bouncing.
+   * 2. {@link lastWarnAt} per device serial — survives recovery. Even if the
+   *    `lastErrorCode`-Dedup says „first occurrence", the cooldown stamp keeps
+   *    the warn-emit suppressed if we've warned for this device within
+   *    {@link WARN_COOLDOWN_MS}. Chronic bouncing produces at most 1× warn per
+   *    hour per device.
+   *
+   * Cooldown key is the device serial — category-spanning. A flapping P1 that
+   * cycles TIMEOUT→NETWORK→TIMEOUT is one phenomenon, one warn-budget.
    *
    * @param conn Device connection
    * @param context Error context (for debug messages only)
@@ -1033,7 +1081,21 @@ class HomeWizard extends utils.Adapter {
 
     if (isRepeat) {
       this.log.debug(`${conn.config.productName} ${context}: ${errText(err)}`);
-    } else if (errorCode === "NETWORK") {
+      return;
+    }
+
+    // New category — apply per-device cooldown so chronic bouncing doesn't
+    // emit warn at every cycle just because each cycle's first failure is
+    // a fresh `lastErrorCode`.
+    const now = Date.now();
+    const lastWarn = this.lastWarnAt.get(conn.config.serial) ?? 0;
+    if (!shouldEmitAfterCooldown(lastWarn, now, WARN_COOLDOWN_MS)) {
+      this.log.debug(`${conn.config.productName} ${context} (cooldown): ${errText(err)}`);
+      return;
+    }
+
+    this.lastWarnAt.set(conn.config.serial, now);
+    if (errorCode === "NETWORK") {
       this.log.warn(`${conn.config.productName}: device unreachable — will keep retrying`);
     } else {
       this.log.warn(`${conn.config.productName} ${context}: ${errText(err)}`);

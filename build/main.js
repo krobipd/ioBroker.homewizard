@@ -42,10 +42,23 @@ const MDNS_RETRY_EVERY = 12;
 const STABLE_THRESHOLD_MS = 6e5;
 const WS_RECONNECT_MAX_UNSTABLE_MS = 6e4;
 const REST_POLL_UNSTABLE_MS = 3e4;
+const WARN_COOLDOWN_MS = 60 * 60 * 1e3;
+const INFO_COOLDOWN_MS = 60 * 60 * 1e3;
 class HomeWizard extends utils.Adapter {
   stateManager;
   discovery = null;
   connections = /* @__PURE__ */ new Map();
+  /**
+   * Per-device last-warn timestamp for chronic-bouncing cooldown. Key =
+   * `conn.config.serial` (kategorienübergreifend). The classifyError-based
+   * `lastErrorCode`-Dedup in {@link logDeviceError} resets on every recovery,
+   * so on chronic bouncing a new disconnect counts as "first occurrence"
+   * → wieder warn. This cooldown stamp persists across recoveries so the user
+   * sees max one warn per WARN_COOLDOWN_MS per device.
+   */
+  lastWarnAt = /* @__PURE__ */ new Map();
+  /** Per-device last-info timestamp for `connection restored`. Analog cooldown. */
+  lastInfoAt = /* @__PURE__ */ new Map();
   pairingTimer = void 0;
   pairingPollTimer = void 0;
   systemPollTimer = void 0;
@@ -546,6 +559,7 @@ class HomeWizard extends utils.Adapter {
         });
       },
       onConnected: () => {
+        var _a;
         conn.wsAuthenticated = true;
         conn.wsFailCount = 0;
         conn.authFailCount = 0;
@@ -564,9 +578,15 @@ class HomeWizard extends utils.Adapter {
           }
         }
         if (conn.lastErrorCode) {
-          this.log.info(
-            this.isUnstable(conn) ? `${conn.config.productName}: connection restored (unstable mode)` : `${conn.config.productName}: connection restored`
-          );
+          const now = Date.now();
+          const lastInfo = (_a = this.lastInfoAt.get(conn.config.serial)) != null ? _a : 0;
+          const msg = this.isUnstable(conn) ? `${conn.config.productName}: connection restored (unstable mode)` : `${conn.config.productName}: connection restored`;
+          if ((0, import_main_helpers.shouldEmitAfterCooldown)(lastInfo, now, INFO_COOLDOWN_MS)) {
+            this.lastInfoAt.set(conn.config.serial, now);
+            this.log.info(msg);
+          } else {
+            this.log.debug(`${msg} (cooldown)`);
+          }
           conn.lastErrorCode = "";
         }
         this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
@@ -587,9 +607,9 @@ class HomeWizard extends utils.Adapter {
             conn.recentDisconnects = 0;
           }
           if (transition === "becameUnstable") {
-            this.log.info(`${conn.config.productName}: unstable connection detected \u2014 using faster reconnect`);
+            this.log.debug(`${conn.config.productName}: unstable connection detected \u2014 using faster reconnect`);
           } else if (transition === "stabilized") {
-            this.log.info(`${conn.config.productName}: connection stabilized \u2014 using normal reconnect`);
+            this.log.debug(`${conn.config.productName}: connection stabilized \u2014 using normal reconnect`);
           }
         }
         conn.wsAuthenticated = false;
@@ -816,20 +836,43 @@ class HomeWizard extends utils.Adapter {
     return false;
   }
   /**
-   * Log device error with deduplication (based on error category, not context).
-   * First occurrence of a new error category logs as warn, repeats as debug.
+   * Log device error with deduplication.
+   *
+   * Two-stage dedup:
+   * 1. `lastErrorCode` per connection — repeats of the same error category go
+   *    to debug. Resets on recovery (`onConnected` clears it) so a new category
+   *    after recovery surfaces as warn again. Designtechnisch correct for
+   *    „new failure mode" but blind to chronic bouncing.
+   * 2. {@link lastWarnAt} per device serial — survives recovery. Even if the
+   *    `lastErrorCode`-Dedup says „first occurrence", the cooldown stamp keeps
+   *    the warn-emit suppressed if we've warned for this device within
+   *    {@link WARN_COOLDOWN_MS}. Chronic bouncing produces at most 1× warn per
+   *    hour per device.
+   *
+   * Cooldown key is the device serial — category-spanning. A flapping P1 that
+   * cycles TIMEOUT→NETWORK→TIMEOUT is one phenomenon, one warn-budget.
    *
    * @param conn Device connection
    * @param context Error context (for debug messages only)
    * @param err Error object
    */
   logDeviceError(conn, context, err) {
+    var _a;
     const errorCode = (0, import_connection_utils.classifyError)(err);
     const isRepeat = errorCode === conn.lastErrorCode;
     conn.lastErrorCode = errorCode;
     if (isRepeat) {
       this.log.debug(`${conn.config.productName} ${context}: ${(0, import_coerce.errText)(err)}`);
-    } else if (errorCode === "NETWORK") {
+      return;
+    }
+    const now = Date.now();
+    const lastWarn = (_a = this.lastWarnAt.get(conn.config.serial)) != null ? _a : 0;
+    if (!(0, import_main_helpers.shouldEmitAfterCooldown)(lastWarn, now, WARN_COOLDOWN_MS)) {
+      this.log.debug(`${conn.config.productName} ${context} (cooldown): ${(0, import_coerce.errText)(err)}`);
+      return;
+    }
+    this.lastWarnAt.set(conn.config.serial, now);
+    if (errorCode === "NETWORK") {
       this.log.warn(`${conn.config.productName}: device unreachable \u2014 will keep retrying`);
     } else {
       this.log.warn(`${conn.config.productName} ${context}: ${(0, import_coerce.errText)(err)}`);

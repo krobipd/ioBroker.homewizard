@@ -112,3 +112,26 @@ export function findConnectionForState<T extends DeviceConnection>(
   }
   return undefined;
 }
+
+/**
+ * Cooldown gate: whether a warn/info should be emitted right now, given the
+ * last-emit timestamp for the same key.
+ *
+ * - `lastMs === 0` (never emitted) → true (emit, set stamp).
+ * - `now - lastMs >= cooldownMs` → true (window expired, emit, refresh stamp).
+ * - otherwise → false (caller demotes to debug).
+ *
+ * Used per-device in main.ts: `logDeviceError` warn-path + `onConnected`
+ * recovery-info-path. Caller owns the timestamp map and updates it iff this
+ * returns true.
+ *
+ * @param lastMs     Last-emit timestamp (ms) or 0 if never.
+ * @param now        Current timestamp (ms) — caller-controlled for test determinism.
+ * @param cooldownMs Cooldown window in ms.
+ */
+export function shouldEmitAfterCooldown(lastMs: number, now: number, cooldownMs: number): boolean {
+  if (lastMs === 0) {
+    return true;
+  }
+  return now - lastMs >= cooldownMs;
+}
