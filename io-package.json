@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.7.7",
+    "version": "0.7.8",
     "news": {
-      "NEXT": {
+      "0.7.8": {
         "en": "Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.",
         "de": "Debug-Log spurt jetzt jeden HTTPS-API-Call und den Device-State-Lifecycle — bessere Diagnose bei chronischem Bouncing oder Pairing/Recovery-Problemen.",
         "ru": "Debug-лог теперь трассирует каждый HTTPS-API-вызов и жизненный цикл состояний устройства — лучше диагностировать хроническое прерывание и проблемы pairing/recovery.",

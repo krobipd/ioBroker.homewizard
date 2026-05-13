@@ -1,4 +1,7 @@
 # Older Changes
+## 0.7.3 (2026-05-07)
+- Less log spam when a device stays offline for longer periods — the initial `device unreachable` warning is enough; mDNS recovery attempts and offline-retry status now log at debug level only.
+
 ## 0.7.2 (2026-05-06)
 - Internal hardening: stricter number parsing for sensor inputs, parallel state writes, code split for testability, 38 new tests covering the HTTPS client. No user-facing changes.
 

@@ -170,7 +170,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.7.8 (2026-05-13)
 
 - Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.
 
@@ -195,9 +195,6 @@ homewizard.0.
 
 ### 0.7.4 (2026-05-09)
 - Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) are unchanged.
-
-### 0.7.3 (2026-05-07)
-- Less log spam when a device stays offline for longer periods — the initial `device unreachable` warning is enough; mDNS recovery attempts and offline-retry status now log at debug level only.
 
 ### Support Development
 
