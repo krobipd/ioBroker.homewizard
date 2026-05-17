@@ -170,7 +170,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.8.1 (2026-05-17)
 * Internal cleanup. No user-facing changes.
 
 ### 0.8.0 (2026-05-17)
@@ -189,16 +189,6 @@ homewizard.0.
 ### 0.7.6 (2026-05-12)
 
 - The battery mode dropdown and the tariff state no longer crash the admin with "Error in GUI" when opened.
-
-### 0.7.5 (2026-05-10)
-- Half-dead connections are now detected and torn down — fixes cases where the device stopped responding but the adapter still showed "connected" with stale measurement values.
-- The auth handshake now has a 45-second timeout — devices that accept the TCP connection but never reply to the auth protocol no longer hang forever.
-- IP recovery and manual re-pair after factory reset no longer leave a dangling connection from before — switching to a new IP just works.
-- Battery endpoint errors are no longer fully swallowed: 404 stays silent (device has no battery), other errors are visible in the debug log instead of being silently dropped.
-- Manual pairing IP is validated as IPv4 up front — invalid input fails fast with a warning instead of a silent 60-second pairing timeout.
-- A single corrupted device token can no longer take down the whole adapter — affected device is skipped with a re-pair hint, the others come up normally.
-- Pairing supports multiple devices in one 60-second window: button-press additional devices and they are added one after the other instead of the session ending after the first.
-- Various behind-the-scenes hardening — invisible if everything was already running fine, robustness if something is unstable.
 
 ### Support Development
 

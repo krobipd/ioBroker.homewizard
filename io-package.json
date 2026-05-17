@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.8.0",
+    "version": "0.8.1",
     "news": {
-      "NEXT": {
+      "0.8.1": {
         "en": "Internal cleanup. No user-facing changes.",
         "de": "Interne Bereinigung. Keine sichtbaren Änderungen.",
         "ru": "Внутренняя очистка. Нет видимых изменений для пользователей.",
