@@ -7,9 +7,8 @@
  * and the Object-Browser pick the user's language automatically — we just
  * hand them the object.
  *
- * No adapter-side language lookup needed (different from `i18n-logs.ts`,
- * where we have to pick at log-emit time because `this.log.info(...)` takes
- * a single string).
+ * No adapter-side language lookup needed — Admin, vis and Object-Browser
+ * pick the user's language automatically from the translation object.
  */
 
 type Lang = "en" | "de" | "ru" | "pt" | "nl" | "fr" | "it" | "es" | "pl" | "uk" | "zh-cn";
@@ -58,6 +57,19 @@ export const STATE_NAMES: Record<string, StateName> = {
     pl: "Uruchom tryb parowania",
     uk: "Запустити режим сполучення",
     "zh-cn": "启动配对模式",
+  },
+  pairingIp: {
+    en: "Device IP for manual pairing",
+    de: "Geräte-IP für manuelles Pairing",
+    ru: "IP-адрес устройства для ручного сопряжения",
+    pt: "IP do dispositivo para emparelhamento manual",
+    nl: "Apparaat-IP voor handmatig koppelen",
+    fr: "IP de l'appareil pour l'appairage manuel",
+    it: "IP del dispositivo per l'accoppiamento manuale",
+    es: "IP del dispositivo para emparejamiento manual",
+    pl: "IP urządzenia do ręcznego parowania",
+    uk: "IP пристрою для ручного сполучення",
+    "zh-cn": "用于手动配对的设备 IP",
   },
 
   // ──────── Channel names ────────

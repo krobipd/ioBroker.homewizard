@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.7.8",
     "news": {
+      "NEXT": {
+        "en": "Internal modernization. No user-facing changes.",
+        "de": "Interne Modernisierung. Keine nutzersichtbaren Änderungen.",
+        "ru": "Внутренняя модернизация. Нет изменений для пользователя.",
+        "pt": "Modernização interna. Sem alterações visíveis para o utilizador.",
+        "nl": "Interne modernisering. Geen zichtbare wijzigingen voor de gebruiker.",
+        "fr": "Modernisation interne. Aucun changement visible pour l'utilisateur.",
+        "it": "Modernizzazione interna. Nessuna modifica visibile per l'utente.",
+        "es": "Modernización interna. Sin cambios visibles para el usuario.",
+        "pl": "Wewnętrzna modernizacja. Brak zmian widocznych dla użytkownika.",
+        "uk": "Внутрішня модернізація. Немає змін для користувача.",
+        "zh-cn": "内部现代化。无用户可见更改。"
+      },
       "0.7.8": {
         "en": "Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.",
         "de": "Debug-Log spurt jetzt jeden HTTPS-API-Call und den Device-State-Lifecycle — bessere Diagnose bei chronischem Bouncing oder Pairing/Recovery-Problemen.",
@@ -80,19 +93,6 @@
         "pl": "Mniej spamu w logu dla urządzeń długo offline. Pierwsze ostrzeżenie o niedostępności wystarczy; cogodzinne próby odzyskiwania mDNS i status ponawiania trafiają teraz do debug.",
         "uk": "Менше спаму в журналі для пристроїв, що тривалий час офлайн. Першого попередження про недоступність достатньо; погодинні спроби mDNS-відновлення та статус повторних спроб тепер у debug.",
         "zh-cn": "对长时间离线的设备减少日志噪音。首次「不可达」告警已足够；每小时的 mDNS 恢复尝试与离线重试状态现仅记录在 debug 级别。"
-      },
-      "0.7.2": {
-        "en": "Internal robustness: stricter number parsing for sensor inputs, parallel state writes, code split for testability, 38 new tests covering the HTTPS client. No user-facing changes.",
-        "de": "Interne Härtung: strengere Zahlenprüfung für Sensorwerte, parallele State-Writes, Code-Split für bessere Testbarkeit, 38 neue Tests für den HTTPS-Client. Keine User-sichtbaren Änderungen.",
-        "ru": "Внутреннее усиление: строгая проверка чисел для сенсорных значений, параллельная запись состояний, разделение кода ради тестируемости, 38 новых тестов для HTTPS-клиента. Без видимых изменений.",
-        "pt": "Endurecimento interno: análise de números mais rigorosa, gravação de estados em paralelo, código dividido para testes, 38 novos testes do cliente HTTPS. Sem mudanças visíveis.",
-        "nl": "Interne verharding: strengere getalcontrole voor sensorwaarden, parallelle state-writes, code-splitsing voor testbaarheid, 38 nieuwe tests voor de HTTPS-client. Geen wijzigingen voor de gebruiker.",
-        "fr": "Durcissement interne : analyse de nombres plus stricte, écritures d'état en parallèle, code scindé pour les tests, 38 nouveaux tests du client HTTPS. Aucune modification visible.",
-        "it": "Hardening interno: parsing numerico più rigoroso per i sensori, scritture di stato in parallelo, codice diviso per la testabilità, 38 nuovi test per il client HTTPS. Nessuna modifica visibile.",
-        "es": "Endurecimiento interno: análisis de números más estricto, escrituras de estado en paralelo, código dividido para tests, 38 nuevas pruebas del cliente HTTPS. Sin cambios visibles.",
-        "pl": "Wewnętrzne wzmocnienie: ściślejsze sprawdzanie liczb, równoległe zapisy stanów, podział kodu, 38 nowych testów klienta HTTPS. Brak zmian dla użytkownika.",
-        "uk": "Внутрішнє зміцнення: строгіша перевірка чисел для сенсорів, паралельні записи станів, розділення коду для тестованості, 38 нових тестів HTTPS-клієнта. Без видимих змін.",
-        "zh-cn": "内部加固：传感器数值校验更严格、状态写入并行化、代码拆分以提升可测试性，HTTPS 客户端新增 38 个测试。对用户无可见变化。"
       }
     },
     "titleLang": {
@@ -139,7 +139,7 @@
     },
     "platform": "Javascript/Node.js",
     "icon": "homewizard.svg",
-    "extIcon": "https://raw.githubusercontent.com/krobipd/ioBroker.homewizard/main/admin/homewizard.svg",
+    "extIcon": "https://cdn.jsdelivr.net/gh/krobipd/ioBroker.homewizard@main/admin/homewizard.svg",
     "readme": "https://github.com/krobipd/ioBroker.homewizard/blob/main/README.md",
     "enabled": true,
     "tier": 3,

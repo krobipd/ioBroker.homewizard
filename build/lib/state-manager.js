@@ -395,9 +395,6 @@ const MEASUREMENT_STATE_DEFS = [
   { key: "meter_model", id: "meter_model", nameKey: "meterModel", type: "string", role: "text" },
   { key: "timestamp", id: "timestamp", nameKey: "measurementTimestamp", type: "string", role: "date" }
 ];
-function asName(name) {
-  return name;
-}
 function tariffStates(lang) {
   return {
     1: (0, import_i18n_states.resolveLabel)("tariff1", lang),
@@ -447,7 +444,7 @@ class StateManager {
     });
     await this.adapter.extendObjectAsync(`${prefix}.info`, {
       type: "channel",
-      common: { name: asName((0, import_i18n_states.tName)("deviceInformation")) },
+      common: { name: (0, import_i18n_states.tName)("deviceInformation") },
       native: {}
     });
     await this.createState(`${prefix}.info.productName`, (0, import_i18n_states.tName)("productName"), "string", "text", false);
@@ -479,7 +476,7 @@ class StateManager {
     }
     const prefix = this.devicePrefix(config);
     const mPrefix = `${prefix}.measurement`;
-    await this.ensureChannel(mPrefix, asName((0, import_i18n_states.tName)("measurement")));
+    await this.ensureChannel(mPrefix, (0, import_i18n_states.tName)("measurement"));
     const record = data;
     const writes = [];
     for (const def of MEASUREMENT_STATE_DEFS) {
@@ -521,7 +518,7 @@ class StateManager {
         const value = (0, import_coerce.coerceFiniteNumber)(rawExt.value);
         const unit = (0, import_coerce.coerceString)(rawExt.unit);
         const timestamp = (0, import_coerce.coerceString)(rawExt.timestamp);
-        await this.ensureChannel(`${mPrefix}.external`, asName((0, import_i18n_states.tName)("externalMeters")));
+        await this.ensureChannel(`${mPrefix}.external`, (0, import_i18n_states.tName)("externalMeters"));
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
         await this.ensureChannel(extId, type);
         const extWrites = [];
@@ -562,7 +559,7 @@ class StateManager {
     if (uptime !== null) {
       await this.ensureAndSet(`${prefix}.info.uptime_s`, (0, import_i18n_states.tName)("uptime"), "number", "value", uptime, "s");
     }
-    await this.ensureChannel(`${prefix}.system`, asName((0, import_i18n_states.tName)("systemSettings")));
+    await this.ensureChannel(`${prefix}.system`, (0, import_i18n_states.tName)("systemSettings"));
     const cloudEnabled = (0, import_coerce.coerceBoolean)(record.cloud_enabled);
     if (cloudEnabled !== null) {
       await this.ensureAndSet(
@@ -615,7 +612,7 @@ class StateManager {
     }
     const prefix = this.devicePrefix(config);
     const record = battery;
-    await this.ensureChannel(`${prefix}.battery`, asName((0, import_i18n_states.tName)("batteryControl")));
+    await this.ensureChannel(`${prefix}.battery`, (0, import_i18n_states.tName)("batteryControl"));
     const mode = (0, import_coerce.coerceString)(record.mode);
     if (mode) {
       await this.ensureAndSet(
@@ -773,7 +770,7 @@ class StateManager {
       return;
     }
     const common = {
-      name: typeof name === "string" ? name : asName(name),
+      name: typeof name === "string" ? name : name,
       type,
       role,
       read: true,
@@ -783,7 +780,7 @@ class StateManager {
       common.unit = unit;
     }
     if (desc) {
-      common.desc = asName(desc);
+      common.desc = desc;
     }
     if (states) {
       common.states = states;
@@ -839,14 +836,14 @@ class StateManager {
       return;
     }
     const common = {
-      name: asName(name),
+      name,
       type: "boolean",
       role: "button",
       read: false,
       write: true
     };
     if (desc) {
-      common.desc = asName(desc);
+      common.desc = desc;
     }
     await this.adapter.setObjectNotExistsAsync(id, {
       type: "state",

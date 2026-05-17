@@ -68,6 +68,19 @@ const STATE_NAMES = {
     uk: "\u0417\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u0438 \u0440\u0435\u0436\u0438\u043C \u0441\u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043D\u044F",
     "zh-cn": "\u542F\u52A8\u914D\u5BF9\u6A21\u5F0F"
   },
+  pairingIp: {
+    en: "Device IP for manual pairing",
+    de: "Ger\xE4te-IP f\xFCr manuelles Pairing",
+    ru: "IP-\u0430\u0434\u0440\u0435\u0441 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430 \u0434\u043B\u044F \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0441\u043E\u043F\u0440\u044F\u0436\u0435\u043D\u0438\u044F",
+    pt: "IP do dispositivo para emparelhamento manual",
+    nl: "Apparaat-IP voor handmatig koppelen",
+    fr: "IP de l'appareil pour l'appairage manuel",
+    it: "IP del dispositivo per l'accoppiamento manuale",
+    es: "IP del dispositivo para emparejamiento manual",
+    pl: "IP urz\u0105dzenia do r\u0119cznego parowania",
+    uk: "IP \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u044E \u0434\u043B\u044F \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0441\u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043D\u044F",
+    "zh-cn": "\u7528\u4E8E\u624B\u52A8\u914D\u5BF9\u7684\u8BBE\u5907 IP"
+  },
   // ──────── Channel names ────────
   deviceInformation: {
     en: "Device Information",

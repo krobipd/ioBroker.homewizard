@@ -170,6 +170,10 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Internal modernization. No user-facing changes. Requires Node.js 22+.
+
 ### 0.7.8 (2026-05-13)
 
 - Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.

@@ -6,14 +6,15 @@
 
 **ioBroker HomeWizard Adapter** — Echtzeit-Energiedaten via API v2 mit WebSocket-Push (~1/s).
 
-- **Version:** 0.7.8 (released 2026-05-13) — Debug-Coverage HTTPS-Layer + state-manager step-tracing. `HomeWizardClient` bekommt `HomeWizardClientLogger`-Interface via `options.log`, `request<T>()` emittiert 4 debug-Statements pro Call (entry mit method/path/auth=bearer/none, success mit status/elapsed/bytes, HTTP-fail mit body-snippet ≤200 chars, pre-response-error mit message/elapsed — Token NIE im Log, nur Presence). Wired durch alle 6 instantiation-Sites in main.ts. State-manager: 3 debug-Calls für rare-event-Ops (createDeviceStates / removeDevice mit cache-drop-count / cleanupMovedStates mit removed-count). Hot-Path `updateMeasurement` bewusst silent. Auslöser: krobi-Auftrag nach v0.7.7. v0.8.0 (Govee-Diag-Pattern-Port) rolled back — Pattern-Übertragung A→B braucht Architektur-Match-Prüfung ([[feedback_pattern_nicht_blind_uebertragen]]).
+- **Version:** 0.8.0 (WIP) — Toolchain-Parity: TypeScript ~6.0.3, vitest statt mocha+chai, eslint-config 2.3.4, release-script 5.2.0. `asName()` no-op entfernt. `sync-iopackage-from-i18n.py` (hassemu/beszel-Linie). extIcon raw→jsdelivr (CSP-Fix).
+- **Vorgänger 0.7.8** (released 2026-05-13) — Debug-Coverage HTTPS-Layer + state-manager step-tracing. `HomeWizardClient` bekommt `HomeWizardClientLogger`-Interface via `options.log`, `request<T>()` emittiert 4 debug-Statements pro Call (entry mit method/path/auth=bearer/none, success mit status/elapsed/bytes, HTTP-fail mit body-snippet ≤200 chars, pre-response-error mit message/elapsed — Token NIE im Log, nur Presence). Wired durch alle 6 instantiation-Sites in main.ts. State-manager: 3 debug-Calls für rare-event-Ops (createDeviceStates / removeDevice mit cache-drop-count / cleanupMovedStates mit removed-count). Hot-Path `updateMeasurement` bewusst silent. Auslöser: krobi-Auftrag nach v0.7.7. v0.8.0 (Govee-Diag-Pattern-Port) rolled back — Pattern-Übertragung A→B braucht Architektur-Match-Prüfung ([[feedback_pattern_nicht_blind_uebertragen]]).
 - **Vorgänger 0.7.7** (2026-05-13) — Per-Device 1h-Cooldown gegen chronisches Bouncing-Log-Spam.
 - **Vorgänger 0.7.6** (2026-05-12) — Fix Admin React #31 fatal "Error in GUI" beim Öffnen des `battery.mode`-Dropdowns (HWE-BAT, `write:true` → akuter Crash) und beim `tariff`-State (`write:false` → latent). `common.states` VALUES müssen plain-string sein. Neuer `resolveLabel(key, lang)` in `lib/i18n-states.ts` mit EN-Fallback. `tariffStates(lang)`/`batteryModeStates(lang)` nutzen ihn. Plus `repairCommonStatesIfBuggy(id, fresh)`-Helper in StateManager: bei existierenden Datapoints mit i18n-Object-Values (geschrieben von v0.7.0-v0.7.5) wird `common.states` via `setObjectAsync` aktiv ersetzt, weil `setObjectNotExistsAsync` no-op ist und `extendObjectAsync` deep-merge das Object nicht durch string ersetzen kann. +3 Regression-Tests. v0.7.5 (released 2026-05-10, npm latest) 18-Finding Robustness-Audit: WS-Heartbeat (30s ping / 10s pong) gegen halb-tote Verbindungen, 45s Auth-Handshake-Timeout, IP-recovery race-free, 404-battery-silence, IPv4-validation, single-corrupted-token isolation, multi-pairing-window, parallel system polling, productName drift sync.
 - **GitHub:** https://github.com/krobipd/ioBroker.homewizard
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
 - **Runtime-Deps:** `@iobroker/adapter-core`, `ws`, `bonjour-service`
-- **Test-Setup:** offizieller ioBroker.example/TypeScript-Standard — Tests unter `src/**/*.test.ts` direkt mit `ts-node/register`, kein separater Build (siehe globales `reference_iobroker_test_setup_standard`)
+- **Test-Setup:** Tests unter `src/**/*.test.ts` via **vitest** (seit v0.8.0; vorher mocha+ts-node). `test/package.js` + `test/integration.js` bleiben mocha (`@iobroker/testing` ist mocha-only)
 - **`@types/node` + `@tsconfig/nodeXX` an `engines.node`-Min gekoppelt:** `^22.x` / `@tsconfig/node22` weil `engines.node: ">=22"`. Dependabot ignoriert Major-Bumps
 
 ## API v2 Referenz
@@ -100,14 +101,13 @@ P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630),
 
 **Außerhalb des Scope (final, nicht „noch nicht"):** Energy Socket (HWE-SKT), Watermeter (HWE-WTR), Energy Display (HWE-DSP). Diese Geräte sprechen nur die deprecated v1-API. Adapter ist v2-only — siehe Design-Entscheidung 5.
 
-## Tests (259)
+## Tests (225 unit + 57 package = 282)
 
 ```
 src/main.test.ts                      → classifyError, createDeviceConnection (22)
 src/lib/coerce.test.ts                → coerce-Helpers + errText + validateBatteryMode + parseBatteryPermissions + strict-number (33)
 src/lib/discovery.test.ts             → mDNS (16)
 src/lib/homewizard-client.test.ts     → HomeWizardApiError + HTTP-stub-server tests for all API methods (23)
-src/lib/i18n-logs.test.ts             → tLog + EN-Fallback + Token-Substitution + 11-Sprachen-Coverage (8)
 src/lib/main-helpers.test.ts          → pure decision helpers (decideUnstableTransition, computeReconnectDelay, shouldStartIpRecovery, ...) (24)
 src/lib/state-manager.test.ts         → States + Buttons + boundary hardening + Translation-Objects + cache + dBm (62)
 src/lib/websocket-client.test.ts      → WebSocket-Flow + envelope validation (19)
@@ -119,15 +119,15 @@ test/integration.js                   → @iobroker/testing Integration-Tests (p
 
 Variant A wie hassemu — Single-Instance, Multi-Device, daher reicht ein global gelesener `systemLang`.
 
-- `lib/i18n-logs.ts` — 21 LOG_STRINGS-Keys × 11 Sprachen (en/de/ru/pt/nl/fr/it/es/pl/uk/zh-cn). `tLog(lang, key, params?)`-Helper mit `{token}`-Substitution. EN-Fallback bei unbekannter Sprache. Debug-Logs bleiben EN (Maintainer-Diagnose).
-- `lib/i18n-states.ts` — STATE_NAMES (~92 Keys), STATE_DESCS (10 Keys, nur für nicht-offensichtliche), STATE_LABELS (7 Keys für `tariff` 1-4 + `battery.mode` zero/to_full/standby) × 11 Sprachen. `tName/tDesc/tLabel` returnen Translation-Objects, ioBroker Admin/vis/Object-Browser localizen automatisch.
-- Cast-Pattern: `tName('key') as unknown as ioBroker.StringOrTranslated` — TypeScript-Type-Widening sonst bricht den Compile.
+- `lib/i18n-states.ts` — STATE_NAMES (~93 Keys), STATE_DESCS (10 Keys, nur für nicht-offensichtliche), STATE_LABELS (7 Keys für `tariff` 1-4 + `battery.mode` zero/to_full/standby) × 11 Sprachen. `tName/tDesc/tLabel` returnen Translation-Objects, ioBroker Admin/vis/Object-Browser localizen automatisch.
+- `scripts/sync-iopackage-from-i18n.py` — hält `io-package.json:instanceObjects` deterministisch synchron mit `i18n-states.ts` (single-source-of-truth, hassemu/beszel-Linie).
 - `main.ts:onReady` liest `system.config.language` einmalig in `this.systemLang`. Sprachwechsel im Admin braucht Adapter-Restart — akzeptabel (User wechselt nicht regelmäßig).
 
 ## Versionshistorie
 
 | Version | Datum | Highlights |
 |---------|-------|------------|
+| 0.8.0 | 2026-05-17 | Toolchain-Parity: TypeScript ~5.9→~6.0.3, mocha+chai→vitest (225 unit), eslint-config 2.2→2.3.4, release-script 5.2.0. Code-Cleanup: `asName()` no-op wrapper entfernt (10 callsites). `pairingIp` in `i18n-states.ts` (single-source-of-truth). `scripts/sync-iopackage-from-i18n.py` (hassemu/beszel-Linie). `io-package.json` extIcon raw→jsdelivr (CSP-Fix). `pre-release.py --audit-current` Hook. nyc/source-map-support/ts-node aus devDeps raus. |
 | 0.7.8 | 2026-05-13 | Debug-Coverage HTTPS-Layer + state-manager step-tracing. `HomeWizardClient` bekommt `options.log`, `request<T>()` emittiert 4 debug-Statements pro Call (entry/success/HTTP-fail mit body-snippet/pre-response-error). Logger wired durch alle 6 instantiation-Sites in main.ts. State-manager 3 debug-Calls für rare-event-Ops (createDeviceStates / removeDevice mit cache-drop-count / cleanupMovedStates mit removed-count). Hot-Path `updateMeasurement` bewusst silent. |
 | 0.7.7 | 2026-05-13 | Per-Device 1h-Cooldown gegen chronisches Bouncing-Log-Spam — `lastWarnAt`/`lastInfoAt`-Maps + `shouldEmitAfterCooldown`-Helper in main-helpers. Hysterese unstable/stabilized info → debug. mcm-Linie „more is more" gilt nur für debug/silly. +7 Tests. |
 | 0.7.6 | 2026-05-12 | Fix Admin React #31 fatal auf `battery.mode`-Dropdown (HWE-BAT `write:true`, akuter Crash) und `tariff`-State (P1 `write:false`, latent). `common.states` VALUES dürfen kein i18n-Object sein — Admin rendert Werte direkt als React-child. Neuer `resolveLabel(key, lang)` + `repairCommonStatesIfBuggy(id, fresh)`-Helper: bei existierenden Datapoints (v0.7.0-v0.7.5 hatte `tLabel(...) as unknown as string`-Cast geschrieben) `getObjectAsync` → `common.states` ersetzen → `setObjectAsync`, weil `setObjectNotExistsAsync` no-op und `extendObjectAsync` deep-merge das nicht ersetzt. +3 Regression-Tests. Pattern aus hassemu v1.28.4 portiert. |
@@ -152,8 +152,9 @@ Variant A wie hassemu — Single-Instance, Multi-Device, daher reicht ein global
 ## Befehle
 
 ```bash
-npm run build        # Production (esbuild)
-npm run build:test   # Test build (tsc)
-npm test             # Build + mocha
+npm run build        # Production (esbuild via @iobroker/adapter-dev)
+npm run check        # tsc --noEmit type-check
+npm test             # vitest run + mocha package tests
+npm run coverage     # vitest --coverage
 npm run lint         # ESLint + Prettier
 ```

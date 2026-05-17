@@ -18,11 +18,12 @@
 		"resolveJsonModule": true,
 
 		"sourceMap": true,
-		"inlineSourceMap": false
+		"inlineSourceMap": false,
+
+		"types": ["vitest/globals", "node"]
 	},
 	"include": [
-		"src/**/*.ts",
-		"test/**/*.ts"
+		"src/**/*.ts"
 	],
 	"exclude": [
 		"build/**",

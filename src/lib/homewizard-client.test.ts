@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import * as https from "node:https";
 import { AddressInfo } from "node:net";
 import { HomeWizardApiError, HomeWizardClient } from "./homewizard-client";
@@ -59,23 +58,23 @@ dGlxE9spFWzvVJpQghYsgldpPTDSQD+7b0cirusNND+qnXUCr0kE+6uOow==
 `;
 
 interface StubRequest {
-    method: string;
-    path: string;
-    headers: Record<string, string | string[] | undefined>;
-    body: string;
+  method: string;
+  path: string;
+  headers: Record<string, string | string[] | undefined>;
+  body: string;
 }
 
 interface StubResponse {
-    statusCode: number;
-    body?: unknown;
-    bodyText?: string;
+  statusCode: number;
+  body?: unknown;
+  bodyText?: string;
 }
 
 interface StubServer {
-    port: number;
-    requests: StubRequest[];
-    queue: StubResponse[];
-    stop: () => Promise<void>;
+  port: number;
+  requests: StubRequest[];
+  queue: StubResponse[];
+  stop: () => Promise<void>;
 }
 
 /**
@@ -84,385 +83,385 @@ interface StubServer {
  * verify what the client actually sent.
  */
 async function startStubServer(): Promise<StubServer> {
-    const requests: StubRequest[] = [];
-    const queue: StubResponse[] = [];
+  const requests: StubRequest[] = [];
+  const queue: StubResponse[] = [];
 
-    const server = https.createServer({ cert: TEST_CERT_PEM, key: TEST_KEY_PEM }, (req, res) => {
-        const chunks: Buffer[] = [];
-        req.on("data", (c: Buffer) => chunks.push(c));
-        req.on("end", () => {
-            requests.push({
-                method: req.method ?? "",
-                path: req.url ?? "",
-                headers: req.headers,
-                body: Buffer.concat(chunks).toString("utf8"),
-            });
-            const next = queue.shift();
-            if (!next) {
-                res.statusCode = 599;
-                res.end("no canned response queued");
-                return;
-            }
-            res.statusCode = next.statusCode;
-            res.setHeader("Content-Type", "application/json");
-            if (next.bodyText !== undefined) {
-                res.end(next.bodyText);
-            } else if (next.body !== undefined) {
-                res.end(JSON.stringify(next.body));
-            } else {
-                res.end();
-            }
-        });
+  const server = https.createServer({ cert: TEST_CERT_PEM, key: TEST_KEY_PEM }, (req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      requests.push({
+        method: req.method ?? "",
+        path: req.url ?? "",
+        headers: req.headers,
+        body: Buffer.concat(chunks).toString("utf8"),
+      });
+      const next = queue.shift();
+      if (!next) {
+        res.statusCode = 599;
+        res.end("no canned response queued");
+        return;
+      }
+      res.statusCode = next.statusCode;
+      res.setHeader("Content-Type", "application/json");
+      if (next.bodyText !== undefined) {
+        res.end(next.bodyText);
+      } else if (next.body !== undefined) {
+        res.end(JSON.stringify(next.body));
+      } else {
+        res.end();
+      }
     });
+  });
 
-    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
-    const port = (server.address() as AddressInfo).port;
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as AddressInfo).port;
 
-    return {
-        port,
-        requests,
-        queue,
-        stop: () => new Promise<void>(resolve => server.close(() => resolve())),
-    };
+  return {
+    port,
+    requests,
+    queue,
+    stop: () => new Promise<void>(resolve => server.close(() => resolve())),
+  };
 }
 
 const TEST_AGENT = new https.Agent({
-    rejectUnauthorized: false,
-    checkServerIdentity: () => undefined,
+  rejectUnauthorized: false,
+  checkServerIdentity: () => undefined,
 });
 
 describe("HomeWizardClient (against local TLS stub-server)", () => {
-    let stub: StubServer;
-    let client: HomeWizardClient;
+  let stub: StubServer;
+  let client: HomeWizardClient;
 
-    beforeEach(async () => {
-        stub = await startStubServer();
-        client = new HomeWizardClient("127.0.0.1", "test-token", { agent: TEST_AGENT, port: stub.port });
+  beforeEach(async () => {
+    stub = await startStubServer();
+    client = new HomeWizardClient("127.0.0.1", "test-token", { agent: TEST_AGENT, port: stub.port });
+  });
+
+  afterEach(async () => {
+    await stub.stop();
+  });
+
+  describe("getDeviceInfo (GET /api)", () => {
+    it("returns parsed JSON and includes Bearer token + X-Api-Version: 2", async () => {
+      stub.queue.push({
+        statusCode: 200,
+        body: {
+          product_name: "P1 Meter",
+          product_type: "HWE-P1",
+          serial: "aabbccddeeff",
+          firmware_version: "6.4",
+          api_version: "2.0.0",
+        },
+      });
+      const info = await client.getDeviceInfo();
+      expect(info.product_type).toBe("HWE-P1");
+      expect(info.firmware_version).toBe("6.4");
+
+      const req = stub.requests[0];
+      expect(req.method).toBe("GET");
+      expect(req.path).toBe("/api");
+      expect(req.headers["x-api-version"]).toBe("2");
+      expect(req.headers["authorization"]).toBe("Bearer test-token");
     });
 
-    afterEach(async () => {
-        await stub.stop();
+    it("throws HomeWizardApiError on 4xx with parsed errorCode", async () => {
+      stub.queue.push({
+        statusCode: 401,
+        body: { error: { code: "user:unauthorized", description: "invalid token" } },
+      });
+      try {
+        await client.getDeviceInfo();
+        throw new Error("expected throw");
+      } catch (err) {
+        expect(err).toBeInstanceOf(HomeWizardApiError);
+        if (err instanceof HomeWizardApiError) {
+          expect(err.statusCode).toBe(401);
+          expect(err.errorCode).toBe("user:unauthorized");
+          expect(err.message).toContain("GET /api");
+        }
+      }
     });
 
-    describe("getDeviceInfo (GET /api)", () => {
-        it("returns parsed JSON and includes Bearer token + X-Api-Version: 2", async () => {
-            stub.queue.push({
-                statusCode: 200,
-                body: {
-                    product_name: "P1 Meter",
-                    product_type: "HWE-P1",
-                    serial: "aabbccddeeff",
-                    firmware_version: "6.4",
-                    api_version: "2.0.0",
-                },
-            });
-            const info = await client.getDeviceInfo();
-            expect(info.product_type).to.equal("HWE-P1");
-            expect(info.firmware_version).to.equal("6.4");
+    it("throws on invalid JSON body (non-API error)", async () => {
+      stub.queue.push({ statusCode: 200, bodyText: "<html>oops</html>" });
+      try {
+        await client.getDeviceInfo();
+        throw new Error("expected throw");
+      } catch (err) {
+        expect(err).toBeInstanceOf(Error);
+        expect((err as Error).message).toContain("Invalid JSON");
+      }
+    });
+  });
 
-            const req = stub.requests[0];
-            expect(req.method).to.equal("GET");
-            expect(req.path).to.equal("/api");
-            expect(req.headers["x-api-version"]).to.equal("2");
-            expect(req.headers["authorization"]).to.equal("Bearer test-token");
-        });
+  describe("requestPairing (POST /api/user)", () => {
+    it("sends body with name, omits Bearer token when constructed without one", async () => {
+      const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
+      stub.queue.push({ statusCode: 200, body: { token: "newly-issued-token" } });
+      const result = await bareClient.requestPairing();
+      expect(result.token).toBe("newly-issued-token");
 
-        it("throws HomeWizardApiError on 4xx with parsed errorCode", async () => {
-            stub.queue.push({
-                statusCode: 401,
-                body: { error: { code: "user:unauthorized", description: "invalid token" } },
-            });
-            try {
-                await client.getDeviceInfo();
-                expect.fail("expected throw");
-            } catch (err) {
-                expect(err).to.be.instanceOf(HomeWizardApiError);
-                if (err instanceof HomeWizardApiError) {
-                    expect(err.statusCode).to.equal(401);
-                    expect(err.errorCode).to.equal("user:unauthorized");
-                    expect(err.message).to.contain("GET /api");
-                }
-            }
-        });
-
-        it("throws on invalid JSON body (non-API error)", async () => {
-            stub.queue.push({ statusCode: 200, bodyText: "<html>oops</html>" });
-            try {
-                await client.getDeviceInfo();
-                expect.fail("expected throw");
-            } catch (err) {
-                expect(err).to.be.instanceOf(Error);
-                expect((err as Error).message).to.contain("Invalid JSON");
-            }
-        });
+      const req = stub.requests[0];
+      expect(req.method).toBe("POST");
+      expect(req.path).toBe("/api/user");
+      expect(req.headers["authorization"]).toBeUndefined();
+      expect(req.headers["content-type"]).toBe("application/json");
+      expect(JSON.parse(req.body)).toEqual({ name: "local/iobroker" });
     });
 
-    describe("requestPairing (POST /api/user)", () => {
-        it("sends body with name, omits Bearer token when constructed without one", async () => {
-            const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
-            stub.queue.push({ statusCode: 200, body: { token: "newly-issued-token" } });
-            const result = await bareClient.requestPairing();
-            expect(result.token).to.equal("newly-issued-token");
-
-            const req = stub.requests[0];
-            expect(req.method).to.equal("POST");
-            expect(req.path).to.equal("/api/user");
-            expect(req.headers["authorization"]).to.be.undefined;
-            expect(req.headers["content-type"]).to.equal("application/json");
-            expect(JSON.parse(req.body)).to.deep.equal({ name: "local/iobroker" });
-        });
-
-        it("403 surfaces as HomeWizardApiError so caller can poll until button-press", async () => {
-            const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
-            stub.queue.push({
-                statusCode: 403,
-                body: { error: { code: "user:creation-not-enabled" } },
-            });
-            try {
-                await bareClient.requestPairing();
-                expect.fail("expected throw");
-            } catch (err) {
-                expect(err).to.be.instanceOf(HomeWizardApiError);
-                if (err instanceof HomeWizardApiError) {
-                    expect(err.statusCode).to.equal(403);
-                    expect(err.errorCode).to.equal("user:creation-not-enabled");
-                }
-            }
-        });
-
-        it("rejects 200 response without token (malformed device reply)", async () => {
-            const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
-            stub.queue.push({ statusCode: 200, body: {} });
-            try {
-                await bareClient.requestPairing();
-                expect.fail("expected throw");
-            } catch (err) {
-                expect(err).to.be.instanceOf(HomeWizardApiError);
-                if (err instanceof HomeWizardApiError) {
-                    expect(err.message).to.contain("no token");
-                }
-            }
-        });
-
-        it("rejects 200 response with non-string token", async () => {
-            const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
-            stub.queue.push({ statusCode: 200, body: { token: null } });
-            try {
-                await bareClient.requestPairing();
-                expect.fail("expected throw");
-            } catch (err) {
-                expect(err).to.be.instanceOf(HomeWizardApiError);
-            }
-        });
-
-        it("rejects 200 response with empty-string token", async () => {
-            const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
-            stub.queue.push({ statusCode: 200, body: { token: "" } });
-            try {
-                await bareClient.requestPairing();
-                expect.fail("expected throw");
-            } catch (err) {
-                expect(err).to.be.instanceOf(HomeWizardApiError);
-            }
-        });
+    it("403 surfaces as HomeWizardApiError so caller can poll until button-press", async () => {
+      const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
+      stub.queue.push({
+        statusCode: 403,
+        body: { error: { code: "user:creation-not-enabled" } },
+      });
+      try {
+        await bareClient.requestPairing();
+        throw new Error("expected throw");
+      } catch (err) {
+        expect(err).toBeInstanceOf(HomeWizardApiError);
+        if (err instanceof HomeWizardApiError) {
+          expect(err.statusCode).toBe(403);
+          expect(err.errorCode).toBe("user:creation-not-enabled");
+        }
+      }
     });
 
-    describe("getMeasurement (GET /api/measurement)", () => {
-        it("returns parsed payload", async () => {
-            stub.queue.push({
-                statusCode: 200,
-                body: { power_w: 1234, voltage_l1_v: 230.4 },
-            });
-            const m = await client.getMeasurement();
-            expect(m.power_w).to.equal(1234);
-            expect(m.voltage_l1_v).to.equal(230.4);
-        });
+    it("rejects 200 response without token (malformed device reply)", async () => {
+      const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
+      stub.queue.push({ statusCode: 200, body: {} });
+      try {
+        await bareClient.requestPairing();
+        throw new Error("expected throw");
+      } catch (err) {
+        expect(err).toBeInstanceOf(HomeWizardApiError);
+        if (err instanceof HomeWizardApiError) {
+          expect(err.message).toContain("no token");
+        }
+      }
     });
 
-    describe("getSystem / setSystem (GET / PUT /api/system)", () => {
-        it("getSystem returns full system info", async () => {
-            stub.queue.push({
-                statusCode: 200,
-                body: {
-                    wifi_ssid: "Net",
-                    wifi_rssi_db: -65,
-                    uptime_s: 3600,
-                    cloud_enabled: true,
-                    status_led_brightness_pct: 50,
-                },
-            });
-            const s = await client.getSystem();
-            expect(s.wifi_rssi_db).to.equal(-65);
-            expect(s.cloud_enabled).to.equal(true);
-        });
-
-        it("setSystem PUTs the partial body and returns the merged response", async () => {
-            stub.queue.push({
-                statusCode: 200,
-                body: {
-                    wifi_ssid: "Net",
-                    wifi_rssi_db: -65,
-                    uptime_s: 3600,
-                    cloud_enabled: false,
-                    status_led_brightness_pct: 50,
-                },
-            });
-            const result = await client.setSystem({ cloud_enabled: false });
-            expect(result.cloud_enabled).to.equal(false);
-
-            const req = stub.requests[0];
-            expect(req.method).to.equal("PUT");
-            expect(req.path).to.equal("/api/system");
-            expect(JSON.parse(req.body)).to.deep.equal({ cloud_enabled: false });
-        });
+    it("rejects 200 response with non-string token", async () => {
+      const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
+      stub.queue.push({ statusCode: 200, body: { token: null } });
+      try {
+        await bareClient.requestPairing();
+        throw new Error("expected throw");
+      } catch (err) {
+        expect(err).toBeInstanceOf(HomeWizardApiError);
+      }
     });
 
-    describe("reboot / identify (PUT /api/system/{reboot,identify})", () => {
-        it("reboot resolves with no body (204-style empty response)", async () => {
-            stub.queue.push({ statusCode: 204, bodyText: "" });
-            await client.reboot();
-            expect(stub.requests[0].method).to.equal("PUT");
-            expect(stub.requests[0].path).to.equal("/api/system/reboot");
-        });
+    it("rejects 200 response with empty-string token", async () => {
+      const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
+      stub.queue.push({ statusCode: 200, body: { token: "" } });
+      try {
+        await bareClient.requestPairing();
+        throw new Error("expected throw");
+      } catch (err) {
+        expect(err).toBeInstanceOf(HomeWizardApiError);
+      }
+    });
+  });
 
-        it("identify resolves with no body (204-style empty response)", async () => {
-            stub.queue.push({ statusCode: 204, bodyText: "" });
-            await client.identify();
-            expect(stub.requests[0].path).to.equal("/api/system/identify");
-        });
+  describe("getMeasurement (GET /api/measurement)", () => {
+    it("returns parsed payload", async () => {
+      stub.queue.push({
+        statusCode: 200,
+        body: { power_w: 1234, voltage_l1_v: 230.4 },
+      });
+      const m = await client.getMeasurement();
+      expect(m.power_w).toBe(1234);
+      expect(m.voltage_l1_v).toBe(230.4);
+    });
+  });
+
+  describe("getSystem / setSystem (GET / PUT /api/system)", () => {
+    it("getSystem returns full system info", async () => {
+      stub.queue.push({
+        statusCode: 200,
+        body: {
+          wifi_ssid: "Net",
+          wifi_rssi_db: -65,
+          uptime_s: 3600,
+          cloud_enabled: true,
+          status_led_brightness_pct: 50,
+        },
+      });
+      const s = await client.getSystem();
+      expect(s.wifi_rssi_db).toBe(-65);
+      expect(s.cloud_enabled).toBe(true);
     });
 
-    describe("getBatteries / setBatteries (GET / PUT /api/batteries)", () => {
-        it("getBatteries returns parsed control state", async () => {
-            stub.queue.push({
-                statusCode: 200,
-                body: {
-                    mode: "zero",
-                    permissions: ["charge_allowed", "discharge_allowed"],
-                    battery_count: 2,
-                    power_w: -500,
-                },
-            });
-            const b = await client.getBatteries();
-            expect(b.mode).to.equal("zero");
-            expect(b.permissions).to.deep.equal(["charge_allowed", "discharge_allowed"]);
-        });
+    it("setSystem PUTs the partial body and returns the merged response", async () => {
+      stub.queue.push({
+        statusCode: 200,
+        body: {
+          wifi_ssid: "Net",
+          wifi_rssi_db: -65,
+          uptime_s: 3600,
+          cloud_enabled: false,
+          status_led_brightness_pct: 50,
+        },
+      });
+      const result = await client.setSystem({ cloud_enabled: false });
+      expect(result.cloud_enabled).toBe(false);
 
-        it("setBatteries PUTs mode change and returns full state", async () => {
-            stub.queue.push({
-                statusCode: 200,
-                body: { mode: "to_full", battery_count: 1 },
-            });
-            const r = await client.setBatteries({ mode: "to_full" });
-            expect(r.mode).to.equal("to_full");
+      const req = stub.requests[0];
+      expect(req.method).toBe("PUT");
+      expect(req.path).toBe("/api/system");
+      expect(JSON.parse(req.body)).toEqual({ cloud_enabled: false });
+    });
+  });
 
-            const req = stub.requests[0];
-            expect(req.method).to.equal("PUT");
-            expect(JSON.parse(req.body)).to.deep.equal({ mode: "to_full" });
-        });
+  describe("reboot / identify (PUT /api/system/{reboot,identify})", () => {
+    it("reboot resolves with no body (204-style empty response)", async () => {
+      stub.queue.push({ statusCode: 204, bodyText: "" });
+      await client.reboot();
+      expect(stub.requests[0].method).toBe("PUT");
+      expect(stub.requests[0].path).toBe("/api/system/reboot");
     });
 
-    describe("error paths shared across all methods", () => {
-        it("500 with non-JSON body produces HomeWizardApiError with raw description", async () => {
-            stub.queue.push({ statusCode: 500, bodyText: "Internal Server Error" });
-            try {
-                await client.getMeasurement();
-                expect.fail("expected throw");
-            } catch (err) {
-                expect(err).to.be.instanceOf(HomeWizardApiError);
-                if (err instanceof HomeWizardApiError) {
-                    expect(err.statusCode).to.equal(500);
-                    expect(err.message).to.contain("Internal Server Error");
-                }
-            }
-        });
-
-        it("connection refused (no server listening) rejects with errno-bearing Error", async () => {
-            const port = stub.port;
-            await stub.stop();
-            const dead = new HomeWizardClient("127.0.0.1", "test-token", { agent: TEST_AGENT, port });
-            try {
-                await dead.getDeviceInfo();
-                expect.fail("expected throw");
-            } catch (err) {
-                const e = err as NodeJS.ErrnoException;
-                expect(e.code).to.match(/^E(CONNREFUSED|CONNRESET)$/);
-            }
-            // Replace the closed server so afterEach() can stop a live one.
-            stub = await startStubServer();
-        });
+    it("identify resolves with no body (204-style empty response)", async () => {
+      stub.queue.push({ statusCode: 204, bodyText: "" });
+      await client.identify();
+      expect(stub.requests[0].path).toBe("/api/system/identify");
     });
+  });
+
+  describe("getBatteries / setBatteries (GET / PUT /api/batteries)", () => {
+    it("getBatteries returns parsed control state", async () => {
+      stub.queue.push({
+        statusCode: 200,
+        body: {
+          mode: "zero",
+          permissions: ["charge_allowed", "discharge_allowed"],
+          battery_count: 2,
+          power_w: -500,
+        },
+      });
+      const b = await client.getBatteries();
+      expect(b.mode).toBe("zero");
+      expect(b.permissions).toEqual(["charge_allowed", "discharge_allowed"]);
+    });
+
+    it("setBatteries PUTs mode change and returns full state", async () => {
+      stub.queue.push({
+        statusCode: 200,
+        body: { mode: "to_full", battery_count: 1 },
+      });
+      const r = await client.setBatteries({ mode: "to_full" });
+      expect(r.mode).toBe("to_full");
+
+      const req = stub.requests[0];
+      expect(req.method).toBe("PUT");
+      expect(JSON.parse(req.body)).toEqual({ mode: "to_full" });
+    });
+  });
+
+  describe("error paths shared across all methods", () => {
+    it("500 with non-JSON body produces HomeWizardApiError with raw description", async () => {
+      stub.queue.push({ statusCode: 500, bodyText: "Internal Server Error" });
+      try {
+        await client.getMeasurement();
+        throw new Error("expected throw");
+      } catch (err) {
+        expect(err).toBeInstanceOf(HomeWizardApiError);
+        if (err instanceof HomeWizardApiError) {
+          expect(err.statusCode).toBe(500);
+          expect(err.message).toContain("Internal Server Error");
+        }
+      }
+    });
+
+    it("connection refused (no server listening) rejects with errno-bearing Error", async () => {
+      const port = stub.port;
+      await stub.stop();
+      const dead = new HomeWizardClient("127.0.0.1", "test-token", { agent: TEST_AGENT, port });
+      try {
+        await dead.getDeviceInfo();
+        throw new Error("expected throw");
+      } catch (err) {
+        const e = err as NodeJS.ErrnoException;
+        expect(e.code).toMatch(/^E(CONNREFUSED|CONNRESET)$/);
+      }
+      // Replace the closed server so afterEach() can stop a live one.
+      stub = await startStubServer();
+    });
+  });
 });
 
 describe("HomeWizardApiError", () => {
-    describe("JSON error body", () => {
-        it("should parse error code from nested error object", () => {
-            const body = JSON.stringify({
-                error: { code: "user:unauthorized", description: "Token invalid" },
-            });
-            const err = new HomeWizardApiError(401, body, "GET /api");
-            expect(err.statusCode).to.equal(401);
-            expect(err.errorCode).to.equal("user:unauthorized");
-            expect(err.message).to.include("Token invalid");
-            expect(err.message).to.include("401");
-            expect(err.name).to.equal("HomeWizardApiError");
-        });
-
-        it("should parse error code from flat error string", () => {
-            const body = JSON.stringify({ error: "user:creation-not-enabled" });
-            const err = new HomeWizardApiError(403, body, "POST /api/user");
-            expect(err.errorCode).to.equal("user:creation-not-enabled");
-            expect(err.message).to.include("403");
-        });
-
-        it("should use code as description when no description field", () => {
-            const body = JSON.stringify({
-                error: { code: "request:too-large" },
-            });
-            const err = new HomeWizardApiError(413, body, "PUT /api/system");
-            expect(err.errorCode).to.equal("request:too-large");
-            expect(err.message).to.include("request:too-large");
-        });
-
-        it("should handle empty error object", () => {
-            const body = JSON.stringify({ error: {} });
-            const err = new HomeWizardApiError(500, body, "GET /api");
-            // {} has no code property → falls through to parsed.error itself
-            expect(err.statusCode).to.equal(500);
-        });
+  describe("JSON error body", () => {
+    it("should parse error code from nested error object", () => {
+      const body = JSON.stringify({
+        error: { code: "user:unauthorized", description: "Token invalid" },
+      });
+      const err = new HomeWizardApiError(401, body, "GET /api");
+      expect(err.statusCode).toBe(401);
+      expect(err.errorCode).toBe("user:unauthorized");
+      expect(err.message).toContain("Token invalid");
+      expect(err.message).toContain("401");
+      expect(err.name).toBe("HomeWizardApiError");
     });
 
-    describe("non-JSON error body", () => {
-        it("should use raw body as description", () => {
-            const err = new HomeWizardApiError(500, "Internal Server Error", "GET /api");
-            expect(err.errorCode).to.equal("unknown");
-            expect(err.message).to.include("Internal Server Error");
-            expect(err.message).to.include("500");
-        });
-
-        it("should handle empty body", () => {
-            const err = new HomeWizardApiError(404, "", "GET /api/missing");
-            expect(err.errorCode).to.equal("unknown");
-            expect(err.message).to.include("404");
-        });
+    it("should parse error code from flat error string", () => {
+      const body = JSON.stringify({ error: "user:creation-not-enabled" });
+      const err = new HomeWizardApiError(403, body, "POST /api/user");
+      expect(err.errorCode).toBe("user:creation-not-enabled");
+      expect(err.message).toContain("403");
     });
 
-    describe("context in message", () => {
-        it("should include method and path", () => {
-            const err = new HomeWizardApiError(401, "{}", "GET /api/measurement");
-            expect(err.message).to.include("GET /api/measurement");
-        });
+    it("should use code as description when no description field", () => {
+      const body = JSON.stringify({
+        error: { code: "request:too-large" },
+      });
+      const err = new HomeWizardApiError(413, body, "PUT /api/system");
+      expect(err.errorCode).toBe("request:too-large");
+      expect(err.message).toContain("request:too-large");
     });
 
-    describe("instanceof", () => {
-        it("should be an instance of Error", () => {
-            const err = new HomeWizardApiError(500, "{}", "GET /api");
-            expect(err).to.be.instanceOf(Error);
-        });
-
-        it("should be an instance of HomeWizardApiError", () => {
-            const err = new HomeWizardApiError(500, "{}", "GET /api");
-            expect(err).to.be.instanceOf(HomeWizardApiError);
-        });
+    it("should handle empty error object", () => {
+      const body = JSON.stringify({ error: {} });
+      const err = new HomeWizardApiError(500, body, "GET /api");
+      // {} has no code property → falls through to parsed.error itself
+      expect(err.statusCode).toBe(500);
     });
+  });
+
+  describe("non-JSON error body", () => {
+    it("should use raw body as description", () => {
+      const err = new HomeWizardApiError(500, "Internal Server Error", "GET /api");
+      expect(err.errorCode).toBe("unknown");
+      expect(err.message).toContain("Internal Server Error");
+      expect(err.message).toContain("500");
+    });
+
+    it("should handle empty body", () => {
+      const err = new HomeWizardApiError(404, "", "GET /api/missing");
+      expect(err.errorCode).toBe("unknown");
+      expect(err.message).toContain("404");
+    });
+  });
+
+  describe("context in message", () => {
+    it("should include method and path", () => {
+      const err = new HomeWizardApiError(401, "{}", "GET /api/measurement");
+      expect(err.message).toContain("GET /api/measurement");
+    });
+  });
+
+  describe("instanceof", () => {
+    it("should be an instance of Error", () => {
+      const err = new HomeWizardApiError(500, "{}", "GET /api");
+      expect(err).toBeInstanceOf(Error);
+    });
+
+    it("should be an instance of HomeWizardApiError", () => {
+      const err = new HomeWizardApiError(500, "{}", "GET /api");
+      expect(err).toBeInstanceOf(HomeWizardApiError);
+    });
+  });
 });

@@ -402,15 +402,6 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
 ];
 
 /**
- * Translation-object cast helper — ioBroker's `common.name`/`desc` accept `StringOrTranslated`.
- *
- * @param name Translation object from {@link STATE_NAMES} or {@link STATE_DESCS}.
- */
-function asName(name: StateName): ioBroker.StringOrTranslated {
-  return name;
-}
-
-/**
  * Build a `common.states` map for tariff (T1-T4) with plain-string labels.
  *
  * **VALUES MUST be plain-string** — Admin renders states-values as React
@@ -478,13 +469,13 @@ export class StateManager {
         statusStates: {
           onlineId: `${this.adapter.namespace}.${prefix}.info.connected`,
         },
-      } as ioBroker.DeviceCommon,
+      },
       native: {},
     });
 
     await this.adapter.extendObjectAsync(`${prefix}.info`, {
       type: "channel",
-      common: { name: asName(tName("deviceInformation")) },
+      common: { name: tName("deviceInformation") },
       native: {},
     });
 
@@ -523,7 +514,7 @@ export class StateManager {
     const mPrefix = `${prefix}.measurement`;
 
     // Ensure measurement channel exists (cached after first call per device)
-    await this.ensureChannel(mPrefix, asName(tName("measurement")));
+    await this.ensureChannel(mPrefix, tName("measurement"));
 
     // Main measurement values — coerce per declared type. Once a state's object
     // is in the cache, ensureAndSet only does one setStateAsync per field — those
@@ -576,7 +567,7 @@ export class StateManager {
         const unit = coerceString(rawExt.unit);
         const timestamp = coerceString(rawExt.timestamp);
 
-        await this.ensureChannel(`${mPrefix}.external`, asName(tName("externalMeters")));
+        await this.ensureChannel(`${mPrefix}.external`, tName("externalMeters"));
 
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
         // External meter channel keeps the device-supplied type (e.g. "gas_meter")
@@ -626,7 +617,7 @@ export class StateManager {
     }
 
     // System control channel (cached after first call per device)
-    await this.ensureChannel(`${prefix}.system`, asName(tName("systemSettings")));
+    await this.ensureChannel(`${prefix}.system`, tName("systemSettings"));
 
     const cloudEnabled = coerceBoolean(record.cloud_enabled);
     if (cloudEnabled !== null) {
@@ -684,7 +675,7 @@ export class StateManager {
     const prefix = this.devicePrefix(config);
     const record = battery as Record<string, unknown>;
 
-    await this.ensureChannel(`${prefix}.battery`, asName(tName("batteryControl")));
+    await this.ensureChannel(`${prefix}.battery`, tName("batteryControl"));
 
     const mode = coerceString(record.mode);
     if (mode) {
@@ -871,7 +862,7 @@ export class StateManager {
       return;
     }
     const common: Partial<ioBroker.StateCommon> = {
-      name: typeof name === "string" ? name : asName(name),
+      name: typeof name === "string" ? name : name,
       type,
       role,
       read: true,
@@ -881,7 +872,7 @@ export class StateManager {
       common.unit = unit;
     }
     if (desc) {
-      common.desc = asName(desc);
+      common.desc = desc;
     }
     if (states) {
       common.states = states;
@@ -943,14 +934,14 @@ export class StateManager {
       return;
     }
     const common: Partial<ioBroker.StateCommon> = {
-      name: asName(name),
+      name: name,
       type: "boolean",
       role: "button",
       read: false,
       write: true,
     };
     if (desc) {
-      common.desc = asName(desc);
+      common.desc = desc;
     }
     await this.adapter.setObjectNotExistsAsync(id, {
       type: "state",
