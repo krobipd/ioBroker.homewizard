@@ -170,7 +170,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.8.0 (2026-05-17)
 
 - Internal modernization. No user-facing changes. Requires Node.js 22+.
 
@@ -196,9 +196,6 @@ homewizard.0.
 - A single corrupted device token can no longer take down the whole adapter — affected device is skipped with a re-pair hint, the others come up normally.
 - Pairing supports multiple devices in one 60-second window: button-press additional devices and they are added one after the other instead of the session ending after the first.
 - Various behind-the-scenes hardening — invisible if everything was already running fine, robustness if something is unstable.
-
-### 0.7.4 (2026-05-09)
-- Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) are unchanged.
 
 ### Support Development
 

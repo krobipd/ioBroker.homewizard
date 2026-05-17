@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.7.8",
+    "version": "0.8.0",
     "news": {
-      "NEXT": {
+      "0.8.0": {
         "en": "Internal modernization. No user-facing changes.",
         "de": "Interne Modernisierung. Keine nutzersichtbaren Änderungen.",
         "ru": "Внутренняя модернизация. Нет изменений для пользователя.",
