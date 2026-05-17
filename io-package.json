@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.8.0",
     "news": {
+      "NEXT": {
+        "en": "Internal cleanup. No user-facing changes.",
+        "de": "Interne Bereinigung. Keine sichtbaren Änderungen.",
+        "ru": "Внутренняя очистка. Нет видимых изменений для пользователей.",
+        "pt": "Limpeza interna. Sem alterações visíveis para o utilizador.",
+        "nl": "Interne opruiming. Geen zichtbare wijzigingen voor gebruikers.",
+        "fr": "Nettoyage interne. Aucun changement visible pour l'utilisateur.",
+        "it": "Pulizia interna. Nessuna modifica visibile per l'utente.",
+        "es": "Limpieza interna. Sin cambios visibles para el usuario.",
+        "pl": "Wewnętrzne porządki. Brak widocznych zmian dla użytkownika.",
+        "uk": "Внутрішнє прибирання. Без видимих змін для користувача.",
+        "zh-cn": "内部清理。无用户可见的更改。"
+      },
       "0.8.0": {
         "en": "Internal modernization. No user-facing changes.",
         "de": "Interne Modernisierung. Keine nutzersichtbaren Änderungen.",
@@ -80,19 +93,6 @@
         "pl": "Komunikaty dziennika adaptera są teraz wyłącznie po angielsku, zgodnie ze standardem społeczności ioBroker. Zlokalizowane nazwy stanów, opisy i etykiety (11 języków) pozostają bez zmian.",
         "uk": "Повідомлення журналу адаптера тепер лише англійською, відповідно до стандарту спільноти ioBroker. Локалізовані назви станів, описи та мітки (11 мов) залишаються без змін.",
         "zh-cn": "适配器日志消息现在仅为英文，符合 ioBroker 社区标准。本地化的数据点名称、描述和下拉标签（11 种语言）保持不变。"
-      },
-      "0.7.3": {
-        "en": "Less log spam for devices that stay offline for longer periods. The initial unreachable warning is enough; hourly mDNS recovery attempts and offline-retry status now log at debug level only.",
-        "de": "Weniger Log-Spam für Geräte mit längerem Ausfall. Der erste Unerreichbarkeits-Warnhinweis reicht; stündliche mDNS-Recovery-Versuche und Offline-Retry-Status erscheinen jetzt nur noch im Debug-Log.",
-        "ru": "Меньше спама в логе при длительном отсутствии устройства. Первого предупреждения о недоступности достаточно; ежечасные попытки mDNS-восстановления и статусы повторных попыток теперь только в debug.",
-        "pt": "Menos spam no log quando um dispositivo permanece offline. O aviso inicial de inacessibilidade é suficiente; tentativas horárias de recuperação por mDNS e status de retry passam agora a debug.",
-        "nl": "Minder log-spam voor apparaten die langer offline blijven. De eerste onbereikbaarheidswaarschuwing volstaat; uurlijkse mDNS-recovery-pogingen en offline-retry-status nu alleen op debug.",
-        "fr": "Moins de spam dans les logs pour les appareils restant hors-ligne. Le premier avertissement suffit ; les tentatives mDNS horaires et le statut de réessai passent en debug.",
-        "it": "Meno spam nel log per dispositivi a lungo offline. Il primo avviso di non raggiungibilità è sufficiente; i tentativi orari di recovery mDNS e lo stato di retry passano a debug.",
-        "es": "Menos spam en el log para dispositivos que permanecen offline mucho tiempo. La advertencia inicial de inalcanzable es suficiente; los intentos horarios de mDNS y el estado de reintentos pasan a debug.",
-        "pl": "Mniej spamu w logu dla urządzeń długo offline. Pierwsze ostrzeżenie o niedostępności wystarczy; cogodzinne próby odzyskiwania mDNS i status ponawiania trafiają teraz do debug.",
-        "uk": "Менше спаму в журналі для пристроїв, що тривалий час офлайн. Першого попередження про недоступність достатньо; погодинні спроби mDNS-відновлення та статус повторних спроб тепер у debug.",
-        "zh-cn": "对长时间离线的设备减少日志噪音。首次「不可达」告警已足够；每小时的 mDNS 恢复尝试与离线重试状态现仅记录在 debug 级别。"
       }
     },
     "titleLang": {

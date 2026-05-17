@@ -170,6 +170,9 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+* Internal cleanup. No user-facing changes.
+
 ### 0.8.0 (2026-05-17)
 
 - Internal modernization. No user-facing changes. Requires Node.js 22+.
