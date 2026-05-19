@@ -3,6 +3,7 @@
 
 # Node.js
 node_modules/
+node_modules_trash/
 npm-debug.log*
 
 # IDE

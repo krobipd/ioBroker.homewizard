@@ -10,7 +10,11 @@
     "_prerequisitesInfo": {
       "type": "staticText",
       "text": "prerequisitesInfo",
-      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12,
       "style": { "fontSize": 14, "marginBottom": 16 }
     },
     "_headerPairing": {
@@ -26,7 +30,11 @@
     "_pairingAutoInfo": {
       "type": "staticText",
       "text": "pairingAutoInfo",
-      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12,
       "style": { "fontSize": 14, "marginBottom": 16, "whiteSpace": "pre-line" }
     },
     "_pairingManualHeader": {
@@ -37,7 +45,11 @@
     "_pairingManualInfo": {
       "type": "staticText",
       "text": "pairingManualInfo",
-      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12,
       "style": { "fontSize": 14, "marginBottom": 16, "whiteSpace": "pre-line" }
     },
     "_headerDevices": {
@@ -48,7 +60,11 @@
     "_devicesInfo": {
       "type": "staticText",
       "text": "devicesInfo",
-      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12,
       "style": { "fontSize": 14, "marginBottom": 16, "whiteSpace": "pre-line" }
     },
     "_supportHeader": {
@@ -60,7 +76,11 @@
     "_aboutInfo": {
       "type": "staticText",
       "text": "aboutInfo",
-      "xs": 12, "sm": 12, "md": 12, "lg": 12, "xl": 12,
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12,
       "style": { "fontSize": 14, "marginBottom": 16 }
     },
     "_kofiLink": {
@@ -70,7 +90,11 @@
       "button": true,
       "variant": "outlined",
       "color": "primary",
-      "xs": 12, "sm": 6, "md": 4, "lg": 4, "xl": 4
+      "xs": 12,
+      "sm": 6,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     },
     "_paypalLink": {
       "type": "staticLink",
@@ -79,7 +103,11 @@
       "button": true,
       "variant": "outlined",
       "color": "primary",
-      "xs": 12, "sm": 6, "md": 4, "lg": 4, "xl": 4
+      "xs": 12,
+      "sm": 6,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     }
   }
 }

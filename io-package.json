@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.8.1",
+    "version": "0.8.2",
     "news": {
+      "0.8.2": {
+        "en": "Code quality enforced with standard formatting.",
+        "de": "Codequalität durch einheitliche Formatierung sichergestellt.",
+        "ru": "Качество кода обеспечено стандартным форматированием.",
+        "pt": "Qualidade do código garantida com formatação padrão.",
+        "nl": "Codekwaliteit afgedwongen met standaardopmaak.",
+        "fr": "Qualité du code assurée avec un formatage standard.",
+        "it": "Qualità del codice garantita con formattazione standard.",
+        "es": "Calidad del código garantizada con formato estándar.",
+        "pl": "Jakość kodu zapewniona przez standardowe formatowanie.",
+        "uk": "Якість коду забезпечена стандартним форматуванням.",
+        "zh-cn": "通过标准格式化确保代码质量。"
+      },
       "0.8.1": {
         "en": "Internal cleanup. No user-facing changes.",
         "de": "Interne Bereinigung. Keine sichtbaren Änderungen.",
@@ -80,19 +93,6 @@
         "pl": "Stabilność: heartbeat WebSocket wykrywa półmartwe połączenia, limit auth 45 s, odzyskiwanie IP i ponowne parowanie bez wycieków, uszkodzony token nie blokuje już adaptera.",
         "uk": "Надійність: heartbeat WebSocket бачить напівмертві з'єднання, тайм-аут авторизації 45 с, відновлення IP та повторне сполучення без витоків, поганий токен не блокує адаптер.",
         "zh-cn": "稳健性：WebSocket 心跳识别半死链接，认证握手 45 秒超时，IP 恢复与重新配对不再泄漏 socket，单个损坏令牌不再阻塞整个适配器。"
-      },
-      "0.7.4": {
-        "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) remain unchanged.",
-        "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen, Beschreibungen und Dropdown-Labels (11 Sprachen) bleiben erhalten.",
-        "ru": "Сообщения журнала теперь только на английском, согласно стандарту сообщества ioBroker. Локализованные имена состояний, описания и подписи (11 языков) сохраняются.",
-        "pt": "As mensagens de log do adaptador agora são apenas em inglês, conforme o padrão da comunidade ioBroker. Nomes de estados, descrições e rótulos localizados (11 idiomas) permanecem inalterados.",
-        "nl": "Adapter-logberichten zijn nu alleen Engels, conform de ioBroker-communitystandaard. Gelokaliseerde statusnamen, beschrijvingen en dropdown-labels (11 talen) blijven ongewijzigd.",
-        "fr": "Les messages de log de l'adaptateur sont désormais uniquement en anglais, conformément au standard de la communauté ioBroker. Les noms d'états, descriptions et libellés localisés (11 langues) restent inchangés.",
-        "it": "I messaggi di log dell'adattatore sono ora solo in inglese, secondo lo standard della community ioBroker. I nomi degli stati, descrizioni ed etichette localizzati (11 lingue) rimangono invariati.",
-        "es": "Los mensajes de registro del adaptador ahora son solo en inglés, conforme al estándar de la comunidad ioBroker. Los nombres de estados, descripciones y etiquetas localizados (11 idiomas) permanecen sin cambios.",
-        "pl": "Komunikaty dziennika adaptera są teraz wyłącznie po angielsku, zgodnie ze standardem społeczności ioBroker. Zlokalizowane nazwy stanów, opisy i etykiety (11 języków) pozostają bez zmian.",
-        "uk": "Повідомлення журналу адаптера тепер лише англійською, відповідно до стандарту спільноти ioBroker. Локалізовані назви станів, описи та мітки (11 мов) залишаються без змін.",
-        "zh-cn": "适配器日志消息现在仅为英文，符合 ioBroker 社区标准。本地化的数据点名称、描述和下拉标签（11 种语言）保持不变。"
       }
     },
     "titleLang": {

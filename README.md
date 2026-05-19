@@ -37,12 +37,12 @@ Real-time energy monitoring for [HomeWizard](https://www.homewizard.com) Energy 
 
 ## Supported Devices
 
-| Device | Product Type |
-|--------|--------------|
-| P1 Meter | HWE-P1 |
+| Device            | Product Type                   |
+| ----------------- | ------------------------------ |
+| P1 Meter          | HWE-P1                         |
 | kWh Meter 1-Phase | HWE-KWH1 (also sold as SDM230) |
 | kWh Meter 3-Phase | HWE-KWH3 (also sold as SDM630) |
-| Plug-In Battery | HWE-BAT |
+| Plug-In Battery   | HWE-BAT                        |
 
 The Plug-In Battery is paired separately and shows up as its own device. To control charge/discharge mode and grid-feed permissions, you write to the `battery.*` data points of the P1 or kWh meter — that's where HomeWizard exposes the battery commands.
 
@@ -150,28 +150,37 @@ homewizard.0.
 ## Troubleshooting
 
 ### Device not found during pairing
+
 - Make sure the device is on the same network/VLAN as the ioBroker server
 - Verify that **local API** is enabled in the HomeWizard app (Settings > Meters > your device > Local API)
 - Check that multicast/mDNS traffic is not blocked by your router/firewall
 
 ### WebSocket keeps disconnecting
+
 - Check `info.wifi_rssi_db` — above -75 dBm is comfortable, weaker than -85 dBm explains frequent drops
 - For devices with weak WiFi the adapter switches to a faster reconnect interval (60 s instead of 5 min) and keeps REST polling in the background so you don't lose data
 - A WebSocket-layer ping/pong heartbeat (~30 s ping, 10 s pong window) catches half-dead links where the TCP stream is buffered but the device has stopped responding. Such links are torn down and reconnected automatically — you no longer end up with a stale "connected" status while measurement values stop updating.
 - IP changes are picked up via mDNS — no manual reconfiguration needed
 
 ### Token invalid after factory reset
+
 - Set the device's `remove` data point to `true`, then pair again
 
 ---
 
 ## Changelog
+
 <!--
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 0.8.2 (2026-05-19)
+
+- Code quality enforced with standard formatting.
+
 ### 0.8.1 (2026-05-17)
-* Internal cleanup. No user-facing changes.
+
+- Internal cleanup. No user-facing changes.
 
 ### 0.8.0 (2026-05-17)
 
@@ -185,10 +194,6 @@ homewizard.0.
 
 - Devices with chronically bad WiFi no longer flood the log: max one warn per hour when the device drops out, one info when it comes back. Full timeline stays at debug level.
 - Internal reconnect-strategy adjustments (unstable / normal mode switches) moved from info to debug — not user-actionable.
-
-### 0.7.6 (2026-05-12)
-
-- The battery mode dropdown and the tariff state no longer crash the admin with "Error in GUI" when opened.
 
 ### Support Development
 
