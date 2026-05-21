@@ -174,6 +174,10 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 0.8.3 (2026-05-21)
+
+- Use community-standard event handler pattern
+
 ### 0.8.2 (2026-05-19)
 
 - Code quality enforced with standard formatting.
@@ -189,11 +193,6 @@ homewizard.0.
 ### 0.7.8 (2026-05-13)
 
 - Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.
-
-### 0.7.7 (2026-05-13)
-
-- Devices with chronically bad WiFi no longer flood the log: max one warn per hour when the device drops out, one info when it comes back. Full timeline stays at debug level.
-- Internal reconnect-strategy adjustments (unstable / normal mode switches) moved from info to debug — not user-actionable.
 
 ### Support Development
 

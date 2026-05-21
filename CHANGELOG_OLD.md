@@ -1,4 +1,9 @@
 # Older Changes
+## 0.7.7 (2026-05-13)
+
+- Devices with chronically bad WiFi no longer flood the log: max one warn per hour when the device drops out, one info when it comes back. Full timeline stays at debug level.
+- Internal reconnect-strategy adjustments (unstable / normal mode switches) moved from info to debug — not user-actionable.
+
 ## 0.7.6 (2026-05-12)
 
 - The battery mode dropdown and the tariff state no longer crash the admin with "Error in GUI" when opened.
