@@ -82,19 +82,10 @@ class HomeWizard extends utils.Adapter {
   /** @param options Adapter options */
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
     super({ ...options, name: "homewizard" });
-    // Wrap async handlers with .catch() so a rejection can never become an
-    // unhandled promise rejection (→ SIGKILL → js-controller restart loop).
-    this.on("ready", () => {
-      this.onReady().catch((err: unknown) => this.log.error(`onReady failed: ${errText(err)}`));
-    });
-    this.on("stateChange", (id, state) => {
-      this.onStateChange(id, state).catch((err: unknown) => this.log.error(`stateChange failed: ${errText(err)}`));
-    });
-    this.on("unload", callback => this.onUnload(callback));
-
-    // Last-line-of-defence against unhandled rejections / sync throws from
-    // fire-and-forget paths. The per-handler wrappers cover documented async
-    // paths; this catches anything that slips past during refactors.
+    this.on("ready", this.onReady.bind(this));
+    this.on("stateChange", this.onStateChange.bind(this));
+    this.on("unload", this.onUnload.bind(this));
+    // Safety net for fire-and-forget paths (e.g. `void this.initDevice()`).
     this.unhandledRejectionHandler = (reason: unknown) => {
       this.log.error(`Unhandled rejection: ${errText(reason)}`);
     };
@@ -105,54 +96,50 @@ class HomeWizard extends utils.Adapter {
     process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
 
-  /** Adapter started */
   private async onReady(): Promise<void> {
-    this.stateManager = new StateManager(this);
+    try {
+      this.stateManager = new StateManager(this);
 
-    // `pairingIp` is declared in io-package.json instanceObjects — just reset state.
-    // Reset pairing states on start (in case previous run was killed mid-pairing)
-    await this.setStateAsync("startPairing", { val: false, ack: true });
-    await this.setStateAsync("pairingIp", { val: "", ack: true });
+      await this.setStateAsync("startPairing", { val: false, ack: true });
+      await this.setStateAsync("pairingIp", { val: "", ack: true });
 
-    // Subscribe to pairing button and writable device states
-    await this.subscribeStatesAsync("startPairing");
-    await this.subscribeStatesAsync("*.system.reboot");
-    await this.subscribeStatesAsync("*.system.identify");
-    await this.subscribeStatesAsync("*.system.cloud_enabled");
-    await this.subscribeStatesAsync("*.system.status_led_brightness_pct");
-    await this.subscribeStatesAsync("*.system.api_v1_enabled");
-    await this.subscribeStatesAsync("*.battery.mode");
-    await this.subscribeStatesAsync("*.battery.permissions");
-    await this.subscribeStatesAsync("*.remove");
+      await this.subscribeStatesAsync("startPairing");
+      await this.subscribeStatesAsync("*.system.reboot");
+      await this.subscribeStatesAsync("*.system.identify");
+      await this.subscribeStatesAsync("*.system.cloud_enabled");
+      await this.subscribeStatesAsync("*.system.status_led_brightness_pct");
+      await this.subscribeStatesAsync("*.system.api_v1_enabled");
+      await this.subscribeStatesAsync("*.battery.mode");
+      await this.subscribeStatesAsync("*.battery.permissions");
+      await this.subscribeStatesAsync("*.remove");
 
-    // Load devices from device objects (not from adapter config)
-    const devices = await this.loadDevicesFromObjects();
-    if (devices.length === 0) {
-      this.log.info(`No devices configured — set 'startPairing' to true to add a device`);
-      await this.setStateAsync("info.connection", { val: false, ack: true });
-    }
-
-    // Create connection entries for all configured devices
-    for (const device of devices) {
-      const key = this.stateManager.devicePrefix(device);
-      await this.stateManager.cleanupMovedStates(device);
-      await this.stateManager.createDeviceStates(device);
-      const conn = createDeviceConnection(device, device.ip || "");
-      this.connections.set(key, conn);
-
-      // If we have a stored IP, connect immediately
-      if (conn.ip) {
-        this.log.debug(`Using stored IP ${conn.ip} for ${device.productName}`);
-        void this.initDevice(conn);
+      const devices = await this.loadDevicesFromObjects();
+      if (devices.length === 0) {
+        this.log.info(`No devices configured — set 'startPairing' to true to add a device`);
+        await this.setStateAsync("info.connection", { val: false, ack: true });
       }
+
+      for (const device of devices) {
+        const key = this.stateManager.devicePrefix(device);
+        await this.stateManager.cleanupMovedStates(device);
+        await this.stateManager.createDeviceStates(device);
+        const conn = createDeviceConnection(device, device.ip || "");
+        this.connections.set(key, conn);
+
+        if (conn.ip) {
+          this.log.debug(`Using stored IP ${conn.ip} for ${device.productName}`);
+          void this.initDevice(conn);
+        }
+      }
+
+      this.systemPollTimer = this.setInterval(() => {
+        void this.pollAllSystemInfo();
+      }, SYSTEM_POLL_MS);
+
+      this.updateGlobalConnection();
+    } catch (err: unknown) {
+      this.log.error(`onReady failed: ${errText(err)}`);
     }
-
-    // Periodic system info poll
-    this.systemPollTimer = this.setInterval(() => {
-      void this.pollAllSystemInfo();
-    }, SYSTEM_POLL_MS);
-
-    this.updateGlobalConnection();
   }
 
   /**
@@ -312,79 +299,76 @@ class HomeWizard extends utils.Adapter {
     }
   }
 
-  /**
-   * Handle state changes
-   *
-   * @param id State ID
-   * @param state State value
-   */
   private async onStateChange(id: string, state: ioBroker.State | null | undefined): Promise<void> {
-    if (!state || state.ack || this.unloading) {
-      return;
-    }
-
-    // Pairing button
-    if (id.endsWith(".startPairing")) {
-      if (state.val) {
-        await this.startPairing();
-      }
-      return;
-    }
-
-    // Remove device button
-    if (id.endsWith(".remove")) {
-      if (state.val) {
-        await this.removeDevice(id);
-      }
-      return;
-    }
-
-    // Find which device this state belongs to
-    const conn = this.findConnectionForState(id);
-    if (!conn || !conn.ip) {
-      return;
-    }
-
-    const client = new HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
-
     try {
-      if (id.endsWith(".system.reboot")) {
-        this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
-        await client.reboot();
-      } else if (id.endsWith(".system.identify")) {
-        await client.identify();
-      } else if (id.endsWith(".system.cloud_enabled")) {
-        await client.setSystem({ cloud_enabled: !!state.val });
-        await this.setStateAsync(id, { val: state.val, ack: true });
-      } else if (id.endsWith(".system.status_led_brightness_pct")) {
-        await client.setSystem({
-          status_led_brightness_pct: Number(state.val),
-        });
-        await this.setStateAsync(id, { val: state.val, ack: true });
-      } else if (id.endsWith(".system.api_v1_enabled")) {
-        await client.setSystem({ api_v1_enabled: !!state.val });
-        await this.setStateAsync(id, { val: state.val, ack: true });
-      } else if (id.endsWith(".battery.mode")) {
-        const mode = validateBatteryMode(String(state.val));
-        if (!mode) {
-          this.log.warn(`Invalid battery.mode value: '${String(state.val)}' — expected one of: zero, to_full, standby`);
-          return;
-        }
-        await client.setBatteries({ mode });
-        await this.setStateAsync(id, { val: state.val, ack: true });
-      } else if (id.endsWith(".battery.permissions")) {
-        const result = parseBatteryPermissions(String(state.val));
-        if (!result.ok) {
-          this.log.warn(
-            `Invalid JSON for battery.permissions: ${result.reason} — expected array, got: ${result.sample}`,
-          );
-          return;
-        }
-        await client.setBatteries({ permissions: result.perms });
-        await this.setStateAsync(id, { val: state.val, ack: true });
+      if (!state || state.ack || this.unloading) {
+        return;
       }
-    } catch (err) {
-      this.log.warn(`Failed to set ${id}: ${errText(err)}`);
+
+      if (id.endsWith(".startPairing")) {
+        if (state.val) {
+          await this.startPairing();
+        }
+        return;
+      }
+
+      if (id.endsWith(".remove")) {
+        if (state.val) {
+          await this.removeDevice(id);
+        }
+        return;
+      }
+
+      const conn = this.findConnectionForState(id);
+      if (!conn || !conn.ip) {
+        return;
+      }
+
+      const client = new HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
+
+      try {
+        if (id.endsWith(".system.reboot")) {
+          this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
+          await client.reboot();
+        } else if (id.endsWith(".system.identify")) {
+          await client.identify();
+        } else if (id.endsWith(".system.cloud_enabled")) {
+          await client.setSystem({ cloud_enabled: !!state.val });
+          await this.setStateAsync(id, { val: state.val, ack: true });
+        } else if (id.endsWith(".system.status_led_brightness_pct")) {
+          await client.setSystem({
+            status_led_brightness_pct: Number(state.val),
+          });
+          await this.setStateAsync(id, { val: state.val, ack: true });
+        } else if (id.endsWith(".system.api_v1_enabled")) {
+          await client.setSystem({ api_v1_enabled: !!state.val });
+          await this.setStateAsync(id, { val: state.val, ack: true });
+        } else if (id.endsWith(".battery.mode")) {
+          const mode = validateBatteryMode(String(state.val));
+          if (!mode) {
+            this.log.warn(
+              `Invalid battery.mode value: '${String(state.val)}' — expected one of: zero, to_full, standby`,
+            );
+            return;
+          }
+          await client.setBatteries({ mode });
+          await this.setStateAsync(id, { val: state.val, ack: true });
+        } else if (id.endsWith(".battery.permissions")) {
+          const result = parseBatteryPermissions(String(state.val));
+          if (!result.ok) {
+            this.log.warn(
+              `Invalid JSON for battery.permissions: ${result.reason} — expected array, got: ${result.sample}`,
+            );
+            return;
+          }
+          await client.setBatteries({ permissions: result.perms });
+          await this.setStateAsync(id, { val: state.val, ack: true });
+        }
+      } catch (err) {
+        this.log.warn(`Failed to set ${id}: ${errText(err)}`);
+      }
+    } catch (err: unknown) {
+      this.log.error(`stateChange failed: ${errText(err)}`);
     }
   }
 
