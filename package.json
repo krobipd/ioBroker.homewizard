@@ -1,6 +1,6 @@
 {
   "name": "iobroker.homewizard",
-  "version": "0.8.3",
+  "version": "0.9.0",
   "description": "ioBroker adapter for HomeWizard Energy devices with API v2",
   "author": {
     "name": "krobi",

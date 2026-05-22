@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.8.3",
+    "version": "0.9.0",
     "news": {
-      "NEXT": {
+      "0.9.0": {
         "en": "Preserve user-modified state names; state translations use standard ioBroker i18n",
         "de": "Vom Benutzer geänderte Datenpunktnamen bleiben erhalten; Übersetzungen nutzen Standard-ioBroker-i18n",
         "ru": "Сохранение пользовательских имён состояний; переводы используют стандартный ioBroker i18n",

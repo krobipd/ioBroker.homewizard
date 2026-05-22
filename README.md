@@ -174,7 +174,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.9.0 (2026-05-22)
 
 - User-modified state names are no longer overwritten on adapter restart
 - State name translations migrated to standard ioBroker i18n framework
@@ -194,10 +194,6 @@ homewizard.0.
 ### 0.8.0 (2026-05-17)
 
 - Internal modernization. No user-facing changes. Requires Node.js 22+.
-
-### 0.7.8 (2026-05-13)
-
-- Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.
 
 ### Support Development
 

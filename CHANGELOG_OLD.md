@@ -1,4 +1,8 @@
 # Older Changes
+## 0.7.8 (2026-05-13)
+
+- Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.
+
 ## 0.7.7 (2026-05-13)
 
 - Devices with chronically bad WiFi no longer flood the log: max one warn per hour when the device drops out, one info when it comes back. Full timeline stays at debug level.
