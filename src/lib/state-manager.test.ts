@@ -1,3 +1,27 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { vi } from "vitest";
+
+vi.mock("@iobroker/adapter-core", () => {
+  const i18nDir = join(__dirname, "../../admin/i18n");
+  const i18nData: Record<string, Record<string, string>> = {};
+  for (const f of readdirSync(i18nDir).filter((f) => f.endsWith(".json"))) {
+    i18nData[f.replace(".json", "")] = JSON.parse(readFileSync(join(i18nDir, f), "utf8"));
+  }
+  return {
+    I18n: {
+      getTranslatedObject: vi.fn((key: string) => {
+        const result: Record<string, string> = {};
+        for (const [lang, translations] of Object.entries(i18nData)) {
+          result[lang] = translations[key] ?? key;
+        }
+        return result;
+      }),
+      translate: vi.fn((key: string) => i18nData.en?.[key] ?? key),
+    },
+  };
+});
+
 import { StateManager } from "./state-manager";
 import type { DeviceConfig, Measurement, SystemInfo, BatteryControl } from "./types";
 
@@ -48,11 +72,23 @@ function createMockAdapter(): MockAdapter {
     states,
     metrics,
     log: { debug: (): void => {} },
-    extendObjectAsync: async (id: string, obj: Partial<ObjectDef>): Promise<void> => {
+    extendObjectAsync: async (
+      id: string,
+      obj: Partial<ObjectDef>,
+      options?: { preserve?: { common?: string[] } },
+    ): Promise<void> => {
       const existing = objects.get(id) || { type: "", common: {}, native: {} };
+      const newCommon: Record<string, unknown> = { ...existing.common, ...(obj.common || {}) };
+      if (options?.preserve?.common && objects.has(id)) {
+        for (const key of options.preserve.common) {
+          if (key in existing.common) {
+            newCommon[key] = existing.common[key];
+          }
+        }
+      }
       objects.set(id, {
         type: obj.type || existing.type,
-        common: { ...existing.common, ...(obj.common || {}) },
+        common: newCommon,
         native: { ...existing.native, ...(obj.native || {}) },
       });
     },
@@ -209,6 +245,15 @@ describe("StateManager", () => {
       expect(state).not.toBeUndefined();
       expect(state!.val).toBe(false);
       expect(state!.ack).toBe(true);
+    });
+
+    it("should preserve user-modified info channel name on re-create", async () => {
+      await manager.createDeviceStates(testDevice);
+      const obj = adapter.objects.get("hwe-p1_aabbccddeeff.info")!;
+      obj.common.name = "My Custom Name";
+      await manager.createDeviceStates(testDevice);
+      const after = adapter.objects.get("hwe-p1_aabbccddeeff.info")!;
+      expect(after.common.name).toBe("My Custom Name");
     });
   });
 

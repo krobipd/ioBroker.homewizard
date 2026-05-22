@@ -22,7 +22,7 @@ __export(state_manager_exports, {
 });
 module.exports = __toCommonJS(state_manager_exports);
 var import_coerce = require("./coerce");
-var import_i18n_states = require("./i18n-states");
+var import_i18n = require("./i18n");
 function sanitize(str) {
   return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
 }
@@ -395,19 +395,19 @@ const MEASUREMENT_STATE_DEFS = [
   { key: "meter_model", id: "meter_model", nameKey: "meterModel", type: "string", role: "text" },
   { key: "timestamp", id: "timestamp", nameKey: "measurementTimestamp", type: "string", role: "date" }
 ];
-function tariffStates(lang) {
+function tariffStates() {
   return {
-    1: (0, import_i18n_states.resolveLabel)("tariff1", lang),
-    2: (0, import_i18n_states.resolveLabel)("tariff2", lang),
-    3: (0, import_i18n_states.resolveLabel)("tariff3", lang),
-    4: (0, import_i18n_states.resolveLabel)("tariff4", lang)
+    1: (0, import_i18n.resolveLabel)("tariff1"),
+    2: (0, import_i18n.resolveLabel)("tariff2"),
+    3: (0, import_i18n.resolveLabel)("tariff3"),
+    4: (0, import_i18n.resolveLabel)("tariff4")
   };
 }
-function batteryModeStates(lang) {
+function batteryModeStates() {
   return {
-    zero: (0, import_i18n_states.resolveLabel)("modeZero", lang),
-    to_full: (0, import_i18n_states.resolveLabel)("modeToFull", lang),
-    standby: (0, import_i18n_states.resolveLabel)("modeStandby", lang)
+    zero: (0, import_i18n.resolveLabel)("modeZero"),
+    to_full: (0, import_i18n.resolveLabel)("modeToFull"),
+    standby: (0, import_i18n.resolveLabel)("modeStandby")
   };
 }
 class StateManager {
@@ -442,18 +442,22 @@ class StateManager {
       },
       native: {}
     });
-    await this.adapter.extendObjectAsync(`${prefix}.info`, {
-      type: "channel",
-      common: { name: (0, import_i18n_states.tName)("deviceInformation") },
-      native: {}
-    });
-    await this.createState(`${prefix}.info.productName`, (0, import_i18n_states.tName)("productName"), "string", "text", false);
-    await this.createState(`${prefix}.info.productType`, (0, import_i18n_states.tName)("productType"), "string", "text", false);
-    await this.createState(`${prefix}.info.firmware`, (0, import_i18n_states.tName)("firmware"), "string", "text", false);
-    await this.createState(`${prefix}.info.connected`, (0, import_i18n_states.tName)("connected"), "boolean", "indicator.reachable", false);
-    await this.createState(`${prefix}.info.wifi_rssi_db`, (0, import_i18n_states.tName)("wifiRssi"), "number", "value", false, "dBm");
-    await this.createState(`${prefix}.info.uptime_s`, (0, import_i18n_states.tName)("uptime"), "number", "value", false, "s");
-    await this.createButton(`${prefix}.remove`, (0, import_i18n_states.tName)("removeDevice"), (0, import_i18n_states.tDesc)("removeDeviceDesc"));
+    await this.adapter.extendObjectAsync(
+      `${prefix}.info`,
+      {
+        type: "channel",
+        common: { name: (0, import_i18n.tName)("deviceInformation") },
+        native: {}
+      },
+      { preserve: { common: ["name"] } }
+    );
+    await this.createState(`${prefix}.info.productName`, (0, import_i18n.tName)("productName"), "string", "text", false);
+    await this.createState(`${prefix}.info.productType`, (0, import_i18n.tName)("productType"), "string", "text", false);
+    await this.createState(`${prefix}.info.firmware`, (0, import_i18n.tName)("firmware"), "string", "text", false);
+    await this.createState(`${prefix}.info.connected`, (0, import_i18n.tName)("connected"), "boolean", "indicator.reachable", false);
+    await this.createState(`${prefix}.info.wifi_rssi_db`, (0, import_i18n.tName)("wifiRssi"), "number", "value", false, "dBm");
+    await this.createState(`${prefix}.info.uptime_s`, (0, import_i18n.tName)("uptime"), "number", "value", false, "s");
+    await this.createButton(`${prefix}.remove`, (0, import_i18n.tName)("removeDevice"), (0, import_i18n.tDesc)("removeDeviceDesc"));
     await this.adapter.setStateAsync(`${prefix}.info.productName`, {
       val: config.productName,
       ack: true
@@ -470,13 +474,12 @@ class StateManager {
    * @param data Measurement data
    */
   async updateMeasurement(config, data) {
-    var _a;
     if (!(0, import_coerce.isPlainObject)(data)) {
       return;
     }
     const prefix = this.devicePrefix(config);
     const mPrefix = `${prefix}.measurement`;
-    await this.ensureChannel(mPrefix, (0, import_i18n_states.tName)("measurement"));
+    await this.ensureChannel(mPrefix, (0, import_i18n.tName)("measurement"));
     const record = data;
     const writes = [];
     for (const def of MEASUREMENT_STATE_DEFS) {
@@ -491,14 +494,14 @@ class StateManager {
         writes.push(
           this.ensureAndSet(
             `${mPrefix}.${def.id}`,
-            (0, import_i18n_states.tName)(def.nameKey),
+            (0, import_i18n.tName)(def.nameKey),
             def.type,
             def.role,
             coerced,
             def.unit,
             void 0,
-            def.descKey ? (0, import_i18n_states.tDesc)(def.descKey) : void 0,
-            def.key === "tariff" ? tariffStates((_a = this.adapter.language) != null ? _a : "en") : void 0
+            def.descKey ? (0, import_i18n.tDesc)(def.descKey) : void 0,
+            def.key === "tariff" ? tariffStates() : void 0
           )
         );
       }
@@ -518,21 +521,21 @@ class StateManager {
         const value = (0, import_coerce.coerceFiniteNumber)(rawExt.value);
         const unit = (0, import_coerce.coerceString)(rawExt.unit);
         const timestamp = (0, import_coerce.coerceString)(rawExt.timestamp);
-        await this.ensureChannel(`${mPrefix}.external`, (0, import_i18n_states.tName)("externalMeters"));
+        await this.ensureChannel(`${mPrefix}.external`, (0, import_i18n.tName)("externalMeters"));
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
         await this.ensureChannel(extId, type);
         const extWrites = [];
         if (value !== null) {
           extWrites.push(
-            this.ensureAndSet(`${extId}.value`, (0, import_i18n_states.tName)("externalValue"), "number", "value", value, unit != null ? unit : void 0)
+            this.ensureAndSet(`${extId}.value`, (0, import_i18n.tName)("externalValue"), "number", "value", value, unit != null ? unit : void 0)
           );
         }
         if (unit) {
-          extWrites.push(this.ensureAndSet(`${extId}.unit`, (0, import_i18n_states.tName)("externalUnit"), "string", "text", unit));
+          extWrites.push(this.ensureAndSet(`${extId}.unit`, (0, import_i18n.tName)("externalUnit"), "string", "text", unit));
         }
         if (timestamp) {
           extWrites.push(
-            this.ensureAndSet(`${extId}.timestamp`, (0, import_i18n_states.tName)("externalTimestamp"), "string", "date", timestamp)
+            this.ensureAndSet(`${extId}.timestamp`, (0, import_i18n.tName)("externalTimestamp"), "string", "date", timestamp)
           );
         }
         await Promise.all(extWrites);
@@ -553,18 +556,18 @@ class StateManager {
     const record = system;
     const rssi = (0, import_coerce.coerceFiniteNumber)(record.wifi_rssi_db);
     if (rssi !== null) {
-      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, (0, import_i18n_states.tName)("wifiRssi"), "number", "value", rssi, "dBm");
+      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, (0, import_i18n.tName)("wifiRssi"), "number", "value", rssi, "dBm");
     }
     const uptime = (0, import_coerce.coerceFiniteNumber)(record.uptime_s);
     if (uptime !== null) {
-      await this.ensureAndSet(`${prefix}.info.uptime_s`, (0, import_i18n_states.tName)("uptime"), "number", "value", uptime, "s");
+      await this.ensureAndSet(`${prefix}.info.uptime_s`, (0, import_i18n.tName)("uptime"), "number", "value", uptime, "s");
     }
-    await this.ensureChannel(`${prefix}.system`, (0, import_i18n_states.tName)("systemSettings"));
+    await this.ensureChannel(`${prefix}.system`, (0, import_i18n.tName)("systemSettings"));
     const cloudEnabled = (0, import_coerce.coerceBoolean)(record.cloud_enabled);
     if (cloudEnabled !== null) {
       await this.ensureAndSet(
         `${prefix}.system.cloud_enabled`,
-        (0, import_i18n_states.tName)("cloudEnabled"),
+        (0, import_i18n.tName)("cloudEnabled"),
         "boolean",
         "switch",
         cloudEnabled,
@@ -576,7 +579,7 @@ class StateManager {
     if (ledPct !== null) {
       await this.ensureAndSet(
         `${prefix}.system.status_led_brightness_pct`,
-        (0, import_i18n_states.tName)("ledBrightness"),
+        (0, import_i18n.tName)("ledBrightness"),
         "number",
         "level",
         ledPct,
@@ -588,7 +591,7 @@ class StateManager {
     if (apiV1 !== null) {
       await this.ensureAndSet(
         `${prefix}.system.api_v1_enabled`,
-        (0, import_i18n_states.tName)("apiV1Enabled"),
+        (0, import_i18n.tName)("apiV1Enabled"),
         "boolean",
         "switch",
         apiV1,
@@ -596,8 +599,8 @@ class StateManager {
         true
       );
     }
-    await this.createButton(`${prefix}.system.reboot`, (0, import_i18n_states.tName)("rebootDevice"));
-    await this.createButton(`${prefix}.system.identify`, (0, import_i18n_states.tName)("identify"));
+    await this.createButton(`${prefix}.system.reboot`, (0, import_i18n.tName)("rebootDevice"));
+    await this.createButton(`${prefix}.system.identify`, (0, import_i18n.tName)("identify"));
   }
   /**
    * Update battery control states
@@ -606,31 +609,30 @@ class StateManager {
    * @param battery Battery control data
    */
   async updateBattery(config, battery) {
-    var _a;
     if (!(0, import_coerce.isPlainObject)(battery)) {
       return;
     }
     const prefix = this.devicePrefix(config);
     const record = battery;
-    await this.ensureChannel(`${prefix}.battery`, (0, import_i18n_states.tName)("batteryControl"));
+    await this.ensureChannel(`${prefix}.battery`, (0, import_i18n.tName)("batteryControl"));
     const mode = (0, import_coerce.coerceString)(record.mode);
     if (mode) {
       await this.ensureAndSet(
         `${prefix}.battery.mode`,
-        (0, import_i18n_states.tName)("batteryMode"),
+        (0, import_i18n.tName)("batteryMode"),
         "string",
         "text",
         mode,
         void 0,
         true,
-        (0, import_i18n_states.tDesc)("batteryModeDesc"),
-        batteryModeStates((_a = this.adapter.language) != null ? _a : "en")
+        (0, import_i18n.tDesc)("batteryModeDesc"),
+        batteryModeStates()
       );
     }
     if (Array.isArray(record.permissions)) {
       await this.ensureAndSet(
         `${prefix}.battery.permissions`,
-        (0, import_i18n_states.tName)("batteryPermissions"),
+        (0, import_i18n.tName)("batteryPermissions"),
         "string",
         "json",
         JSON.stringify(record.permissions),
@@ -662,7 +664,7 @@ class StateManager {
       if (coerced !== null) {
         await this.ensureAndSet(
           `${prefix}.battery.${field.id}`,
-          (0, import_i18n_states.tName)(field.nameKey),
+          (0, import_i18n.tName)(field.nameKey),
           "number",
           field.role,
           coerced,
@@ -770,7 +772,7 @@ class StateManager {
       return;
     }
     const common = {
-      name: typeof name === "string" ? name : name,
+      name,
       type,
       role,
       read: true,

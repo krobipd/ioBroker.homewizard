@@ -1,7 +1,7 @@
 import type * as utils from "@iobroker/adapter-core";
 import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject } from "./coerce";
-import type { STATE_DESCS, STATE_NAMES, StateName } from "./i18n-states";
-import { resolveLabel, tDesc, tName } from "./i18n-states";
+import type { I18nKey } from "./i18n";
+import { resolveLabel, tDesc, tName } from "./i18n";
 import type { BatteryControl, DeviceConfig, Measurement, SystemInfo } from "./types";
 
 /** Measurement field to state definition mapping */
@@ -11,9 +11,9 @@ interface MeasurementStateDef {
   /** ioBroker state ID suffix */
   id: string;
   /** Translation key for `common.name` (resolved via {@link tName}) */
-  nameKey: keyof typeof STATE_NAMES;
+  nameKey: I18nKey;
   /** Optional translation key for `common.desc` (resolved via {@link tDesc}) */
-  descKey?: keyof typeof STATE_DESCS;
+  descKey?: I18nKey;
   /** State value type */
   type: ioBroker.CommonType;
   /** ioBroker role */
@@ -408,14 +408,13 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
  * children. Translation objects trigger React Error #31 → fatal "Error in GUI"
  * on dropdown open (verified hassemu v1.28.4, 2026-05-12).
  *
- * @param lang Two-letter ISO language code (use `adapter.language ?? "en"`).
  */
-function tariffStates(lang: string): Record<string, string> {
+function tariffStates(): Record<string, string> {
   return {
-    1: resolveLabel("tariff1", lang),
-    2: resolveLabel("tariff2", lang),
-    3: resolveLabel("tariff3", lang),
-    4: resolveLabel("tariff4", lang),
+    1: resolveLabel("tariff1"),
+    2: resolveLabel("tariff2"),
+    3: resolveLabel("tariff3"),
+    4: resolveLabel("tariff4"),
   };
 }
 
@@ -423,13 +422,12 @@ function tariffStates(lang: string): Record<string, string> {
  * Build a `common.states` map for HWE-BAT battery.mode with plain-string labels.
  * Same constraint as {@link tariffStates}.
  *
- * @param lang Two-letter ISO language code.
  */
-function batteryModeStates(lang: string): Record<string, string> {
+function batteryModeStates(): Record<string, string> {
   return {
-    zero: resolveLabel("modeZero", lang),
-    to_full: resolveLabel("modeToFull", lang),
-    standby: resolveLabel("modeStandby", lang),
+    zero: resolveLabel("modeZero"),
+    to_full: resolveLabel("modeToFull"),
+    standby: resolveLabel("modeStandby"),
   };
 }
 
@@ -473,11 +471,15 @@ export class StateManager {
       native: {},
     });
 
-    await this.adapter.extendObjectAsync(`${prefix}.info`, {
-      type: "channel",
-      common: { name: tName("deviceInformation") },
-      native: {},
-    });
+    await this.adapter.extendObjectAsync(
+      `${prefix}.info`,
+      {
+        type: "channel",
+        common: { name: tName("deviceInformation") },
+        native: {},
+      },
+      { preserve: { common: ["name"] } },
+    );
 
     await this.createState(`${prefix}.info.productName`, tName("productName"), "string", "text", false);
     await this.createState(`${prefix}.info.productType`, tName("productType"), "string", "text", false);
@@ -540,7 +542,7 @@ export class StateManager {
             def.unit,
             undefined,
             def.descKey ? tDesc(def.descKey) : undefined,
-            def.key === "tariff" ? tariffStates(this.adapter.language ?? "en") : undefined,
+            def.key === "tariff" ? tariffStates() : undefined,
           ),
         );
       }
@@ -688,7 +690,7 @@ export class StateManager {
         undefined,
         true,
         tDesc("batteryModeDesc"),
-        batteryModeStates(this.adapter.language ?? "en"),
+        batteryModeStates(),
       );
     }
     if (Array.isArray(record.permissions)) {
@@ -706,7 +708,7 @@ export class StateManager {
     const numberFields: Array<{
       key: string;
       id: string;
-      nameKey: keyof typeof STATE_NAMES;
+      nameKey: I18nKey;
       role: string;
       unit?: string;
     }> = [
@@ -850,19 +852,19 @@ export class StateManager {
    */
   private async createState(
     id: string,
-    name: StateName | string,
+    name: ioBroker.StringOrTranslated,
     type: ioBroker.CommonType,
     role: string,
     write: boolean,
     unit?: string,
-    desc?: StateName,
+    desc?: ioBroker.StringOrTranslated,
     states?: Record<string, string>,
   ): Promise<void> {
     if (this.createdIds.has(id)) {
       return;
     }
     const common: Partial<ioBroker.StateCommon> = {
-      name: typeof name === "string" ? name : name,
+      name,
       type,
       role,
       read: true,
@@ -929,7 +931,11 @@ export class StateManager {
    * @param name Button label (translation object)
    * @param desc Optional translation object for `common.desc`
    */
-  private async createButton(id: string, name: StateName, desc?: StateName): Promise<void> {
+  private async createButton(
+    id: string,
+    name: ioBroker.StringOrTranslated,
+    desc?: ioBroker.StringOrTranslated,
+  ): Promise<void> {
     if (this.createdIds.has(id)) {
       return;
     }
@@ -967,13 +973,13 @@ export class StateManager {
    */
   private async ensureAndSet(
     id: string,
-    name: StateName | string,
+    name: ioBroker.StringOrTranslated,
     type: ioBroker.CommonType,
     role: string,
     value: ioBroker.StateValue,
     unit?: string,
     write?: boolean,
-    desc?: StateName,
+    desc?: ioBroker.StringOrTranslated,
     states?: Record<string, string>,
   ): Promise<void> {
     await this.createState(id, name, type, role, write ?? false, unit, desc, states);

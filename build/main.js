@@ -22,6 +22,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var utils = __toESM(require("@iobroker/adapter-core"));
+var import_adapter_core = require("@iobroker/adapter-core");
+var import_node_path = require("node:path");
 var import_coerce = require("./lib/coerce");
 var import_connection_utils = require("./lib/connection-utils");
 var import_discovery = require("./lib/discovery");
@@ -87,6 +89,7 @@ class HomeWizard extends utils.Adapter {
   }
   async onReady() {
     try {
+      await import_adapter_core.I18n.init((0, import_node_path.join)(this.adapterDir, "admin"), this);
       this.stateManager = new import_state_manager.StateManager(this);
       await this.setStateAsync("startPairing", { val: false, ack: true });
       await this.setStateAsync("pairingIp", { val: "", ack: true });

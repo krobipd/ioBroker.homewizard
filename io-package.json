@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.8.3",
     "news": {
+      "NEXT": {
+        "en": "Preserve user-modified state names; state translations use standard ioBroker i18n",
+        "de": "Vom Benutzer geänderte Datenpunktnamen bleiben erhalten; Übersetzungen nutzen Standard-ioBroker-i18n",
+        "ru": "Сохранение пользовательских имён состояний; переводы используют стандартный ioBroker i18n",
+        "pt": "Nomes de estado modificados pelo utilizador são preservados; traduções usam i18n padrão do ioBroker",
+        "nl": "Door gebruiker gewijzigde statusnamen blijven behouden; vertalingen gebruiken standaard ioBroker i18n",
+        "fr": "Les noms d'états modifiés par l'utilisateur sont préservés ; les traductions utilisent l'i18n standard d'ioBroker",
+        "it": "I nomi degli stati modificati dall'utente vengono preservati; le traduzioni usano l'i18n standard di ioBroker",
+        "es": "Los nombres de estado modificados por el usuario se conservan; las traducciones usan el i18n estándar de ioBroker",
+        "pl": "Nazwy stanów zmienione przez użytkownika są zachowywane; tłumaczenia używają standardowego i18n ioBroker",
+        "uk": "Змінені користувачем назви станів зберігаються; переклади використовують стандартний i18n ioBroker",
+        "zh-cn": "保留用户修改的状态名称；翻译使用标准 ioBroker i18n"
+      },
       "0.8.3": {
         "en": "Use community-standard event handler pattern",
         "de": "Community-Standard Event-Handler-Pattern verwendet",
@@ -80,19 +93,6 @@
         "pl": "Urządzenia z chronicznie słabym WiFi nie zalewają już logu — maks. 1 ostrzeżenie/h na urządzenie, pełna oś czasu na poziomie debug. Wewnętrzne zmiany trybu przeniesione na debug.",
         "uk": "Пристрої з хронічно поганим WiFi більше не заповнюють лог — максимум 1 попередження/год на пристрій, повний журнал на debug. Внутрішні зміни режиму перенесено на debug.",
         "zh-cn": "WiFi 长期不稳定的设备不再淹没日志——每台设备每小时至多 1 条警告，完整时间线保留在 debug 级别。内部模式切换改到 debug。"
-      },
-      "0.7.6": {
-        "en": "The battery mode dropdown and the tariff state no longer crash the admin with \"Error in GUI\" when opened.",
-        "de": "Das Battery-Mode-Dropdown und der Tariff-State stürzen beim Öffnen im Admin nicht mehr mit \"Error in GUI\" ab.",
-        "ru": "Выпадающий список battery mode и состояние tariff больше не падают в админке с \"Error in GUI\" при открытии.",
-        "pt": "O dropdown de battery mode e o estado tariff já não falham com \"Error in GUI\" ao serem abertos no admin.",
-        "nl": "De battery-mode-dropdown en de tariff-state crashen niet meer met \"Error in GUI\" bij het openen in admin.",
-        "fr": "Le dropdown battery mode et l'état tariff ne plantent plus avec \"Error in GUI\" à l'ouverture dans l'admin.",
-        "it": "Il dropdown battery mode e lo stato tariff non si bloccano più con \"Error in GUI\" all'apertura nell'admin.",
-        "es": "El dropdown de battery mode y el estado tariff ya no fallan con \"Error in GUI\" al abrirse en el admin.",
-        "pl": "Lista battery mode i stan tariff nie zawieszają się już z \"Error in GUI\" przy otwieraniu w adminie.",
-        "uk": "Випадаючий список battery mode і стан tariff більше не падають в адміні з \"Error in GUI\" при відкритті.",
-        "zh-cn": "battery mode 下拉框和 tariff 状态在 admin 中打开时不再因 \"Error in GUI\" 崩溃。"
       }
     },
     "titleLang": {
