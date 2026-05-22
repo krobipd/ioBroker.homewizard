@@ -1,5 +1,7 @@
-import Bonjour, { type Service } from "bonjour-service";
+import Bonjour from "bonjour-service";
 import type { DiscoveredDevice } from "./types";
+
+type BonjourService = ReturnType<InstanceType<typeof Bonjour>["publish"]>;
 
 /**
  * Coerce a raw Bonjour TXT-record value to a string. The library returns
@@ -55,7 +57,7 @@ export class HomeWizardDiscovery {
     this.bonjour = new Bonjour();
     this.log.debug("mDNS: browsing for _homewizard._tcp (v2)");
 
-    this.browser = this.bonjour.find({ type: "homewizard", protocol: "tcp" }, (service: Service) => {
+    this.browser = this.bonjour.find({ type: "homewizard", protocol: "tcp" }, (service: BonjourService) => {
       const device = this.parseService(service);
       if (device) {
         this.log.debug(`mDNS: found ${device.name} (${device.productType}) at ${device.ip}`);
@@ -81,9 +83,9 @@ export class HomeWizardDiscovery {
    *
    * @param service Bonjour service record
    */
-  private parseService(service: Service): DiscoveredDevice | null {
+  private parseService(service: BonjourService): DiscoveredDevice | null {
     // IPv4 address
-    const ip = service.addresses?.find(addr => addr.includes("."));
+    const ip = service.addresses?.find((addr: string) => addr.includes("."));
     if (!ip) {
       this.log.debug(`mDNS: no IPv4 address for ${service.name}`);
       return null;
