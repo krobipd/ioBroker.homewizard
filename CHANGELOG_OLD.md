@@ -1,4 +1,8 @@
 # Older Changes
+## 0.8.0 (2026-05-17)
+
+- Internal modernization. No user-facing changes. Requires Node.js 22+.
+
 ## 0.7.8 (2026-05-13)
 
 - Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.

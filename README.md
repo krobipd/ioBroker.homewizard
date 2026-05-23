@@ -174,7 +174,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.9.1 (2026-05-23)
 
 - CI check-and-lint updated to Node.js 24
 
@@ -194,10 +194,6 @@ homewizard.0.
 ### 0.8.1 (2026-05-17)
 
 - Internal cleanup. No user-facing changes.
-
-### 0.8.0 (2026-05-17)
-
-- Internal modernization. No user-facing changes. Requires Node.js 22+.
 
 ### Support Development
 

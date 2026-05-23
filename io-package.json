@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.9.0",
+    "version": "0.9.1",
     "news": {
-      "NEXT": {
+      "0.9.1": {
         "en": "CI check-and-lint updated to Node.js 24",
         "de": "CI check-and-lint auf Node.js 24 aktualisiert",
         "ru": "CI check-and-lint обновлён до Node.js 24",
