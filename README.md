@@ -194,6 +194,8 @@ homewizard.0.
 
 - Internal cleanup. No user-facing changes.
 
+Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
+
 ### Support Development
 
 This adapter is free and open source. If you find it useful, consider buying me a coffee:
@@ -202,8 +204,6 @@ This adapter is free and open source. If you find it useful, consider buying me 
 [![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge)](https://paypal.me/krobipd)
 
 ---
-
-Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
 ## License
 
