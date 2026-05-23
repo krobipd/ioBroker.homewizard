@@ -3,8 +3,18 @@ import {
   HomeWizardWebSocket,
   PING_INTERVAL_MS,
   PONG_TIMEOUT_MS,
+  type TimerDeps,
   type WsCallbacks,
 } from "./websocket-client";
+
+function createNativeTimerDeps(): TimerDeps {
+  return {
+    setTimeout: (cb, ms) => setTimeout(cb, ms),
+    clearTimeout: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+    setInterval: (cb, ms) => setInterval(cb, ms),
+    clearInterval: (h) => clearInterval(h as ReturnType<typeof setInterval>),
+  };
+}
 
 interface LogEntry {
   level: string;
@@ -56,14 +66,14 @@ describe("HomeWizardWebSocket", () => {
   describe("constructor", () => {
     it("should create an instance", () => {
       const { callbacks } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks, createNativeTimerDeps());
       expect(ws).toBeInstanceOf(HomeWizardWebSocket);
       ws.close();
     });
 
     it("should not be connected initially", () => {
       const { callbacks } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks, createNativeTimerDeps());
       expect(ws.isConnected).toBe(false);
       ws.close();
     });
@@ -72,20 +82,20 @@ describe("HomeWizardWebSocket", () => {
   describe("close", () => {
     it("should not throw when called before connect", () => {
       const { callbacks } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks, createNativeTimerDeps());
       expect(() => ws.close()).not.toThrow();
     });
 
     it("should not throw when called multiple times", () => {
       const { callbacks } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks, createNativeTimerDeps());
       ws.close();
       expect(() => ws.close()).not.toThrow();
     });
 
     it("should prevent reconnect after close", () => {
       const { callbacks } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks, createNativeTimerDeps());
       ws.close();
       // connect after close should be a no-op (destroyed flag)
       ws.connect();
@@ -101,7 +111,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should handle authorization_requested by sending token", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       callHandleMessage(ws, {
         type: "authorization_requested",
@@ -115,7 +125,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should handle authorized by calling onConnected", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       callHandleMessage(ws, { type: "authorized" });
 
@@ -125,7 +135,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should handle measurement by calling onMeasurement", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       const measurementData = {
         power_w: 1234,
@@ -140,7 +150,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should ignore measurement without data", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       callHandleMessage(ws, { type: "measurement" });
 
@@ -150,7 +160,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should warn on non-object root message (array)", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       callHandleMessage(ws, ["measurement"]);
 
@@ -161,7 +171,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should warn on root message as string", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       const raw = Buffer.from(JSON.stringify("just a string"));
       (ws as unknown as { handleMessage: (raw: Buffer) => void }).handleMessage(raw);
@@ -173,7 +183,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should warn on message without string type", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       callHandleMessage(ws, { type: 42, data: {} });
 
@@ -184,7 +194,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should warn on measurement with non-object data (string)", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       callHandleMessage(ws, { type: "measurement", data: "corrupt" });
 
@@ -196,7 +206,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should warn on measurement with array data", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       callHandleMessage(ws, { type: "measurement", data: [1, 2, 3] });
 
@@ -208,7 +218,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should warn on measurement with null data", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       callHandleMessage(ws, { type: "measurement", data: null });
 
@@ -218,7 +228,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should handle unknown message types gracefully", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       callHandleMessage(ws, { type: "unknown_type", data: {} });
 
@@ -229,7 +239,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should warn on invalid JSON", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       const raw = Buffer.from("not json at all");
       (ws as unknown as { handleMessage: (raw: Buffer) => void }).handleMessage(raw);
@@ -241,7 +251,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should handle multiple measurements in sequence", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       callHandleMessage(ws, { type: "measurement", data: { power_w: 100 } });
       callHandleMessage(ws, { type: "measurement", data: { power_w: 200 } });
@@ -261,7 +271,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("should complete auth flow: auth_requested → authorized → measurement", () => {
       const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
       // Step 1: Device requests auth
       callHandleMessage(ws, {
@@ -312,16 +322,16 @@ describe("HomeWizardWebSocket", () => {
 
   describe("heartbeat lifecycle (internal-state inspection)", () => {
     type Internal = {
-      authTimer: NodeJS.Timeout | null;
-      pingInterval: NodeJS.Timeout | null;
-      pongTimer: NodeJS.Timeout | null;
+      authTimer: unknown;
+      pingInterval: unknown;
+      pongTimer: unknown;
       startHeartbeat: () => void;
       clearTimers: () => void;
     };
 
     it("close() leaves no leaked timers", () => {
       const { callbacks } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks, createNativeTimerDeps());
       const internal = ws as unknown as Internal;
 
       // Force timers into all three slots, then close: we must end up
@@ -339,7 +349,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("clearTimers is idempotent", () => {
       const { callbacks } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks, createNativeTimerDeps());
       const internal = ws as unknown as Internal;
 
       internal.clearTimers();
@@ -352,7 +362,7 @@ describe("HomeWizardWebSocket", () => {
 
     it("startHeartbeat installs a recurring ping interval", () => {
       const { callbacks } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks);
+      const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks, createNativeTimerDeps());
       const internal = ws as unknown as Internal;
 
       internal.startHeartbeat();

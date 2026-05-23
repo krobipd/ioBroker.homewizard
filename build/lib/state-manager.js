@@ -432,16 +432,20 @@ class StateManager {
   async createDeviceStates(config) {
     const prefix = this.devicePrefix(config);
     this.adapter.log.debug(`state-manager: createDeviceStates ${prefix} (productType=${config.productType})`);
-    await this.adapter.extendObjectAsync(prefix, {
-      type: "device",
-      common: {
-        name: config.productName || config.productType,
-        statusStates: {
-          onlineId: `${this.adapter.namespace}.${prefix}.info.connected`
-        }
+    await this.adapter.extendObjectAsync(
+      prefix,
+      {
+        type: "device",
+        common: {
+          name: config.productName || config.productType,
+          statusStates: {
+            onlineId: `${this.adapter.namespace}.${prefix}.info.connected`
+          }
+        },
+        native: {}
       },
-      native: {}
-    });
+      { preserve: { common: ["name"] } }
+    );
     await this.adapter.extendObjectAsync(
       `${prefix}.info`,
       {

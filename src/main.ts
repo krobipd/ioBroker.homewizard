@@ -213,17 +213,21 @@ class HomeWizard extends utils.Adapter {
   private async saveDeviceToObject(config: DeviceConfig): Promise<void> {
     const prefix = this.stateManager.devicePrefix(config);
     const encryptedToken = this.encrypt(config.token);
-    await this.extendObjectAsync(prefix, {
-      type: "device",
-      common: { name: config.productName || config.productType },
-      native: {
-        encryptedToken,
-        productType: config.productType,
-        serial: config.serial,
-        productName: config.productName,
-        ...(config.ip ? { ip: config.ip } : {}),
+    await this.extendObjectAsync(
+      prefix,
+      {
+        type: "device",
+        common: { name: config.productName || config.productType },
+        native: {
+          encryptedToken,
+          productType: config.productType,
+          serial: config.serial,
+          productName: config.productName,
+          ...(config.ip ? { ip: config.ip } : {}),
+        },
       },
-    });
+      { preserve: { common: ["name"] } },
+    );
   }
 
   /**
@@ -685,127 +689,141 @@ class HomeWizard extends utils.Adapter {
 
     const key = this.stateManager.devicePrefix(conn.config);
 
-    const wsClient = new HomeWizardWebSocket(conn.ip, conn.config.token, {
-      onMeasurement: (data: Measurement) => {
-        // Skip updates for devices removed mid-flight (frame can race
-        // delObjectAsync), and for adapter teardown.
-        if (conn.removed || this.unloading) {
-          return;
-        }
-        // Defensive .catch — Promise.all writes inside updateMeasurement may
-        // reject on transient Redis hiccups; we want a debug-log, not an
-        // unhandled rejection that bubbles to the process-level handler.
-        this.stateManager.updateMeasurement(conn.config, data).catch((err: unknown) => {
-          this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${errText(err)}`);
-        });
+    const wsClient = new HomeWizardWebSocket(
+      conn.ip,
+      conn.config.token,
+      {
+        onMeasurement: (data: Measurement) => {
+          // Skip updates for devices removed mid-flight (frame can race
+          // delObjectAsync), and for adapter teardown.
+          if (conn.removed || this.unloading) {
+            return;
+          }
+          // Defensive .catch — Promise.all writes inside updateMeasurement may
+          // reject on transient Redis hiccups; we want a debug-log, not an
+          // unhandled rejection that bubbles to the process-level handler.
+          this.stateManager.updateMeasurement(conn.config, data).catch((err: unknown) => {
+            this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${errText(err)}`);
+          });
+        },
+        onConnected: () => {
+          conn.wsAuthenticated = true;
+          conn.wsFailCount = 0;
+          conn.authFailCount = 0;
+          conn.lastConnectedAt = Date.now();
+          conn.recovering = false;
+          void this.stateManager.setDeviceConnected(conn.config, true);
+          this.updateGlobalConnection();
+
+          // Stop REST fallback if active
+          if (conn.pollTimer) {
+            this.clearInterval(conn.pollTimer);
+            conn.pollTimer = undefined;
+          }
+
+          // Stop IP recovery if all devices are connected
+          if (this.discovery && !this.isPairing) {
+            const allConnected = Array.from(this.connections.values()).every(c => c.wsAuthenticated);
+            if (allConnected) {
+              this.stopIpRecovery();
+            }
+          }
+
+          // Log restoration if we had errors before. Per-device cooldown
+          // (analog to logDeviceError) so chronic bouncing doesn't emit one
+          // info per cycle — bouncing hardware is one phenomenon and one
+          // restoration-info per hour is enough. Repeats go to debug.
+          if (conn.lastErrorCode) {
+            const now = Date.now();
+            const lastInfo = this.lastInfoAt.get(conn.config.serial) ?? 0;
+            const msg = this.isUnstable(conn)
+              ? `${conn.config.productName}: connection restored (unstable mode)`
+              : `${conn.config.productName}: connection restored`;
+            if (shouldEmitAfterCooldown(lastInfo, now, INFO_COOLDOWN_MS)) {
+              this.lastInfoAt.set(conn.config.serial, now);
+              this.log.info(msg);
+            } else {
+              this.log.debug(`${msg} (cooldown)`);
+            }
+            conn.lastErrorCode = "";
+          }
+
+          this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
+        },
+        onDisconnected: (error?: Error) => {
+          // Auth failures are not a connectivity-stability signal — they mean
+          // the token is bad, not the WiFi. Counting them as short connections
+          // would flip the device into unstable mode (faster reconnect spam,
+          // misleading "unstable" log) on what is purely an auth issue.
+          const isAuthError = error instanceof HomeWizardApiError && error.errorCode === "user:unauthorized";
+
+          // Track connection stability — pure decision in main-helpers, side-effects here
+          if (conn.lastConnectedAt > 0 && !isAuthError) {
+            const duration = Date.now() - conn.lastConnectedAt;
+            const transition = decideUnstableTransition(
+              conn.recentDisconnects,
+              duration,
+              STABLE_THRESHOLD_MS,
+              UNSTABLE_DISCONNECT_THRESHOLD,
+            );
+            if (duration < STABLE_THRESHOLD_MS) {
+              conn.recentDisconnects++;
+            } else {
+              conn.recentDisconnects = 0;
+            }
+            // Hysterese-transitions are internal reconnect-strategy adjustments,
+            // not user-actionable events. Per the geschärfte mcm-Linie
+            // (reference_iobroker_logging_levels HART-block): diagnostische
+            // Prefixe / interne Hysterese-State gehören auf debug, nicht info.
+            if (transition === "becameUnstable") {
+              this.log.debug(`${conn.config.productName}: unstable connection detected — using faster reconnect`);
+            } else if (transition === "stabilized") {
+              this.log.debug(`${conn.config.productName}: connection stabilized — using normal reconnect`);
+            }
+          }
+
+          conn.wsAuthenticated = false;
+          conn.wsClient = null;
+          conn.recovering = false;
+          void this.stateManager.setDeviceConnected(conn.config, false);
+          this.updateGlobalConnection();
+
+          if (error) {
+            this.logDeviceError(conn, "ws", error);
+          }
+
+          // Check if this was an auth failure (returns false → stop reconnect path)
+          if (!this.handleAuthFailure(conn, error, /* cleanupTimers */ false)) {
+            return;
+          }
+
+          // Start REST fallback
+          this.startRestFallback(conn);
+
+          // Schedule reconnect with exponential backoff (faster for unstable devices)
+          conn.wsFailCount++;
+          const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
+          const delay = computeReconnectDelay(conn.wsFailCount, WS_RECONNECT_BASE_MS, maxDelay);
+          this.log.debug(`${key}: WS reconnect in ${delay / 1000}s (attempt ${conn.wsFailCount})`);
+
+          conn.reconnectTimer = this.setTimeout(() => {
+            conn.reconnectTimer = undefined;
+            this.connectWebSocket(conn);
+          }, delay);
+        },
+        log: this.log,
       },
-      onConnected: () => {
-        conn.wsAuthenticated = true;
-        conn.wsFailCount = 0;
-        conn.authFailCount = 0;
-        conn.lastConnectedAt = Date.now();
-        conn.recovering = false;
-        void this.stateManager.setDeviceConnected(conn.config, true);
-        this.updateGlobalConnection();
-
-        // Stop REST fallback if active
-        if (conn.pollTimer) {
-          this.clearInterval(conn.pollTimer);
-          conn.pollTimer = undefined;
-        }
-
-        // Stop IP recovery if all devices are connected
-        if (this.discovery && !this.isPairing) {
-          const allConnected = Array.from(this.connections.values()).every(c => c.wsAuthenticated);
-          if (allConnected) {
-            this.stopIpRecovery();
-          }
-        }
-
-        // Log restoration if we had errors before. Per-device cooldown
-        // (analog to logDeviceError) so chronic bouncing doesn't emit one
-        // info per cycle — bouncing hardware is one phenomenon and one
-        // restoration-info per hour is enough. Repeats go to debug.
-        if (conn.lastErrorCode) {
-          const now = Date.now();
-          const lastInfo = this.lastInfoAt.get(conn.config.serial) ?? 0;
-          const msg = this.isUnstable(conn)
-            ? `${conn.config.productName}: connection restored (unstable mode)`
-            : `${conn.config.productName}: connection restored`;
-          if (shouldEmitAfterCooldown(lastInfo, now, INFO_COOLDOWN_MS)) {
-            this.lastInfoAt.set(conn.config.serial, now);
-            this.log.info(msg);
-          } else {
-            this.log.debug(`${msg} (cooldown)`);
-          }
-          conn.lastErrorCode = "";
-        }
-
-        this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
+      {
+        setTimeout: (cb, ms) => this.setTimeout(cb, ms),
+        clearTimeout: h => {
+          this.clearTimeout(h as ioBroker.Timeout);
+        },
+        setInterval: (cb, ms) => this.setInterval(cb, ms),
+        clearInterval: h => {
+          this.clearInterval(h as ioBroker.Interval);
+        },
       },
-      onDisconnected: (error?: Error) => {
-        // Auth failures are not a connectivity-stability signal — they mean
-        // the token is bad, not the WiFi. Counting them as short connections
-        // would flip the device into unstable mode (faster reconnect spam,
-        // misleading "unstable" log) on what is purely an auth issue.
-        const isAuthError = error instanceof HomeWizardApiError && error.errorCode === "user:unauthorized";
-
-        // Track connection stability — pure decision in main-helpers, side-effects here
-        if (conn.lastConnectedAt > 0 && !isAuthError) {
-          const duration = Date.now() - conn.lastConnectedAt;
-          const transition = decideUnstableTransition(
-            conn.recentDisconnects,
-            duration,
-            STABLE_THRESHOLD_MS,
-            UNSTABLE_DISCONNECT_THRESHOLD,
-          );
-          if (duration < STABLE_THRESHOLD_MS) {
-            conn.recentDisconnects++;
-          } else {
-            conn.recentDisconnects = 0;
-          }
-          // Hysterese-transitions are internal reconnect-strategy adjustments,
-          // not user-actionable events. Per the geschärfte mcm-Linie
-          // (reference_iobroker_logging_levels HART-block): diagnostische
-          // Prefixe / interne Hysterese-State gehören auf debug, nicht info.
-          if (transition === "becameUnstable") {
-            this.log.debug(`${conn.config.productName}: unstable connection detected — using faster reconnect`);
-          } else if (transition === "stabilized") {
-            this.log.debug(`${conn.config.productName}: connection stabilized — using normal reconnect`);
-          }
-        }
-
-        conn.wsAuthenticated = false;
-        conn.wsClient = null;
-        conn.recovering = false;
-        void this.stateManager.setDeviceConnected(conn.config, false);
-        this.updateGlobalConnection();
-
-        if (error) {
-          this.logDeviceError(conn, "ws", error);
-        }
-
-        // Check if this was an auth failure (returns false → stop reconnect path)
-        if (!this.handleAuthFailure(conn, error, /* cleanupTimers */ false)) {
-          return;
-        }
-
-        // Start REST fallback
-        this.startRestFallback(conn);
-
-        // Schedule reconnect with exponential backoff (faster for unstable devices)
-        conn.wsFailCount++;
-        const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
-        const delay = computeReconnectDelay(conn.wsFailCount, WS_RECONNECT_BASE_MS, maxDelay);
-        this.log.debug(`${key}: WS reconnect in ${delay / 1000}s (attempt ${conn.wsFailCount})`);
-
-        conn.reconnectTimer = this.setTimeout(() => {
-          conn.reconnectTimer = undefined;
-          this.connectWebSocket(conn);
-        }, delay);
-      },
-      log: this.log,
-    });
+    );
 
     conn.wsClient = wsClient;
     wsClient.connect();

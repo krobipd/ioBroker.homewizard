@@ -174,6 +174,11 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 0.9.3 (2026-05-23)
+
+- User-modified device names are no longer overwritten on adapter restart or IP recovery.
+- Improved timer management for ioBroker compact mode.
+
 ### 0.9.2 (2026-05-23)
 
 - Changelog rewritten in user-centric style across all versions.
@@ -189,10 +194,6 @@ homewizard.0.
 ### 0.8.3 (2026-05-21)
 
 - Improved error handling and stability.
-
-### 0.8.2 (2026-05-19)
-
-- Internal cleanup. No user-facing changes.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

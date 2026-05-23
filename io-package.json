@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.9.2",
+    "version": "0.9.3",
     "news": {
+      "0.9.3": {
+        "en": "User-modified device names are no longer overwritten on adapter restart or IP recovery. Improved timer management for compact mode.",
+        "de": "Vom Benutzer geänderte Gerätenamen werden beim Adapter-Neustart oder IP-Recovery nicht mehr überschrieben. Verbessertes Timer-Management für den Compact-Modus.",
+        "ru": "Пользовательские имена устройств больше не перезаписываются при перезапуске адаптера или восстановлении IP. Улучшено управление таймерами для компактного режима.",
+        "pt": "Nomes de dispositivos modificados pelo utilizador já não são substituídos ao reiniciar o adaptador ou na recuperação de IP. Gestão de temporizadores melhorada para o modo compacto.",
+        "nl": "Door de gebruiker gewijzigde apparaatnamen worden niet meer overschreven bij het herstarten van de adapter of IP-recovery. Verbeterd timerbeheer voor compacte modus.",
+        "fr": "Les noms d'appareils modifiés par l'utilisateur ne sont plus écrasés lors du redémarrage de l'adaptateur ou de la récupération IP. Gestion améliorée des minuteries pour le mode compact.",
+        "it": "I nomi dei dispositivi modificati dall'utente non vengono più sovrascritti al riavvio dell'adattatore o durante il recupero IP. Gestione migliorata dei timer per la modalità compatta.",
+        "es": "Los nombres de dispositivos modificados por el usuario ya no se sobrescriben al reiniciar el adaptador o durante la recuperación de IP. Gestión mejorada de temporizadores para el modo compacto.",
+        "pl": "Nazwy urządzeń zmienione przez użytkownika nie są już nadpisywane przy ponownym uruchomieniu adaptera lub odzyskiwaniu IP. Ulepszone zarządzanie timerami w trybie kompaktowym.",
+        "uk": "Змінені користувачем назви пристроїв більше не перезаписуються при перезапуску адаптера або відновленні IP. Покращено керування таймерами для компактного режиму.",
+        "zh-cn": "用户修改的设备名称在适配器重启或IP恢复时不再被覆盖。改进了紧凑模式的定时器管理。"
+      },
       "0.9.2": {
         "en": "Changelog rewritten in user-centric style across all versions.",
         "de": "Changelog in benutzerfreundlichem Stil über alle Versionen umgeschrieben.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzne porządki. Brak widocznych zmian dla użytkownika.",
         "uk": "Внутрішнє прибирання. Без видимих змін для користувача.",
         "zh-cn": "内部清理。无用户可见的更改。"
-      },
-      "0.8.0": {
-        "en": "Internal modernization. No user-facing changes.",
-        "de": "Interne Modernisierung. Keine nutzersichtbaren Änderungen.",
-        "ru": "Внутренняя модернизация. Нет изменений для пользователя.",
-        "pt": "Modernização interna. Sem alterações visíveis para o utilizador.",
-        "nl": "Interne modernisering. Geen zichtbare wijzigingen voor de gebruiker.",
-        "fr": "Modernisation interne. Aucun changement visible pour l'utilisateur.",
-        "it": "Modernizzazione interna. Nessuna modifica visibile per l'utente.",
-        "es": "Modernización interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzna modernizacja. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішня модернізація. Немає змін для користувача.",
-        "zh-cn": "内部现代化。无用户可见更改。"
       }
     },
     "titleLang": {

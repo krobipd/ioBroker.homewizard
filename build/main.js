@@ -182,17 +182,21 @@ class HomeWizard extends utils.Adapter {
   async saveDeviceToObject(config) {
     const prefix = this.stateManager.devicePrefix(config);
     const encryptedToken = this.encrypt(config.token);
-    await this.extendObjectAsync(prefix, {
-      type: "device",
-      common: { name: config.productName || config.productType },
-      native: {
-        encryptedToken,
-        productType: config.productType,
-        serial: config.serial,
-        productName: config.productName,
-        ...config.ip ? { ip: config.ip } : {}
-      }
-    });
+    await this.extendObjectAsync(
+      prefix,
+      {
+        type: "device",
+        common: { name: config.productName || config.productType },
+        native: {
+          encryptedToken,
+          productType: config.productType,
+          serial: config.serial,
+          productName: config.productName,
+          ...config.ip ? { ip: config.ip } : {}
+        }
+      },
+      { preserve: { common: ["name"] } }
+    );
   }
   /**
    * Handle a discovered device from mDNS (only active during pairing)
@@ -551,97 +555,111 @@ class HomeWizard extends utils.Adapter {
       this.startIpRecovery();
     }
     const key = this.stateManager.devicePrefix(conn.config);
-    const wsClient = new import_websocket_client.HomeWizardWebSocket(conn.ip, conn.config.token, {
-      onMeasurement: (data) => {
-        if (conn.removed || this.unloading) {
-          return;
-        }
-        this.stateManager.updateMeasurement(conn.config, data).catch((err) => {
-          this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`);
-        });
+    const wsClient = new import_websocket_client.HomeWizardWebSocket(
+      conn.ip,
+      conn.config.token,
+      {
+        onMeasurement: (data) => {
+          if (conn.removed || this.unloading) {
+            return;
+          }
+          this.stateManager.updateMeasurement(conn.config, data).catch((err) => {
+            this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`);
+          });
+        },
+        onConnected: () => {
+          var _a;
+          conn.wsAuthenticated = true;
+          conn.wsFailCount = 0;
+          conn.authFailCount = 0;
+          conn.lastConnectedAt = Date.now();
+          conn.recovering = false;
+          void this.stateManager.setDeviceConnected(conn.config, true);
+          this.updateGlobalConnection();
+          if (conn.pollTimer) {
+            this.clearInterval(conn.pollTimer);
+            conn.pollTimer = void 0;
+          }
+          if (this.discovery && !this.isPairing) {
+            const allConnected = Array.from(this.connections.values()).every((c) => c.wsAuthenticated);
+            if (allConnected) {
+              this.stopIpRecovery();
+            }
+          }
+          if (conn.lastErrorCode) {
+            const now = Date.now();
+            const lastInfo = (_a = this.lastInfoAt.get(conn.config.serial)) != null ? _a : 0;
+            const msg = this.isUnstable(conn) ? `${conn.config.productName}: connection restored (unstable mode)` : `${conn.config.productName}: connection restored`;
+            if ((0, import_main_helpers.shouldEmitAfterCooldown)(lastInfo, now, INFO_COOLDOWN_MS)) {
+              this.lastInfoAt.set(conn.config.serial, now);
+              this.log.info(msg);
+            } else {
+              this.log.debug(`${msg} (cooldown)`);
+            }
+            conn.lastErrorCode = "";
+          }
+          this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
+        },
+        onDisconnected: (error) => {
+          const isAuthError = error instanceof import_homewizard_client.HomeWizardApiError && error.errorCode === "user:unauthorized";
+          if (conn.lastConnectedAt > 0 && !isAuthError) {
+            const duration = Date.now() - conn.lastConnectedAt;
+            const transition = (0, import_main_helpers.decideUnstableTransition)(
+              conn.recentDisconnects,
+              duration,
+              STABLE_THRESHOLD_MS,
+              import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD
+            );
+            if (duration < STABLE_THRESHOLD_MS) {
+              conn.recentDisconnects++;
+            } else {
+              conn.recentDisconnects = 0;
+            }
+            if (transition === "becameUnstable") {
+              this.log.debug(`${conn.config.productName}: unstable connection detected \u2014 using faster reconnect`);
+            } else if (transition === "stabilized") {
+              this.log.debug(`${conn.config.productName}: connection stabilized \u2014 using normal reconnect`);
+            }
+          }
+          conn.wsAuthenticated = false;
+          conn.wsClient = null;
+          conn.recovering = false;
+          void this.stateManager.setDeviceConnected(conn.config, false);
+          this.updateGlobalConnection();
+          if (error) {
+            this.logDeviceError(conn, "ws", error);
+          }
+          if (!this.handleAuthFailure(
+            conn,
+            error,
+            /* cleanupTimers */
+            false
+          )) {
+            return;
+          }
+          this.startRestFallback(conn);
+          conn.wsFailCount++;
+          const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
+          const delay = (0, import_main_helpers.computeReconnectDelay)(conn.wsFailCount, WS_RECONNECT_BASE_MS, maxDelay);
+          this.log.debug(`${key}: WS reconnect in ${delay / 1e3}s (attempt ${conn.wsFailCount})`);
+          conn.reconnectTimer = this.setTimeout(() => {
+            conn.reconnectTimer = void 0;
+            this.connectWebSocket(conn);
+          }, delay);
+        },
+        log: this.log
       },
-      onConnected: () => {
-        var _a;
-        conn.wsAuthenticated = true;
-        conn.wsFailCount = 0;
-        conn.authFailCount = 0;
-        conn.lastConnectedAt = Date.now();
-        conn.recovering = false;
-        void this.stateManager.setDeviceConnected(conn.config, true);
-        this.updateGlobalConnection();
-        if (conn.pollTimer) {
-          this.clearInterval(conn.pollTimer);
-          conn.pollTimer = void 0;
+      {
+        setTimeout: (cb, ms) => this.setTimeout(cb, ms),
+        clearTimeout: (h) => {
+          this.clearTimeout(h);
+        },
+        setInterval: (cb, ms) => this.setInterval(cb, ms),
+        clearInterval: (h) => {
+          this.clearInterval(h);
         }
-        if (this.discovery && !this.isPairing) {
-          const allConnected = Array.from(this.connections.values()).every((c) => c.wsAuthenticated);
-          if (allConnected) {
-            this.stopIpRecovery();
-          }
-        }
-        if (conn.lastErrorCode) {
-          const now = Date.now();
-          const lastInfo = (_a = this.lastInfoAt.get(conn.config.serial)) != null ? _a : 0;
-          const msg = this.isUnstable(conn) ? `${conn.config.productName}: connection restored (unstable mode)` : `${conn.config.productName}: connection restored`;
-          if ((0, import_main_helpers.shouldEmitAfterCooldown)(lastInfo, now, INFO_COOLDOWN_MS)) {
-            this.lastInfoAt.set(conn.config.serial, now);
-            this.log.info(msg);
-          } else {
-            this.log.debug(`${msg} (cooldown)`);
-          }
-          conn.lastErrorCode = "";
-        }
-        this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
-      },
-      onDisconnected: (error) => {
-        const isAuthError = error instanceof import_homewizard_client.HomeWizardApiError && error.errorCode === "user:unauthorized";
-        if (conn.lastConnectedAt > 0 && !isAuthError) {
-          const duration = Date.now() - conn.lastConnectedAt;
-          const transition = (0, import_main_helpers.decideUnstableTransition)(
-            conn.recentDisconnects,
-            duration,
-            STABLE_THRESHOLD_MS,
-            import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD
-          );
-          if (duration < STABLE_THRESHOLD_MS) {
-            conn.recentDisconnects++;
-          } else {
-            conn.recentDisconnects = 0;
-          }
-          if (transition === "becameUnstable") {
-            this.log.debug(`${conn.config.productName}: unstable connection detected \u2014 using faster reconnect`);
-          } else if (transition === "stabilized") {
-            this.log.debug(`${conn.config.productName}: connection stabilized \u2014 using normal reconnect`);
-          }
-        }
-        conn.wsAuthenticated = false;
-        conn.wsClient = null;
-        conn.recovering = false;
-        void this.stateManager.setDeviceConnected(conn.config, false);
-        this.updateGlobalConnection();
-        if (error) {
-          this.logDeviceError(conn, "ws", error);
-        }
-        if (!this.handleAuthFailure(
-          conn,
-          error,
-          /* cleanupTimers */
-          false
-        )) {
-          return;
-        }
-        this.startRestFallback(conn);
-        conn.wsFailCount++;
-        const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
-        const delay = (0, import_main_helpers.computeReconnectDelay)(conn.wsFailCount, WS_RECONNECT_BASE_MS, maxDelay);
-        this.log.debug(`${key}: WS reconnect in ${delay / 1e3}s (attempt ${conn.wsFailCount})`);
-        conn.reconnectTimer = this.setTimeout(() => {
-          conn.reconnectTimer = void 0;
-          this.connectWebSocket(conn);
-        }, delay);
-      },
-      log: this.log
-    });
+      }
+    );
     conn.wsClient = wsClient;
     wsClient.connect();
   }

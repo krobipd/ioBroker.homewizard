@@ -460,16 +460,20 @@ export class StateManager {
 
     // Device-Object: common.name keeps the user-supplied product name (or product type as fallback) —
     // these are device-specific identifiers, NOT translatable.
-    await this.adapter.extendObjectAsync(prefix, {
-      type: "device",
-      common: {
-        name: config.productName || config.productType,
-        statusStates: {
-          onlineId: `${this.adapter.namespace}.${prefix}.info.connected`,
+    await this.adapter.extendObjectAsync(
+      prefix,
+      {
+        type: "device",
+        common: {
+          name: config.productName || config.productType,
+          statusStates: {
+            onlineId: `${this.adapter.namespace}.${prefix}.info.connected`,
+          },
         },
+        native: {},
       },
-      native: {},
-    });
+      { preserve: { common: ["name"] } },
+    );
 
     await this.adapter.extendObjectAsync(
       `${prefix}.info`,

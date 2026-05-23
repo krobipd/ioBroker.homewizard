@@ -10,6 +10,18 @@ export const PING_INTERVAL_MS = 30_000;
 /** Max time to wait for a pong reply before declaring the link dead. */
 export const PONG_TIMEOUT_MS = 10_000;
 
+/** Timer dependency injection — allows adapter-managed timers instead of native ones. */
+export interface TimerDeps {
+  /** Schedule a one-shot callback */
+  setTimeout(cb: () => void, ms: number): unknown;
+  /** Cancel a one-shot timer */
+  clearTimeout(handle: unknown): void;
+  /** Schedule a recurring callback */
+  setInterval(cb: () => void, ms: number): unknown;
+  /** Cancel a recurring timer */
+  clearInterval(handle: unknown): void;
+}
+
 /** Callback interface for WebSocket events */
 export interface WsCallbacks {
   /** Called when measurement data is received */
@@ -39,21 +51,24 @@ export class HomeWizardWebSocket {
   private readonly ip: string;
   private readonly token: string;
   private readonly callbacks: WsCallbacks;
+  private readonly timers: TimerDeps;
   private ws: WebSocket | null = null;
   private destroyed = false;
-  private authTimer: NodeJS.Timeout | null = null;
-  private pingInterval: NodeJS.Timeout | null = null;
-  private pongTimer: NodeJS.Timeout | null = null;
+  private authTimer: unknown = null;
+  private pingInterval: unknown = null;
+  private pongTimer: unknown = null;
 
   /**
    * @param ip Device IP address
    * @param token Bearer token
    * @param callbacks Event callbacks
+   * @param timers Timer functions (use adapter-managed timers in production)
    */
-  constructor(ip: string, token: string, callbacks: WsCallbacks) {
+  constructor(ip: string, token: string, callbacks: WsCallbacks, timers: TimerDeps) {
     this.ip = ip;
     this.token = token;
     this.callbacks = callbacks;
+    this.timers = timers;
   }
 
   /** Connect to WebSocket and start auth handshake */
@@ -74,7 +89,7 @@ export class HomeWizardWebSocket {
 
     // Auth-watchdog: server must finish the auth handshake within
     // AUTH_TIMEOUT_MS or we declare the link dead. Doku timeout is 40s.
-    this.authTimer = setTimeout(() => {
+    this.authTimer = this.timers.setTimeout(() => {
       this.callbacks.log.debug(`WS auth-timeout (${AUTH_TIMEOUT_MS}ms) — terminating`);
       this.forceDisconnect();
     }, AUTH_TIMEOUT_MS);
@@ -89,8 +104,8 @@ export class HomeWizardWebSocket {
 
     this.ws.on("pong", () => {
       // Pong arrived in time — clear pending pong-timer.
-      if (this.pongTimer) {
-        clearTimeout(this.pongTimer);
+      if (this.pongTimer != null) {
+        this.timers.clearTimeout(this.pongTimer);
         this.pongTimer = null;
       }
     });
@@ -163,8 +178,8 @@ export class HomeWizardWebSocket {
         this.callbacks.log.debug("WS authorized, subscribing to measurement");
         this.sendRaw({ type: "subscribe", data: "measurement" });
         // Auth complete — clear auth-watchdog and start the heartbeat.
-        if (this.authTimer) {
-          clearTimeout(this.authTimer);
+        if (this.authTimer != null) {
+          this.timers.clearTimeout(this.authTimer);
           this.authTimer = null;
         }
         this.startHeartbeat();
@@ -205,13 +220,13 @@ export class HomeWizardWebSocket {
    * device has stopped responding (the documented "API-Lockup" mode).
    */
   private startHeartbeat(): void {
-    this.pingInterval = setInterval(() => {
+    this.pingInterval = this.timers.setInterval(() => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         return;
       }
       // Arm the pong-timer first, then ping. If pong arrives, the pong
       // handler clears it; if it doesn't, we terminate.
-      this.pongTimer = setTimeout(() => {
+      this.pongTimer = this.timers.setTimeout(() => {
         this.callbacks.log.debug(`WS pong-timeout (${PONG_TIMEOUT_MS}ms) — terminating`);
         this.forceDisconnect();
       }, PONG_TIMEOUT_MS);
@@ -237,16 +252,16 @@ export class HomeWizardWebSocket {
 
   /** Clear all timers. Called on close, cleanup, and from the close-event. */
   private clearTimers(): void {
-    if (this.authTimer) {
-      clearTimeout(this.authTimer);
+    if (this.authTimer != null) {
+      this.timers.clearTimeout(this.authTimer);
       this.authTimer = null;
     }
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval);
+    if (this.pingInterval != null) {
+      this.timers.clearInterval(this.pingInterval);
       this.pingInterval = null;
     }
-    if (this.pongTimer) {
-      clearTimeout(this.pongTimer);
+    if (this.pongTimer != null) {
+      this.timers.clearTimeout(this.pongTimer);
       this.pongTimer = null;
     }
   }
