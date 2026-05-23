@@ -174,7 +174,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.9.2 (2026-05-23)
 
 - Changelog rewritten in user-centric style across all versions.
 
@@ -191,10 +191,6 @@ homewizard.0.
 - Improved error handling and stability.
 
 ### 0.8.2 (2026-05-19)
-
-- Internal cleanup. No user-facing changes.
-
-### 0.8.1 (2026-05-17)
 
 - Internal cleanup. No user-facing changes.
 
