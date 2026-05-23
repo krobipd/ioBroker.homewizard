@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.9.0",
     "news": {
+      "NEXT": {
+        "en": "CI check-and-lint updated to Node.js 24",
+        "de": "CI check-and-lint auf Node.js 24 aktualisiert",
+        "ru": "CI check-and-lint обновлён до Node.js 24",
+        "pt": "CI check-and-lint atualizado para Node.js 24",
+        "nl": "CI check-and-lint bijgewerkt naar Node.js 24",
+        "fr": "CI check-and-lint mis à jour vers Node.js 24",
+        "it": "CI check-and-lint aggiornato a Node.js 24",
+        "es": "CI check-and-lint actualizado a Node.js 24",
+        "pl": "CI check-and-lint zaktualizowano do Node.js 24",
+        "uk": "CI check-and-lint оновлено до Node.js 24",
+        "zh-cn": "CI check-and-lint 更新至 Node.js 24"
+      },
       "0.9.0": {
         "en": "Preserve user-modified state names; state translations use standard ioBroker i18n",
         "de": "Vom Benutzer geänderte Datenpunktnamen bleiben erhalten; Übersetzungen nutzen Standard-ioBroker-i18n",
@@ -69,30 +82,17 @@
         "zh-cn": "内部现代化。无用户可见更改。"
       },
       "0.7.8": {
-        "en": "Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.",
-        "de": "Debug-Log spurt jetzt jeden HTTPS-API-Call und den Device-State-Lifecycle — bessere Diagnose bei chronischem Bouncing oder Pairing/Recovery-Problemen.",
-        "ru": "Debug-лог теперь трассирует каждый HTTPS-API-вызов и жизненный цикл состояний устройства — лучше диагностировать хроническое прерывание и проблемы pairing/recovery.",
-        "pt": "Log de debug agora rastreia cada chamada HTTPS da API e o ciclo de vida dos estados do dispositivo — diagnóstico mais fácil para bouncing crônico ou problemas de pairing/recovery.",
-        "nl": "Debug-log traceert nu elke HTTPS-API-aanroep en de device-state-lifecycle — eenvoudiger diagnose bij chronisch bouncing of pairing/recovery-problemen.",
-        "fr": "Le log debug trace désormais chaque appel HTTPS de l'API et le cycle de vie des états — diagnostic facilité pour le bouncing chronique ou les problèmes de pairing/recovery.",
-        "it": "Il log di debug ora traccia ogni chiamata HTTPS dell'API e il ciclo di vita degli stati — diagnosi più facile per bouncing cronico o problemi di pairing/recovery.",
-        "es": "El log de debug ahora traza cada llamada HTTPS de la API y el ciclo de vida de los estados — diagnóstico más fácil para bouncing crónico o problemas de pairing/recovery.",
+        "en": "Debug log now traces every HTTPS API call and device state lifecycle — easier diagnosis of chronic bouncing or pairing/recovery issues.",
+        "de": "Debug-Log verfolgt jetzt jeden HTTPS-API-Aufruf und den Lebenszyklus von Geräte-States — einfachere Diagnose bei chronischem Bouncing oder Pairing-/Recovery-Problemen.",
+        "ru": "Debug-лог теперь трасирует каждый HTTPS-API-вызов и жизненный цикл состояний устройства — упрощённая диагностика хронического bouncing или проблем pairing/recovery.",
+        "pt": "Log de depuração agora rastreia cada chamada HTTPS API e o ciclo de vida dos estados do dispositivo — diagnóstico mais fácil de bouncing crónico ou problemas de emparelhamento/recuperação.",
+        "nl": "Debug-log trace nu elke HTTPS API-aanroep en de levenscyclus van apparaatstatussen — eenvoudigere diagnose van chronisch bouncing of pairing/recovery-problemen.",
+        "fr": "Le journal de débogage trace désormais chaque appel HTTPS API et le cycle de vie des états d'appareil — diagnostic plus facile du bouncing chronique ou des problèmes de pairing/recovery.",
+        "it": "Il log di debug ora traccia ogni chiamata HTTPS API e il ciclo di vita degli stati dispositivo — diagnosi più semplice del bouncing cronico o dei problemi di pairing/recovery.",
+        "es": "El log de depuración ahora rastrea cada llamada HTTPS API y el ciclo de vida de los estados del dispositivo — diagnóstico más fácil del bouncing crónico o problemas de emparejamiento/recuperación.",
         "pl": "Log debug śledzi teraz każde wywołanie HTTPS API i cykl życia stanów urządzenia — łatwiejsza diagnostyka chronicznego bouncingu lub problemów z pairing/recovery.",
         "uk": "Debug-лог тепер трасує кожен HTTPS-API-виклик та життєвий цикл станів пристрою — простіша діагностика хронічного bouncing або проблем pairing/recovery.",
         "zh-cn": "调试日志现在跟踪每个 HTTPS API 调用和设备状态生命周期 — 更容易诊断持续断线或配对/恢复问题。"
-      },
-      "0.7.7": {
-        "en": "Devices with chronic WiFi drop-outs no longer flood the log — max 1 warn/h per device, full timeline at debug level. Internal mode-switches moved to debug.",
-        "de": "Geräte mit dauerhaft schlechtem WLAN spammen das Log nicht mehr — max 1 Warnung pro Stunde pro Gerät, voller Verlauf im Debug. Interne Modus-Wechsel auf Debug verschoben.",
-        "ru": "Устройства с постоянными WiFi-обрывами больше не засоряют лог — макс. 1 предупреждение/час на устройство, полный лог на debug. Внутренние смены режима теперь на debug.",
-        "pt": "Dispositivos com quedas constantes de WiFi já não enchem o log — máx. 1 aviso/hora por dispositivo, histórico completo em debug. Mudanças internas de modo movidas para debug.",
-        "nl": "Apparaten met chronisch slechte WiFi vullen het log niet meer — max 1 waarschuwing/uur per apparaat, volledige tijdlijn op debug. Interne modus-wisselingen naar debug.",
-        "fr": "Les appareils avec un WiFi chroniquement instable n'inondent plus le journal — max 1 avertissement/h par appareil, historique complet en debug. Les changements de mode internes passent en debug.",
-        "it": "I dispositivi con WiFi cronicamente instabile non riempiono più il log — max 1 avviso/ora per dispositivo, cronologia completa in debug. Cambi di modalità interni spostati su debug.",
-        "es": "Los dispositivos con WiFi crónicamente malo ya no inundan el log — máx. 1 aviso/h por dispositivo, historial completo en debug. Cambios de modo internos movidos a debug.",
-        "pl": "Urządzenia z chronicznie słabym WiFi nie zalewają już logu — maks. 1 ostrzeżenie/h na urządzenie, pełna oś czasu na poziomie debug. Wewnętrzne zmiany trybu przeniesione na debug.",
-        "uk": "Пристрої з хронічно поганим WiFi більше не заповнюють лог — максимум 1 попередження/год на пристрій, повний журнал на debug. Внутрішні зміни режиму перенесено на debug.",
-        "zh-cn": "WiFi 长期不稳定的设备不再淹没日志——每台设备每小时至多 1 条警告，完整时间线保留在 debug 级别。内部模式切换改到 debug。"
       }
     },
     "titleLang": {

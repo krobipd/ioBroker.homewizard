@@ -174,6 +174,10 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- CI check-and-lint updated to Node.js 24
+
 ### 0.9.0 (2026-05-22)
 
 - User-modified state names are no longer overwritten on adapter restart
