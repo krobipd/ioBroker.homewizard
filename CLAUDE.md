@@ -104,7 +104,7 @@ P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630),
 
 **Außerhalb des Scope (final, nicht „noch nicht"):** Energy Socket (HWE-SKT), Watermeter (HWE-WTR), Energy Display (HWE-DSP). Diese Geräte sprechen nur die deprecated v1-API. Adapter ist v2-only — siehe Design-Entscheidung 5.
 
-## Tests (225 unit + 57 package = 282)
+## Tests (231 unit + 57 package = 288)
 
 ```
 src/main.test.ts                      → classifyError, createDeviceConnection (22)
@@ -122,8 +122,8 @@ test/integration.js                   → @iobroker/testing Integration-Tests (p
 
 Variant A wie hassemu — Single-Instance, Multi-Device, daher reicht ein global gelesener `systemLang`.
 
-- `lib/i18n-states.ts` — STATE_NAMES (~93 Keys), STATE_DESCS (10 Keys, nur für nicht-offensichtliche), STATE_LABELS (7 Keys für `tariff` 1-4 + `battery.mode` zero/to_full/standby) × 11 Sprachen. `tName/tDesc/tLabel` returnen Translation-Objects, ioBroker Admin/vis/Object-Browser localizen automatisch.
-- `../scripts/sync-iopackage-from-i18n.py` — hält `io-package.json:instanceObjects` deterministisch synchron mit `i18n-states.ts` (zentral, single-source-of-truth).
+- `lib/i18n.ts` — Type-safe wrapper with `I18nKey` derived from `admin/i18n/en.json`. `tName(key)` returns `I18n.getTranslatedObject(key)`. Compile-time safety against typos.
+- `../scripts/sync-iopackage-from-i18n.py` — hält `io-package.json:instanceObjects` deterministisch synchron mit `admin/i18n` (zentral, single-source-of-truth).
 - `main.ts:onReady` liest `system.config.language` einmalig in `this.systemLang`. Sprachwechsel im Admin braucht Adapter-Restart — akzeptabel (User wechselt nicht regelmäßig).
 
 ## Versionshistorie
