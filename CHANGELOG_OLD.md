@@ -1,16 +1,15 @@
 # Older Changes
 ## 0.8.0 (2026-05-17)
 
-- Internal modernization. No user-facing changes. Requires Node.js 22+.
+- Internal cleanup. No user-facing changes.
 
 ## 0.7.8 (2026-05-13)
 
-- Debug log now traces every HTTPS API call and device-state lifecycle — easier diagnostics for chronic bouncing or pairing/recovery issues.
+- Improved debug logging for easier diagnosis of device connectivity and pairing issues.
 
 ## 0.7.7 (2026-05-13)
 
 - Devices with chronically bad WiFi no longer flood the log: max one warn per hour when the device drops out, one info when it comes back. Full timeline stays at debug level.
-- Internal reconnect-strategy adjustments (unstable / normal mode switches) moved from info to debug — not user-actionable.
 
 ## 0.7.6 (2026-05-12)
 
@@ -37,12 +36,12 @@
 
 ## 0.7.2 (2026-05-06)
 
-- Internal hardening: stricter number parsing for sensor inputs, parallel state writes, code split for testability, 38 new tests covering the HTTPS client. No user-facing changes.
+- Internal hardening. No user-facing changes.
 
 ## 0.7.1 (2026-05-06)
 
-- WiFi signal strength is now reported in dBm (was incorrectly labelled `dB`).
-- Faster state updates: existence checks for datapoints are cached after first creation, saving ~30 Redis lookups per second on a P1 Meter pushing 1 measurement/second.
+- WiFi signal strength is now reported in dBm (was incorrectly labelled dB).
+- Faster state updates on devices with high-frequency measurements.
 
 ## 0.7.0 (2026-05-06)
 
@@ -62,8 +61,8 @@
 
 ## 0.6.5 (2026-04-26)
 
-- Crash defense: process-level error handlers.
-- Min `js-controller` restored to `>=6.0.11` (was incorrectly `>=7.0.0`).
+- Improved crash resilience.
+- Minimum js-controller requirement restored to 6.0.11 (was incorrectly raised to 7.0.0).
 
 ## 0.6.4 (2026-04-23)
 
@@ -75,7 +74,7 @@
 
 ## 0.6.2 (2026-04-13)
 
-- Fix: hanging promise on response stream errors. Safer adapter shutdown.
+- Fixed a potential hang during device communication errors. Safer adapter shutdown.
 
 ## 0.6.1 (2026-04-12)
 
@@ -95,7 +94,7 @@
 
 ## 0.4.2 (2026-04-05)
 
-- Internal: consistent donation labels.
+- Internal cleanup. No user-facing changes.
 
 ---
 
@@ -109,7 +108,7 @@
 
 ## 0.3.5 (2026-04-05)
 
-- Fix log spam: error deduplication by category. REST fallback stops on network errors.
+- Less log spam: repeated errors of the same kind are now shown once, then suppressed. Unreachable devices no longer get bombarded with requests.
 
 ## 0.3.4 (2026-04-05)
 
@@ -145,7 +144,7 @@
 
 ## 0.1.1 (2026-04-04)
 
-- Internal: 129 unit tests added.
+- Internal cleanup. No user-facing changes.
 
 ## 0.1.0 (2026-04-04)
 
