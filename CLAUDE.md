@@ -26,7 +26,9 @@
 - Header: `X-Api-Version: 2`
 - Pairing: `POST /api/user` → 403 bis physischer Button gedrückt → 200 + Token
 - WebSocket: `wss://<IP>/api/ws` → auth → subscribe `measurement` → Push ~1/s
-- Endpoints: `/api` (info), `/api/user` (CRUD), `/api/measurement`, `/api/system`, `/api/batteries`, `/api/ws`
+- Endpoints: `/api` (info), `/api/user` (POST pair / DELETE revoke), `/api/measurement`, `/api/system`, `/api/batteries`, `/api/telegram` (raw P1 text), `/api/ws`
+- WS topics subscribed nach `authorized`: `measurement` (~1/s) + `system` + `batteries` (explizit, nicht `*`). system/batteries pushen nur bei Control-State-Änderung → REST-Poll bleibt für uptime/rssi-Frische
+- Battery-Modi: `zero` / `to_full` / `standby` / `predictive` + `charge_to_full` (boolean, one-shot). Whitelist ist nur User-Frühwarnung — das Gerät lehnt unbekannte Modi selbst per `ERR` ab
 
 ## Architektur
 
@@ -40,7 +42,7 @@ src/lib/discovery.ts         → mDNS (_homewizard._tcp), nur bei Pairing/IP-Rec
 src/lib/homewizard-client.ts → HTTPS-Client (REST)
 src/lib/websocket-client.ts  → WSS-Client (Echtzeit)
 src/lib/state-manager.ts     → State CRUD + Cleanup, MEASUREMENT_STATE_DEFS mit nameKey/descKey
-src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName/tDesc/resolveLabel, I18nKey from en.json)
+src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName/resolveLabel, I18nKey from en.json)
 ```
 
 ## Design-Entscheidungen
@@ -55,6 +57,8 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
 8. **Admin UI ohne Gerätetabelle** — Geräte im Objekte-Tab, nicht in Config
 9. **statusStates** (seit v0.4.0) — Device-Objekte haben `statusStates.onlineId` → grün/grau Icon im Objektbaum
 10. **measurement/ Channel** (seit v0.4.0) — Messdaten unter `measurement/`, nicht lose im Device-Root. `cleanupMovedStates()` räumt alte Pfade auf
+11. **WS-Echtzeit für system/batteries additiv, nicht ersetzend** (seit v0.10.0) — WS pusht system/batteries nur bei Control-State-Änderung (uptime/rssi pushen NICHT laufend), darum bleibt der 60s-REST-System-Poll erhalten. `setStateChangedAsync` für langsame Felder verhindert die REST/WS-Doppel-Writes der überlappenden Felder
+12. **Token-Revoke beim Entfernen** (seit v0.10.0) — `removeDevice` ruft best-effort `DELETE /api/user` (`{name:"local/iobroker"}`) bevor das Device-Object gelöscht wird, damit auf dem Gerät keine toten `local/iobroker`-User-Tokens bei jedem Pair/Unpair zurückbleiben
 
 ## Error-Handling (seit v0.3.5)
 
@@ -104,16 +108,18 @@ P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630),
 
 **Außerhalb des Scope (final, nicht „noch nicht"):** Energy Socket (HWE-SKT), Watermeter (HWE-WTR), Energy Display (HWE-DSP). Diese Geräte sprechen nur die deprecated v1-API. Adapter ist v2-only — siehe Design-Entscheidung 5.
 
-## Tests (231 unit + 57 package = 288)
+## Tests (262 unit + 57 package = 319)
 
 ```
-src/main.test.ts                      → classifyError, createDeviceConnection (22)
-src/lib/coerce.test.ts                → coerce-Helpers + errText + validateBatteryMode + parseBatteryPermissions + strict-number (33)
-src/lib/discovery.test.ts             → mDNS (16)
-src/lib/homewizard-client.test.ts     → HomeWizardApiError + HTTP-stub-server tests for all API methods (23)
-src/lib/main-helpers.test.ts          → pure decision helpers (decideUnstableTransition, computeReconnectDelay, shouldStartIpRecovery, ...) (24)
-src/lib/state-manager.test.ts         → States + Buttons + boundary hardening + Translation-Objects + cache + dBm (62)
-src/lib/websocket-client.test.ts      → WebSocket-Flow + envelope validation (19)
+src/main.test.ts                      → orchestration: onStateChange-routing (reboot/identify/setSystem/mode-validate/permissions/charge_to_full), removeDevice (deleteUser+teardown), isUnstable, onWs* push-handlers (connected-reset, battery_count-gate, removed-guard, unstable-backoff). Stub Adapter-base + injected makeClient/makeWebSocket (17)
+src/lib/connection-utils.test.ts      → classifyError + createDeviceConnection (pure) (19)
+src/lib/coerce.test.ts                → coerce-Helpers + errText + validateBatteryMode (incl. predictive) + parseBatteryPermissions + strict-number (35)
+src/lib/discovery.test.ts             → mDNS, in-scope product types (22)
+src/lib/homewizard-client.test.ts     → HomeWizardApiError + HTTPS-stub-server tests for all API methods (26)
+src/lib/i18n.test.ts                  → type-safe I18n wrappers (tName/resolveLabel) (4)
+src/lib/main-helpers.test.ts          → pure decision helpers (decideUnstableTransition, computeReconnectDelay, shouldStartIpRecovery, ...) (31)
+src/lib/state-manager.test.ts         → States + Buttons + boundary hardening + Translation-Objects + cache + dBm + v0.10.0 (wifi_ssid/telegram/charge_to_full/predictive/HWE-BAT caps) (75)
+src/lib/websocket-client.test.ts      → handleMessage envelope + system/batteries/error cases + real wss-stub-server (TLS+auth handshake, subscribe measurement/system/batteries, push delivery, disconnect) (33)
 test/package.js                       → @iobroker/testing Package-Tests (57)
 test/integration.js                   → @iobroker/testing Integration-Tests (plain JS)
 ```
