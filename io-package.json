@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.9.3",
+    "version": "0.10.0",
     "news": {
+      "0.10.0": {
+        "en": "New predictive battery mode and charge-to-full switch, real-time system and battery updates, plus new WiFi-network and raw P1-telegram states.",
+        "de": "Neuer Predictive-Batteriemodus und Voll-laden-Schalter, Echtzeit-Updates für System und Batterie sowie neue Datenpunkte für WLAN-Netzwerk und rohes P1-Telegramm.",
+        "ru": "Новый режим predictive для батареи и переключатель полной зарядки, обновления системы и батареи в реальном времени, а также новые состояния для WiFi-сети и телеграммы P1.",
+        "pt": "Novo modo predictive da bateria e interruptor de carga total, atualizações de sistema e bateria em tempo real, e novos pontos de dados para a rede Wi-Fi e o telegrama P1.",
+        "nl": "Nieuwe predictive-accumodus en schakelaar volledig opladen, realtime systeem- en accu-updates, en nieuwe datapunten voor wifi-netwerk en ruw P1-telegram.",
+        "fr": "Nouveau mode predictive de batterie et interrupteur de charge complète, mises à jour système et batterie en temps réel, et nouveaux points de données Wi-Fi et télégramme P1.",
+        "it": "Nuova modalità predictive della batteria e interruttore di carica completa, aggiornamenti di sistema e batteria in tempo reale, e nuovi dati per rete Wi-Fi e telegramma P1.",
+        "es": "Nuevo modo predictive de batería e interruptor de carga completa, actualizaciones de sistema y batería en tiempo real, y nuevos datos para red Wi-Fi y telegrama P1.",
+        "pl": "Nowy tryb predictive baterii i przełącznik pełnego ładowania, aktualizacje systemu i baterii w czasie rzeczywistym oraz nowe punkty danych dla sieci Wi-Fi i telegramu P1.",
+        "uk": "Новий режим predictive для батареї та перемикач повного заряджання, оновлення системи й батареї в реальному часі, а також нові точки даних для мережі Wi-Fi і телеграми P1.",
+        "zh-cn": "新增电池 predictive 模式和充满开关，系统和电池数据实时更新，并新增 WiFi 网络和原始 P1 电报数据点。"
+      },
       "0.9.3": {
         "en": "User-modified device names are no longer overwritten on adapter restart or IP recovery. Improved timer management for compact mode.",
         "de": "Vom Benutzer geänderte Gerätenamen werden beim Adapter-Neustart oder IP-Recovery nicht mehr überschrieben. Verbessertes Timer-Management für den Compact-Modus.",
@@ -76,19 +89,6 @@
         "nl": "Interne opruiming. Geen zichtbare wijzigingen voor gebruikers.",
         "fr": "Nettoyage interne. Aucun changement visible pour l utilisateur.",
         "it": "Pulizia interna. Nessuna modifica visibile per l utente.",
-        "es": "Limpieza interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzne porządki. Brak widocznych zmian dla użytkownika.",
-        "uk": "Внутрішнє прибирання. Без видимих змін для користувача.",
-        "zh-cn": "内部清理。无用户可见的更改。"
-      },
-      "0.8.1": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Bereinigung. Keine sichtbaren Änderungen.",
-        "ru": "Внутренняя очистка. Нет видимых изменений для пользователей.",
-        "pt": "Limpeza interna. Sem alterações visíveis para o utilizador.",
-        "nl": "Interne opruiming. Geen zichtbare wijzigingen voor gebruikers.",
-        "fr": "Nettoyage interne. Aucun changement visible pour l'utilisateur.",
-        "it": "Pulizia interna. Nessuna modifica visibile per l'utente.",
         "es": "Limpieza interna. Sin cambios visibles para el usuario.",
         "pl": "Wewnętrzne porządki. Brak widocznych zmian dla użytkownika.",
         "uk": "Внутрішнє прибирання. Без видимих змін для користувача.",

@@ -91,8 +91,11 @@ export function isValidIpv4(value: unknown): boolean {
   return true;
 }
 
-/** Allowed values for `battery.mode` per HomeWizard API v2. */
-export const BATTERY_MODES = ["zero", "to_full", "standby"] as const;
+// Allowed values for `battery.mode` per HomeWizard API v2 (`zero`, `to_full`,
+// `standby`, `predictive` since API 2.3.0). This whitelist is only the
+// user-friendly early warning — the device itself rejects unknown modes with an
+// ERR response, so it is kept in sync with the API but is not the source of truth.
+export const BATTERY_MODES = ["zero", "to_full", "standby", "predictive"] as const;
 export type BatteryMode = (typeof BATTERY_MODES)[number];
 
 /**

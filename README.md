@@ -19,8 +19,8 @@ Real-time energy monitoring for [HomeWizard](https://www.homewizard.com) Energy 
 
 - **HomeWizard API v2** — HTTPS + WebSocket, bearer-token authentication
 - **mDNS pairing** — `_homewizard._tcp` discovery, press the device button to pair
-- **WebSocket push** — measurements arrive ~1/s; REST polling takes over while the WebSocket reconnects
-- **Plug-In Battery control** — charge/discharge mode and grid-feed permissions through the paired P1/kWh meter
+- **WebSocket push** — measurements arrive ~1/s, with system and battery changes pushed in real time; REST polling takes over while the WebSocket reconnects
+- **Plug-In Battery control** — charge/discharge mode (including forecast-based `predictive` and a one-shot charge-to-full) and grid-feed permissions through the paired P1/kWh meter
 - **Adaptive reconnect** — devices with weak WiFi switch to a faster reconnect interval and keep REST polling running so data keeps flowing
 - **Encrypted device tokens** — stored per device object, no adapter restart on pairing or removal
 
@@ -44,7 +44,7 @@ Real-time energy monitoring for [HomeWizard](https://www.homewizard.com) Energy 
 | kWh Meter 3-Phase | HWE-KWH3 (also sold as SDM630) |
 | Plug-In Battery   | HWE-BAT                        |
 
-The Plug-In Battery is paired separately and shows up as its own device. To control charge/discharge mode and grid-feed permissions, you write to the `battery.*` data points of the P1 or kWh meter — that's where HomeWizard exposes the battery commands.
+The Plug-In Battery is paired separately and shows up as its own device. To control charge/discharge mode and grid-feed permissions, you write to the `battery.*` data points of the P1 or kWh meter — that's where HomeWizard exposes the battery commands. The `predictive` mode and the `charge_to_full` switch require recent device firmware (battery API 2.3.0+); older firmware rejects them and the value is simply not applied.
 
 ---
 
@@ -94,6 +94,7 @@ homewizard.0.
     │   ├── productType          — Product type (string)
     │   ├── firmware             — Firmware version (string)
     │   ├── connected            — WebSocket connection status (bool)
+    │   ├── wifi_ssid            — WiFi network name / SSID (string)
     │   ├── wifi_rssi_db         — WiFi signal strength (number, dBm)
     │   └── uptime_s             — Device uptime (number, s)
     ├── measurement/             — Measurement data
@@ -116,6 +117,7 @@ homewizard.0.
     │   ├── monthly_power_peak_timestamp — Monthly peak timestamp (string)
     │   ├── meter_model          — Meter model identifier (string)
     │   ├── timestamp            — Measurement timestamp (string)
+    │   ├── telegram             — Raw P1 telegram text (string, P1 only)
     │   ├── quality/             — Power quality counters
     │   │   ├── voltage_sag_l1..l3_count
     │   │   ├── voltage_swell_l1..l3_count
@@ -127,7 +129,8 @@ homewizard.0.
     │           ├── unit         — Unit (string)
     │           └── timestamp    — Last update (string)
     ├── battery/                 — Battery control (if batteries connected)
-    │   ├── mode                 — zero / to_full / standby (string, R/W)
+    │   ├── mode                 — zero / to_full / standby / predictive (string, R/W)
+    │   ├── charge_to_full       — One-shot charge to 100% (bool, R/W)
     │   ├── permissions          — JSON array (string, R/W)
     │   ├── battery_count        — Connected batteries (number)
     │   ├── power_w              — Battery power (number, W)
@@ -174,6 +177,13 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 0.10.0 (2026-06-01)
+
+- New battery controls: a forecast-based predictive charging mode and a one-shot charge-to-full switch, in addition to the existing zero, to-full and standby modes.
+- System settings and battery status now update in real time as the device reports them, instead of only on the periodic refresh.
+- Two new data points: the WiFi network name the device is connected to, and the raw P1 telegram text (P1 meter only).
+- Removing a device now revokes its access token on the HomeWizard device, so no unused tokens are left behind.
+
 ### 0.9.3 (2026-05-23)
 
 - User-modified device names are no longer overwritten on adapter restart or IP recovery.
@@ -191,13 +201,9 @@ homewizard.0.
 
 - User-modified state names are no longer overwritten on adapter restart
 
-### 0.8.3 (2026-05-21)
-
-- Improved error handling and stability.
-
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
-### Support Development
+## Support Development
 
 This adapter is free and open source. If you find it useful, consider buying me a coffee:
 

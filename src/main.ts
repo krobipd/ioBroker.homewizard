@@ -14,8 +14,15 @@ import {
   shouldStartIpRecovery,
 } from "./lib/main-helpers";
 import { StateManager } from "./lib/state-manager";
-import type { DeviceConfig, DeviceConnection, DiscoveredDevice, Measurement } from "./lib/types";
-import { HomeWizardWebSocket } from "./lib/websocket-client";
+import type {
+  BatteryControl,
+  DeviceConfig,
+  DeviceConnection,
+  DiscoveredDevice,
+  Measurement,
+  SystemInfo,
+} from "./lib/types";
+import { HomeWizardWebSocket, type TimerDeps, type WsCallbacks } from "./lib/websocket-client";
 
 /** Pairing timeout in milliseconds (60 seconds) */
 const PAIRING_TIMEOUT_MS = 60_000;
@@ -54,7 +61,12 @@ const WARN_COOLDOWN_MS = 60 * 60 * 1000;
 /** Cooldown window for `connection restored` infos — analog to warn cooldown. */
 const INFO_COOLDOWN_MS = 60 * 60 * 1000;
 
-class HomeWizard extends utils.Adapter {
+/**
+ * HomeWizard adapter — manages multiple devices over API v2 (HTTPS + WebSocket):
+ * pairing, real-time push, REST fallback, reconnect/recovery and state mapping.
+ * Exported so the orchestration unit tests can drive its handlers directly.
+ */
+export class HomeWizard extends utils.Adapter {
   private stateManager!: StateManager;
   private discovery: HomeWizardDiscovery | null = null;
   private readonly connections = new Map<string, DeviceConnection>();
@@ -76,10 +88,37 @@ class HomeWizard extends utils.Adapter {
   private isPairing = false;
   private pairingManualIp = "";
   private discoveredDuringPairing: DiscoveredDevice[] = [];
-  private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
-  private uncaughtExceptionHandler: ((err: Error) => void) | null = null;
   /** Set during onUnload — async paths bail before further setStateAsync calls. */
   private unloading = false;
+  /**
+   * Factories for the REST/WS clients — default to the real constructors. Test seams:
+   * a unit test can replace these with fakes to exercise the orchestration (initDevice,
+   * onWsConnected/onWsDisconnected, onStateChange) without real network.
+   *
+   * @param ip Device IP address
+   * @param token Bearer token (empty string for pairing requests)
+   */
+  private makeClient: (ip: string, token: string) => HomeWizardClient = (ip, token) =>
+    new HomeWizardClient(ip, token, { log: this.log });
+  private makeWebSocket: (ip: string, token: string, callbacks: WsCallbacks, timers: TimerDeps) => HomeWizardWebSocket =
+    (ip, token, callbacks, timers) => new HomeWizardWebSocket(ip, token, callbacks, timers);
+
+  /**
+   * Close a connection's WebSocket and clear its poll + reconnect timers.
+   *
+   * @param conn Device connection to tear down
+   */
+  private teardownConnection(conn: DeviceConnection): void {
+    conn.wsClient?.close();
+    if (conn.pollTimer) {
+      this.clearInterval(conn.pollTimer);
+      conn.pollTimer = undefined;
+    }
+    if (conn.reconnectTimer) {
+      this.clearTimeout(conn.reconnectTimer);
+      conn.reconnectTimer = undefined;
+    }
+  }
 
   /** @param options Adapter options */
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
@@ -87,15 +126,9 @@ class HomeWizard extends utils.Adapter {
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
-    // Safety net for fire-and-forget paths (e.g. `void this.initDevice()`).
-    this.unhandledRejectionHandler = (reason: unknown) => {
-      this.log.error(`Unhandled rejection: ${errText(reason)}`);
-    };
-    this.uncaughtExceptionHandler = (err: Error) => {
-      this.log.error(`Uncaught exception: ${err.message}`);
-    };
-    process.on("unhandledRejection", this.unhandledRejectionHandler);
-    process.on("uncaughtException", this.uncaughtExceptionHandler);
+    // No process-level unhandledRejection/uncaughtException handlers: in compact mode they
+    // are process-wide and cross-adapter-harmful. Every handler has .bind+try/catch and
+    // fire-and-forget paths use .catch (Fleet pattern — hueemu/parcelapp/nut).
   }
 
   private async onReady(): Promise<void> {
@@ -114,12 +147,13 @@ class HomeWizard extends utils.Adapter {
       await this.subscribeStatesAsync("*.system.api_v1_enabled");
       await this.subscribeStatesAsync("*.battery.mode");
       await this.subscribeStatesAsync("*.battery.permissions");
+      await this.subscribeStatesAsync("*.battery.charge_to_full");
       await this.subscribeStatesAsync("*.remove");
 
       const devices = await this.loadDevicesFromObjects();
       if (devices.length === 0) {
         this.log.info(`No devices configured — set 'startPairing' to true to add a device`);
-        await this.setStateAsync("info.connection", { val: false, ack: true });
+        await this.setStateChangedAsync("info.connection", { val: false, ack: true });
       }
 
       for (const device of devices) {
@@ -131,7 +165,9 @@ class HomeWizard extends utils.Adapter {
 
         if (conn.ip) {
           this.log.debug(`Using stored IP ${conn.ip} for ${device.productName}`);
-          void this.initDevice(conn);
+          void this.initDevice(conn).catch((err: unknown) =>
+            this.log.error(`initDevice failed for ${conn.config.productName}: ${errText(err)}`),
+          );
         }
       }
 
@@ -152,7 +188,10 @@ class HomeWizard extends utils.Adapter {
   private async loadDevicesFromObjects(): Promise<DeviceConfig[]> {
     const devices: DeviceConfig[] = [];
 
-    // Also migrate from old adapter config if devices exist there.
+    // One-shot legacy migration: v0.1/0.2 stored devices in adapter `native.devices`;
+    // v0.3.0 moved them to per-device objects. Any install that ran v0.3.0+ has already
+    // migrated (native.devices cleared below), but removal is low-reward / non-zero-risk
+    // for an install that has been dormant since v0.2 — keep until at least v1.0.0.
     // Defensive: native.devices could be a non-array if a previous version
     // wrote a different shape, or if the user edited it manually.
     const rawOldDevices = (this.config as Record<string, unknown>).devices;
@@ -280,25 +319,9 @@ class HomeWizard extends utils.Adapter {
       this.discovery?.stop();
 
       for (const conn of this.connections.values()) {
-        conn.wsClient?.close();
-        if (conn.pollTimer) {
-          this.clearInterval(conn.pollTimer);
-        }
-        if (conn.reconnectTimer) {
-          this.clearTimeout(conn.reconnectTimer);
-        }
+        this.teardownConnection(conn);
       }
       this.connections.clear();
-
-      // Detach process-level last-line-of-defence handlers
-      if (this.unhandledRejectionHandler) {
-        process.off("unhandledRejection", this.unhandledRejectionHandler);
-        this.unhandledRejectionHandler = null;
-      }
-      if (this.uncaughtExceptionHandler) {
-        process.off("uncaughtException", this.uncaughtExceptionHandler);
-        this.uncaughtExceptionHandler = null;
-      }
 
       void this.setState("info.connection", { val: false, ack: true });
     } finally {
@@ -331,7 +354,7 @@ class HomeWizard extends utils.Adapter {
         return;
       }
 
-      const client = new HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
+      const client = this.makeClient(conn.ip, conn.config.token);
 
       try {
         if (id.endsWith(".system.reboot")) {
@@ -354,7 +377,7 @@ class HomeWizard extends utils.Adapter {
           const mode = validateBatteryMode(String(state.val));
           if (!mode) {
             this.log.warn(
-              `Invalid battery.mode value: '${String(state.val)}' — expected one of: zero, to_full, standby`,
+              `Invalid battery.mode value: '${String(state.val)}' — expected one of: zero, to_full, standby, predictive`,
             );
             return;
           }
@@ -369,6 +392,9 @@ class HomeWizard extends utils.Adapter {
             return;
           }
           await client.setBatteries({ permissions: result.perms });
+          await this.setStateAsync(id, { val: state.val, ack: true });
+        } else if (id.endsWith(".battery.charge_to_full")) {
+          await client.setBatteries({ charge_to_full: !!state.val });
           await this.setStateAsync(id, { val: state.val, ack: true });
         }
       } catch (err) {
@@ -449,7 +475,7 @@ class HomeWizard extends utils.Adapter {
   private async pollPairing(): Promise<void> {
     for (const device of this.discoveredDuringPairing) {
       try {
-        const client = new HomeWizardClient(device.ip, "", { log: this.log });
+        const client = this.makeClient(device.ip, "");
         const result = await client.requestPairing();
 
         // Success! Button was pressed
@@ -458,7 +484,7 @@ class HomeWizard extends utils.Adapter {
         );
 
         // Get device info
-        const authedClient = new HomeWizardClient(device.ip, result.token, { log: this.log });
+        const authedClient = this.makeClient(device.ip, result.token);
         const info = await authedClient.getDeviceInfo();
 
         const deviceConfig: DeviceConfig = {
@@ -480,19 +506,15 @@ class HomeWizard extends utils.Adapter {
         const previous = this.connections.get(key);
         if (previous) {
           this.log.debug(`Re-pair: closing previous connection for ${deviceConfig.productName}`);
-          previous.wsClient?.close();
-          if (previous.pollTimer) {
-            this.clearInterval(previous.pollTimer);
-          }
-          if (previous.reconnectTimer) {
-            this.clearTimeout(previous.reconnectTimer);
-          }
+          this.teardownConnection(previous);
         }
 
         // Create connection and connect
         const conn = createDeviceConnection(deviceConfig, device.ip);
         this.connections.set(key, conn);
-        void this.initDevice(conn);
+        void this.initDevice(conn).catch((err: unknown) =>
+          this.log.error(`initDevice failed for ${conn.config.productName}: ${errText(err)}`),
+        );
 
         // Remove from discovery list — but keep pairing window open so the
         // user can button-press additional devices in the same session.
@@ -631,7 +653,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     try {
-      const client = new HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
+      const client = this.makeClient(conn.ip, conn.config.token);
       const info = await client.getDeviceInfo();
       if (this.unloading || conn.removed) {
         return;
@@ -687,139 +709,25 @@ class HomeWizard extends utils.Adapter {
       this.startIpRecovery();
     }
 
-    const key = this.stateManager.devicePrefix(conn.config);
-
-    const wsClient = new HomeWizardWebSocket(
+    // Thin callbacks delegating to instance methods (extracted for readability + unit-testability).
+    const wsClient = this.makeWebSocket(
       conn.ip,
       conn.config.token,
       {
-        onMeasurement: (data: Measurement) => {
-          // Skip updates for devices removed mid-flight (frame can race
-          // delObjectAsync), and for adapter teardown.
-          if (conn.removed || this.unloading) {
-            return;
-          }
-          // Defensive .catch — Promise.all writes inside updateMeasurement may
-          // reject on transient Redis hiccups; we want a debug-log, not an
-          // unhandled rejection that bubbles to the process-level handler.
-          this.stateManager.updateMeasurement(conn.config, data).catch((err: unknown) => {
-            this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${errText(err)}`);
-          });
-        },
-        onConnected: () => {
-          conn.wsAuthenticated = true;
-          conn.wsFailCount = 0;
-          conn.authFailCount = 0;
-          conn.lastConnectedAt = Date.now();
-          conn.recovering = false;
-          void this.stateManager.setDeviceConnected(conn.config, true);
-          this.updateGlobalConnection();
-
-          // Stop REST fallback if active
-          if (conn.pollTimer) {
-            this.clearInterval(conn.pollTimer);
-            conn.pollTimer = undefined;
-          }
-
-          // Stop IP recovery if all devices are connected
-          if (this.discovery && !this.isPairing) {
-            const allConnected = Array.from(this.connections.values()).every(c => c.wsAuthenticated);
-            if (allConnected) {
-              this.stopIpRecovery();
-            }
-          }
-
-          // Log restoration if we had errors before. Per-device cooldown
-          // (analog to logDeviceError) so chronic bouncing doesn't emit one
-          // info per cycle — bouncing hardware is one phenomenon and one
-          // restoration-info per hour is enough. Repeats go to debug.
-          if (conn.lastErrorCode) {
-            const now = Date.now();
-            const lastInfo = this.lastInfoAt.get(conn.config.serial) ?? 0;
-            const msg = this.isUnstable(conn)
-              ? `${conn.config.productName}: connection restored (unstable mode)`
-              : `${conn.config.productName}: connection restored`;
-            if (shouldEmitAfterCooldown(lastInfo, now, INFO_COOLDOWN_MS)) {
-              this.lastInfoAt.set(conn.config.serial, now);
-              this.log.info(msg);
-            } else {
-              this.log.debug(`${msg} (cooldown)`);
-            }
-            conn.lastErrorCode = "";
-          }
-
-          this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
-        },
-        onDisconnected: (error?: Error) => {
-          // Auth failures are not a connectivity-stability signal — they mean
-          // the token is bad, not the WiFi. Counting them as short connections
-          // would flip the device into unstable mode (faster reconnect spam,
-          // misleading "unstable" log) on what is purely an auth issue.
-          const isAuthError = error instanceof HomeWizardApiError && error.errorCode === "user:unauthorized";
-
-          // Track connection stability — pure decision in main-helpers, side-effects here
-          if (conn.lastConnectedAt > 0 && !isAuthError) {
-            const duration = Date.now() - conn.lastConnectedAt;
-            const transition = decideUnstableTransition(
-              conn.recentDisconnects,
-              duration,
-              STABLE_THRESHOLD_MS,
-              UNSTABLE_DISCONNECT_THRESHOLD,
-            );
-            if (duration < STABLE_THRESHOLD_MS) {
-              conn.recentDisconnects++;
-            } else {
-              conn.recentDisconnects = 0;
-            }
-            // Hysterese-transitions are internal reconnect-strategy adjustments,
-            // not user-actionable events. Per the geschärfte mcm-Linie
-            // (reference_iobroker_logging_levels HART-block): diagnostische
-            // Prefixe / interne Hysterese-State gehören auf debug, nicht info.
-            if (transition === "becameUnstable") {
-              this.log.debug(`${conn.config.productName}: unstable connection detected — using faster reconnect`);
-            } else if (transition === "stabilized") {
-              this.log.debug(`${conn.config.productName}: connection stabilized — using normal reconnect`);
-            }
-          }
-
-          conn.wsAuthenticated = false;
-          conn.wsClient = null;
-          conn.recovering = false;
-          void this.stateManager.setDeviceConnected(conn.config, false);
-          this.updateGlobalConnection();
-
-          if (error) {
-            this.logDeviceError(conn, "ws", error);
-          }
-
-          // Check if this was an auth failure (returns false → stop reconnect path)
-          if (!this.handleAuthFailure(conn, error, /* cleanupTimers */ false)) {
-            return;
-          }
-
-          // Start REST fallback
-          this.startRestFallback(conn);
-
-          // Schedule reconnect with exponential backoff (faster for unstable devices)
-          conn.wsFailCount++;
-          const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
-          const delay = computeReconnectDelay(conn.wsFailCount, WS_RECONNECT_BASE_MS, maxDelay);
-          this.log.debug(`${key}: WS reconnect in ${delay / 1000}s (attempt ${conn.wsFailCount})`);
-
-          conn.reconnectTimer = this.setTimeout(() => {
-            conn.reconnectTimer = undefined;
-            this.connectWebSocket(conn);
-          }, delay);
-        },
+        onMeasurement: data => this.onWsMeasurement(conn, data),
+        onSystem: data => this.onWsSystem(conn, data),
+        onBattery: data => this.onWsBattery(conn, data),
+        onConnected: () => this.onWsConnected(conn),
+        onDisconnected: error => this.onWsDisconnected(conn, error),
         log: this.log,
       },
       {
-        setTimeout: (cb, ms) => this.setTimeout(cb, ms),
-        clearTimeout: h => {
+        schedule: (cb, ms) => this.setTimeout(cb, ms),
+        cancel: h => {
           this.clearTimeout(h as ioBroker.Timeout);
         },
-        setInterval: (cb, ms) => this.setInterval(cb, ms),
-        clearInterval: h => {
+        scheduleRepeating: (cb, ms) => this.setInterval(cb, ms),
+        cancelRepeating: h => {
           this.clearInterval(h as ioBroker.Interval);
         },
       },
@@ -827,6 +735,171 @@ class HomeWizard extends utils.Adapter {
 
     conn.wsClient = wsClient;
     wsClient.connect();
+  }
+
+  /**
+   * Handle a measurement push.
+   *
+   * @param conn Device connection
+   * @param data Measurement payload
+   */
+  private onWsMeasurement(conn: DeviceConnection, data: Measurement): void {
+    // Skip updates for devices removed mid-flight (frame can race delObjectAsync) + teardown.
+    if (conn.removed || this.unloading) {
+      return;
+    }
+    // Defensive .catch — writes inside updateMeasurement may reject on transient Redis hiccups;
+    // we want a debug-log, not an unhandled rejection.
+    this.stateManager.updateMeasurement(conn.config, data).catch((err: unknown) => {
+      this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${errText(err)}`);
+    });
+  }
+
+  /**
+   * Handle a real-time system push (cloud/led changes etc.).
+   *
+   * @param conn Device connection
+   * @param data System payload
+   */
+  private onWsSystem(conn: DeviceConnection, data: SystemInfo): void {
+    if (conn.removed || this.unloading) {
+      return;
+    }
+    this.stateManager.updateSystem(conn.config, data).catch((err: unknown) => {
+      this.log.debug(`updateSystem (ws) failed for ${conn.config.productName}: ${errText(err)}`);
+    });
+  }
+
+  /**
+   * Handle a real-time battery-group push (mode/permissions/target power).
+   *
+   * @param conn Device connection
+   * @param data Battery-control payload
+   */
+  private onWsBattery(conn: DeviceConnection, data: BatteryControl): void {
+    if (conn.removed || this.unloading) {
+      return;
+    }
+    // Only surface battery states when batteries are actually connected.
+    if (!data.battery_count || data.battery_count <= 0) {
+      return;
+    }
+    this.stateManager.updateBattery(conn.config, data).catch((err: unknown) => {
+      this.log.debug(`updateBattery (ws) failed for ${conn.config.productName}: ${errText(err)}`);
+    });
+  }
+
+  /**
+   * WebSocket authenticated — mark connected, stop REST fallback, log recovery (cooldowned).
+   *
+   * @param conn Device connection
+   */
+  private onWsConnected(conn: DeviceConnection): void {
+    conn.wsAuthenticated = true;
+    conn.wsFailCount = 0;
+    conn.authFailCount = 0;
+    conn.lastConnectedAt = Date.now();
+    conn.recovering = false;
+    void this.stateManager.setDeviceConnected(conn.config, true);
+    this.updateGlobalConnection();
+
+    // Stop REST fallback if active
+    if (conn.pollTimer) {
+      this.clearInterval(conn.pollTimer);
+      conn.pollTimer = undefined;
+    }
+
+    // Stop IP recovery if all devices are connected
+    if (this.discovery && !this.isPairing) {
+      const allConnected = Array.from(this.connections.values()).every(c => c.wsAuthenticated);
+      if (allConnected) {
+        this.stopIpRecovery();
+      }
+    }
+
+    // Log restoration if we had errors before. Per-device cooldown so chronic bouncing
+    // doesn't emit one info per cycle — repeats go to debug.
+    if (conn.lastErrorCode) {
+      const now = Date.now();
+      const lastInfo = this.lastInfoAt.get(conn.config.serial) ?? 0;
+      const msg = this.isUnstable(conn)
+        ? `${conn.config.productName}: connection restored (unstable mode)`
+        : `${conn.config.productName}: connection restored`;
+      if (shouldEmitAfterCooldown(lastInfo, now, INFO_COOLDOWN_MS)) {
+        this.lastInfoAt.set(conn.config.serial, now);
+        this.log.info(msg);
+      } else {
+        this.log.debug(`${msg} (cooldown)`);
+      }
+      conn.lastErrorCode = "";
+    }
+
+    this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
+  }
+
+  /**
+   * WebSocket disconnected — track stability, start REST fallback, schedule backed-off reconnect
+   * (unless an auth failure stops the loop).
+   *
+   * @param conn Device connection
+   * @param error Disconnect error, if any
+   */
+  private onWsDisconnected(conn: DeviceConnection, error?: Error): void {
+    // Auth failures are not a connectivity-stability signal — they mean the token is bad,
+    // not the WiFi. Counting them as short connections would flip the device into unstable mode.
+    const isAuthError = error instanceof HomeWizardApiError && error.errorCode === "user:unauthorized";
+
+    // Track connection stability — pure decision in main-helpers, side-effects here.
+    if (conn.lastConnectedAt > 0 && !isAuthError) {
+      const duration = Date.now() - conn.lastConnectedAt;
+      const transition = decideUnstableTransition(
+        conn.recentDisconnects,
+        duration,
+        STABLE_THRESHOLD_MS,
+        UNSTABLE_DISCONNECT_THRESHOLD,
+      );
+      if (duration < STABLE_THRESHOLD_MS) {
+        conn.recentDisconnects++;
+      } else {
+        conn.recentDisconnects = 0;
+      }
+      // Hysterese-transitions are internal reconnect-strategy adjustments → debug, not info.
+      if (transition === "becameUnstable") {
+        this.log.debug(`${conn.config.productName}: unstable connection detected — using faster reconnect`);
+      } else if (transition === "stabilized") {
+        this.log.debug(`${conn.config.productName}: connection stabilized — using normal reconnect`);
+      }
+    }
+
+    conn.wsAuthenticated = false;
+    conn.wsClient = null;
+    conn.recovering = false;
+    void this.stateManager.setDeviceConnected(conn.config, false);
+    this.updateGlobalConnection();
+
+    if (error) {
+      this.logDeviceError(conn, "ws", error);
+    }
+
+    // Auth failure → stop the reconnect path.
+    if (!this.handleAuthFailure(conn, error, /* cleanupTimers */ false)) {
+      return;
+    }
+
+    // Start REST fallback
+    this.startRestFallback(conn);
+
+    // Schedule reconnect with exponential backoff (faster for unstable devices).
+    conn.wsFailCount++;
+    const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
+    const delay = computeReconnectDelay(conn.wsFailCount, WS_RECONNECT_BASE_MS, maxDelay);
+    const key = this.stateManager.devicePrefix(conn.config);
+    this.log.debug(`${key}: WS reconnect in ${delay / 1000}s (attempt ${conn.wsFailCount})`);
+
+    conn.reconnectTimer = this.setTimeout(() => {
+      conn.reconnectTimer = undefined;
+      this.connectWebSocket(conn);
+    }, delay);
   }
 
   /**
@@ -843,7 +916,7 @@ class HomeWizard extends utils.Adapter {
 
     const unstable = this.isUnstable(conn);
     const interval = pickRestPollInterval(unstable, REST_POLL_MS, REST_POLL_UNSTABLE_MS);
-    const client = new HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
+    const client = this.makeClient(conn.ip, conn.config.token);
 
     conn.pollTimer = this.setInterval(async () => {
       // Bail out if device was removed or adapter is shutting down — the
@@ -902,7 +975,7 @@ class HomeWizard extends utils.Adapter {
     }
 
     try {
-      const client = new HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
+      const client = this.makeClient(conn.ip, conn.config.token);
       const system = await client.getSystem();
       if (conn.removed || this.unloading) {
         return;
@@ -923,6 +996,20 @@ class HomeWizard extends utils.Adapter {
       } catch {
         // device-info is best-effort here; the system-poll log already
         // surfaces real connectivity issues.
+      }
+
+      // Raw P1 telegram (P1 Meter only) — fetched at the system-poll cadence, not the 1/s
+      // measurement feed (the DSMR datagram is bulky). Placed before the battery block, whose
+      // 404 path returns early on no-battery devices like the P1.
+      if (conn.config.productType === "HWE-P1" && !conn.removed && !this.unloading) {
+        try {
+          const telegram = await client.getTelegram();
+          if (!conn.removed && !this.unloading) {
+            await this.stateManager.updateTelegram(conn.config, telegram);
+          }
+        } catch (err) {
+          this.log.debug(`${conn.config.productName} telegram: ${errText(err)}`);
+        }
       }
 
       // Also poll battery if device supports it. 404 = no battery — silent.
@@ -958,7 +1045,8 @@ class HomeWizard extends utils.Adapter {
   /** Update global info.connection based on all device states */
   private updateGlobalConnection(): void {
     const anyConnected = Array.from(this.connections.values()).some(c => c.wsAuthenticated);
-    void this.setStateAsync("info.connection", {
+    // setStateChanged: flips rarely (connect/disconnect), called on every WS event — skip no-op writes.
+    void this.setStateChangedAsync("info.connection", {
       val: anyConnected,
       ack: true,
     });
@@ -983,14 +1071,17 @@ class HomeWizard extends utils.Adapter {
     // out before recreating just-deleted objects via setStateAsync.
     conn.removed = true;
 
+    // Best-effort token revoke on the device (DELETE /api/user) so the local/iobroker user
+    // doesn't linger across pair/unpair cycles. Fire-and-forget — never block removal on a
+    // (possibly offline) device's 10s timeout.
+    if (conn.ip && conn.config.token) {
+      void this.makeClient(conn.ip, conn.config.token)
+        .deleteUser()
+        .catch((err: unknown) => this.log.debug(`Token revoke failed for ${conn.config.productName}: ${errText(err)}`));
+    }
+
     // Disconnect
-    conn.wsClient?.close();
-    if (conn.pollTimer) {
-      this.clearInterval(conn.pollTimer);
-    }
-    if (conn.reconnectTimer) {
-      this.clearTimeout(conn.reconnectTimer);
-    }
+    this.teardownConnection(conn);
     this.connections.delete(key);
 
     // Delete device object and all states (no adapter restart!)

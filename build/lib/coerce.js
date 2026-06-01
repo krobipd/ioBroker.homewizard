@@ -77,7 +77,7 @@ function isValidIpv4(value) {
   }
   return true;
 }
-const BATTERY_MODES = ["zero", "to_full", "standby"];
+const BATTERY_MODES = ["zero", "to_full", "standby", "predictive"];
 function validateBatteryMode(value) {
   return typeof value === "string" && BATTERY_MODES.includes(value) ? value : null;
 }

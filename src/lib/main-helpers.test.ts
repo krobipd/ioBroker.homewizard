@@ -133,7 +133,9 @@ describe("findConnectionForState", () => {
       lastErrorCode: "",
       lastConnectedAt: 0,
       recentDisconnects: 0,
-    } as DeviceConnection;
+      recovering: false,
+      removed: false,
+    };
   }
 
   it("returns the matching connection by prefix", () => {

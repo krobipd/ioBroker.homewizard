@@ -52,11 +52,16 @@ interface MockAdapter {
   states: Map<string, StateValue>;
   metrics: MockAdapterMetrics;
   log: { debug: (msg: string) => void };
-  extendObjectAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
+  extendObjectAsync: (
+    id: string,
+    obj: Partial<ObjectDef>,
+    options?: { preserve?: { common?: string[] } },
+  ) => Promise<void>;
   setObjectNotExistsAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
   setObjectAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
   getObjectAsync: (id: string) => Promise<ObjectDef | null>;
   setStateAsync: (id: string, state: StateValue) => Promise<void>;
+  setStateChangedAsync: (id: string, state: StateValue) => Promise<void>;
   delObjectAsync: (id: string, opts?: { recursive: boolean }) => Promise<void>;
 }
 
@@ -114,6 +119,14 @@ function createMockAdapter(): MockAdapter {
       return objects.get(id) || null;
     },
     setStateAsync: async (id: string, state: StateValue): Promise<void> => {
+      states.set(id, state);
+    },
+    // Faithful to ioBroker: write only when the value actually changed.
+    setStateChangedAsync: async (id: string, state: StateValue): Promise<void> => {
+      const prev = states.get(id);
+      if (prev && prev.val === state.val) {
+        return;
+      }
       states.set(id, state);
     },
     delObjectAsync: async (id: string, _opts?: { recursive: boolean }): Promise<void> => {
@@ -926,6 +939,69 @@ describe("StateManager", () => {
     it("accepts numeric string for power_w", async () => {
       await manager.updateBattery(testDevice, { mode: "zero", power_w: "250" } as unknown as BatteryControl);
       expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.power_w")?.val).toBe(250);
+    });
+  });
+
+  describe("v0.10.0 — API v2 completeness", () => {
+    const fullSystem: SystemInfo = {
+      wifi_ssid: "MyNetwork",
+      wifi_rssi_db: -65,
+      uptime_s: 3600,
+      cloud_enabled: true,
+      status_led_brightness_pct: 50,
+    };
+
+    it("A4: createDeviceStates declares info.wifi_ssid (string/text)", async () => {
+      await manager.createDeviceStates(testDevice);
+      const obj = adapter.objects.get("hwe-p1_aabbccddeeff.info.wifi_ssid");
+      expect(obj?.type).toBe("state");
+      expect(obj?.common.role).toBe("text");
+    });
+
+    it("A4: updateSystem writes info.wifi_ssid", async () => {
+      await manager.updateSystem(testDevice, fullSystem);
+      expect(adapter.states.get("hwe-p1_aabbccddeeff.info.wifi_ssid")?.val).toBe("MyNetwork");
+    });
+
+    it("A5: updateTelegram creates measurement.telegram", async () => {
+      await manager.updateTelegram(testDevice, "/ISK5\\2M550E-1012\r\n!1234");
+      const state = adapter.states.get("hwe-p1_aabbccddeeff.measurement.telegram");
+      expect(state?.val).toBe("/ISK5\\2M550E-1012\r\n!1234");
+      expect(adapter.objects.get("hwe-p1_aabbccddeeff.measurement.telegram")?.common.role).toBe("text");
+    });
+
+    it("A5: updateTelegram drops empty payload", async () => {
+      await manager.updateTelegram(testDevice, "");
+      expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.telegram")).toBe(false);
+    });
+
+    it("A1: battery.mode states include the predictive label", async () => {
+      await manager.updateBattery(testDevice, { mode: "predictive" });
+      const states = adapter.objects.get("hwe-p1_aabbccddeeff.battery.mode")!.common.states as Record<string, string>;
+      expect(states.predictive).toContain("Predictive");
+      expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.mode")?.val).toBe("predictive");
+    });
+
+    it("A1: charge_to_full is created as a writable switch", async () => {
+      await manager.updateBattery(testDevice, { mode: "zero", charge_to_full: true });
+      const obj = adapter.objects.get("hwe-p1_aabbccddeeff.battery.charge_to_full");
+      expect(obj?.common.role).toBe("switch");
+      expect(obj?.common.write).toBe(true);
+      expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.charge_to_full")?.val).toBe(true);
+    });
+
+    it("A6: HWE-BAT gets no reboot button and a read-only cloud_enabled", async () => {
+      const battery: DeviceConfig = { ...testDevice, productType: "HWE-BAT", serial: "bat001" };
+      await manager.updateSystem(battery, fullSystem);
+      expect(adapter.objects.has("hwe-bat_bat001.system.reboot")).toBe(false);
+      expect(adapter.objects.has("hwe-bat_bat001.system.identify")).toBe(true);
+      expect(adapter.objects.get("hwe-bat_bat001.system.cloud_enabled")?.common.write).toBe(false);
+    });
+
+    it("A6: non-battery device keeps reboot button and writable cloud_enabled", async () => {
+      await manager.updateSystem(testDevice, fullSystem);
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff.system.reboot")).toBe(true);
+      expect(adapter.objects.get("hwe-p1_aabbccddeeff.system.cloud_enabled")?.common.write).toBe(true);
     });
   });
 });

@@ -9,19 +9,12 @@ vi.mock("@iobroker/adapter-core", () => ({
   },
 }));
 
-import { resolveLabel, tDesc, tName } from "./i18n";
+import { resolveLabel, tName } from "./i18n";
 
 describe("tName", () => {
   it("delegates to I18n.getTranslatedObject", () => {
     const result = tName("powerTotal" as never);
     expect(result).toEqual({ en: "powerTotal", de: "powerTotal_de" });
-  });
-});
-
-describe("tDesc", () => {
-  it("delegates to I18n.getTranslatedObject", () => {
-    const result = tDesc("voltageSag" as never);
-    expect(result).toEqual({ en: "voltageSag", de: "voltageSag_de" });
   });
 });
 

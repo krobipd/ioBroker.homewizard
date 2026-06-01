@@ -104,11 +104,27 @@ export class HomeWizardClient {
   }
 
   /**
+   * Revoke the adapter's token on the device (DELETE /api/user). The token was created
+   * under the fixed name `local/iobroker` during pairing; deleting it stops orphaned tokens
+   * accumulating on the device across pair/unpair cycles. Best-effort — callers ignore errors.
+   */
+  async deleteUser(): Promise<void> {
+    await this.request("DELETE", "/api/user", { name: "local/iobroker" });
+  }
+
+  /** Get the most recent raw P1 telegram (GET /api/telegram, plain text — P1 Meter only). */
+  async getTelegram(): Promise<string> {
+    return this.request<string>("GET", "/api/telegram", undefined, false);
+  }
+
+  /**
    * @param method HTTP method
    * @param path API path
    * @param body Optional request body
+   * @param parseJson Parse the response as JSON (default). `false` resolves the raw response
+   *   text — used for `GET /api/telegram`, which returns a plain-text P1 datagram, not JSON.
    */
-  private request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private request<T>(method: string, path: string, body?: unknown, parseJson = true): Promise<T> {
     return new Promise((resolve, reject) => {
       const bodyStr = body ? JSON.stringify(body) : undefined;
       const headers: Record<string, string> = {
@@ -166,6 +182,11 @@ export class HomeWizardClient {
             );
             if (!data) {
               resolve(undefined as T);
+              return;
+            }
+            if (!parseJson) {
+              // Raw-text endpoint (e.g. /api/telegram) — hand back the body verbatim.
+              resolve(data as unknown as T);
               return;
             }
             try {

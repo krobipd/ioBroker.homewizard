@@ -27,7 +27,9 @@ export type DiscoveryCallback = (device: DiscoveredDevice) => void;
 
 /**
  * mDNS discovery for HomeWizard Energy devices.
- * Browses for `_hwenergy._tcp` services on the local network.
+ * Browses for `_homewizard._tcp` services (API v2) on the local network.
+ * `_hwenergy._tcp` is the deprecated v1 type and is intentionally NOT browsed —
+ * this adapter is v2-only.
  */
 export class HomeWizardDiscovery {
   private bonjour: Bonjour | null = null;

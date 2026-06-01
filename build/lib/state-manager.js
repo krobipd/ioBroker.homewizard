@@ -395,19 +395,57 @@ const MEASUREMENT_STATE_DEFS = [
   { key: "meter_model", id: "meter_model", nameKey: "meterModel", type: "string", role: "text" },
   { key: "timestamp", id: "timestamp", nameKey: "measurementTimestamp", type: "string", role: "date" }
 ];
+const MOMENTARY_KEYS = /* @__PURE__ */ new Set([
+  "power_w",
+  "power_l1_w",
+  "power_l2_w",
+  "power_l3_w",
+  "voltage_v",
+  "voltage_l1_v",
+  "voltage_l2_v",
+  "voltage_l3_v",
+  "current_a",
+  "current_l1_a",
+  "current_l2_a",
+  "current_l3_a",
+  "frequency_hz",
+  "apparent_current_a",
+  "apparent_current_l1_a",
+  "apparent_current_l2_a",
+  "apparent_current_l3_a",
+  "reactive_current_a",
+  "reactive_current_l1_a",
+  "reactive_current_l2_a",
+  "reactive_current_l3_a",
+  "apparent_power_va",
+  "apparent_power_l1_va",
+  "apparent_power_l2_va",
+  "apparent_power_l3_va",
+  "reactive_power_var",
+  "reactive_power_l1_var",
+  "reactive_power_l2_var",
+  "reactive_power_l3_var",
+  "power_factor",
+  "power_factor_l1",
+  "power_factor_l2",
+  "power_factor_l3"
+]);
+let tariffStatesCache = null;
 function tariffStates() {
-  return {
+  return tariffStatesCache != null ? tariffStatesCache : tariffStatesCache = {
     1: (0, import_i18n.resolveLabel)("tariff1"),
     2: (0, import_i18n.resolveLabel)("tariff2"),
     3: (0, import_i18n.resolveLabel)("tariff3"),
     4: (0, import_i18n.resolveLabel)("tariff4")
   };
 }
+let batteryModeStatesCache = null;
 function batteryModeStates() {
-  return {
+  return batteryModeStatesCache != null ? batteryModeStatesCache : batteryModeStatesCache = {
     zero: (0, import_i18n.resolveLabel)("modeZero"),
     to_full: (0, import_i18n.resolveLabel)("modeToFull"),
-    standby: (0, import_i18n.resolveLabel)("modeStandby")
+    standby: (0, import_i18n.resolveLabel)("modeStandby"),
+    predictive: (0, import_i18n.resolveLabel)("modePredictive")
   };
 }
 class StateManager {
@@ -455,13 +493,41 @@ class StateManager {
       },
       { preserve: { common: ["name"] } }
     );
-    await this.createState(`${prefix}.info.productName`, (0, import_i18n.tName)("productName"), "string", "text", false);
-    await this.createState(`${prefix}.info.productType`, (0, import_i18n.tName)("productType"), "string", "text", false);
-    await this.createState(`${prefix}.info.firmware`, (0, import_i18n.tName)("firmware"), "string", "text", false);
-    await this.createState(`${prefix}.info.connected`, (0, import_i18n.tName)("connected"), "boolean", "indicator.reachable", false);
-    await this.createState(`${prefix}.info.wifi_rssi_db`, (0, import_i18n.tName)("wifiRssi"), "number", "value", false, "dBm");
-    await this.createState(`${prefix}.info.uptime_s`, (0, import_i18n.tName)("uptime"), "number", "value", false, "s");
-    await this.createButton(`${prefix}.remove`, (0, import_i18n.tName)("removeDevice"), (0, import_i18n.tDesc)("removeDeviceDesc"));
+    await this.createState({
+      id: `${prefix}.info.productName`,
+      name: (0, import_i18n.tName)("productName"),
+      type: "string",
+      role: "text"
+    });
+    await this.createState({
+      id: `${prefix}.info.productType`,
+      name: (0, import_i18n.tName)("productType"),
+      type: "string",
+      role: "text"
+    });
+    await this.createState({ id: `${prefix}.info.firmware`, name: (0, import_i18n.tName)("firmware"), type: "string", role: "text" });
+    await this.createState({
+      id: `${prefix}.info.connected`,
+      name: (0, import_i18n.tName)("connected"),
+      type: "boolean",
+      role: "indicator.reachable"
+    });
+    await this.createState({ id: `${prefix}.info.wifi_ssid`, name: (0, import_i18n.tName)("wifiSsid"), type: "string", role: "text" });
+    await this.createState({
+      id: `${prefix}.info.wifi_rssi_db`,
+      name: (0, import_i18n.tName)("wifiRssi"),
+      type: "number",
+      role: "value",
+      unit: "dBm"
+    });
+    await this.createState({
+      id: `${prefix}.info.uptime_s`,
+      name: (0, import_i18n.tName)("uptime"),
+      type: "number",
+      role: "value",
+      unit: "s"
+    });
+    await this.createButton(`${prefix}.remove`, (0, import_i18n.tName)("removeDevice"), (0, import_i18n.tName)("removeDeviceDesc"));
     await this.adapter.setStateAsync(`${prefix}.info.productName`, {
       val: config.productName,
       ack: true
@@ -496,17 +562,17 @@ class StateManager {
       }
       if (coerced !== null) {
         writes.push(
-          this.ensureAndSet(
-            `${mPrefix}.${def.id}`,
-            (0, import_i18n.tName)(def.nameKey),
-            def.type,
-            def.role,
-            coerced,
-            def.unit,
-            void 0,
-            def.descKey ? (0, import_i18n.tDesc)(def.descKey) : void 0,
-            def.key === "tariff" ? tariffStates() : void 0
-          )
+          this.ensureAndSet({
+            id: `${mPrefix}.${def.id}`,
+            name: (0, import_i18n.tName)(def.nameKey),
+            type: def.type,
+            role: def.role,
+            value: coerced,
+            unit: def.unit,
+            desc: def.descKey ? (0, import_i18n.tName)(def.descKey) : void 0,
+            states: def.key === "tariff" ? tariffStates() : void 0,
+            changedOnly: !MOMENTARY_KEYS.has(def.key)
+          })
         );
       }
     }
@@ -531,20 +597,67 @@ class StateManager {
         const extWrites = [];
         if (value !== null) {
           extWrites.push(
-            this.ensureAndSet(`${extId}.value`, (0, import_i18n.tName)("externalValue"), "number", "value", value, unit != null ? unit : void 0)
+            this.ensureAndSet({
+              id: `${extId}.value`,
+              name: (0, import_i18n.tName)("externalValue"),
+              type: "number",
+              role: "value",
+              value,
+              unit: unit != null ? unit : void 0,
+              changedOnly: true
+            })
           );
         }
         if (unit) {
-          extWrites.push(this.ensureAndSet(`${extId}.unit`, (0, import_i18n.tName)("externalUnit"), "string", "text", unit));
+          extWrites.push(
+            this.ensureAndSet({
+              id: `${extId}.unit`,
+              name: (0, import_i18n.tName)("externalUnit"),
+              type: "string",
+              role: "text",
+              value: unit,
+              changedOnly: true
+            })
+          );
         }
         if (timestamp) {
           extWrites.push(
-            this.ensureAndSet(`${extId}.timestamp`, (0, import_i18n.tName)("externalTimestamp"), "string", "date", timestamp)
+            this.ensureAndSet({
+              id: `${extId}.timestamp`,
+              name: (0, import_i18n.tName)("externalTimestamp"),
+              type: "string",
+              role: "date",
+              value: timestamp,
+              changedOnly: true
+            })
           );
         }
         await Promise.all(extWrites);
       }
     }
+  }
+  /**
+   * Update the raw P1 telegram state (P1 Meter only). Written at the system-poll cadence,
+   * not the 1/s measurement feed — the raw DSMR datagram is bulky text.
+   *
+   * @param config Device configuration
+   * @param telegram Raw P1 telegram text
+   */
+  async updateTelegram(config, telegram) {
+    const value = (0, import_coerce.coerceString)(telegram);
+    if (value === null) {
+      return;
+    }
+    const prefix = this.devicePrefix(config);
+    await this.ensureChannel(`${prefix}.measurement`, (0, import_i18n.tName)("measurement"));
+    await this.ensureAndSet({
+      id: `${prefix}.measurement.telegram`,
+      name: (0, import_i18n.tName)("telegram"),
+      type: "string",
+      role: "text",
+      value,
+      changedOnly: true
+    });
   }
   /**
    * Update system states
@@ -558,52 +671,83 @@ class StateManager {
     }
     const prefix = this.devicePrefix(config);
     const record = system;
+    const ssid = (0, import_coerce.coerceString)(record.wifi_ssid);
+    if (ssid !== null) {
+      await this.ensureAndSet({
+        id: `${prefix}.info.wifi_ssid`,
+        name: (0, import_i18n.tName)("wifiSsid"),
+        type: "string",
+        role: "text",
+        value: ssid,
+        changedOnly: true
+      });
+    }
     const rssi = (0, import_coerce.coerceFiniteNumber)(record.wifi_rssi_db);
     if (rssi !== null) {
-      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, (0, import_i18n.tName)("wifiRssi"), "number", "value", rssi, "dBm");
+      await this.ensureAndSet({
+        id: `${prefix}.info.wifi_rssi_db`,
+        name: (0, import_i18n.tName)("wifiRssi"),
+        type: "number",
+        role: "value",
+        value: rssi,
+        unit: "dBm",
+        changedOnly: true
+      });
     }
     const uptime = (0, import_coerce.coerceFiniteNumber)(record.uptime_s);
     if (uptime !== null) {
-      await this.ensureAndSet(`${prefix}.info.uptime_s`, (0, import_i18n.tName)("uptime"), "number", "value", uptime, "s");
+      await this.ensureAndSet({
+        id: `${prefix}.info.uptime_s`,
+        name: (0, import_i18n.tName)("uptime"),
+        type: "number",
+        role: "value",
+        value: uptime,
+        unit: "s",
+        changedOnly: true
+      });
     }
     await this.ensureChannel(`${prefix}.system`, (0, import_i18n.tName)("systemSettings"));
+    const isBattery = config.productType === "HWE-BAT";
     const cloudEnabled = (0, import_coerce.coerceBoolean)(record.cloud_enabled);
     if (cloudEnabled !== null) {
-      await this.ensureAndSet(
-        `${prefix}.system.cloud_enabled`,
-        (0, import_i18n.tName)("cloudEnabled"),
-        "boolean",
-        "switch",
-        cloudEnabled,
-        void 0,
-        true
-      );
+      await this.ensureAndSet({
+        id: `${prefix}.system.cloud_enabled`,
+        name: (0, import_i18n.tName)("cloudEnabled"),
+        type: "boolean",
+        role: "switch",
+        value: cloudEnabled,
+        write: !isBattery,
+        changedOnly: true
+      });
     }
     const ledPct = (0, import_coerce.coerceFiniteNumber)(record.status_led_brightness_pct);
     if (ledPct !== null) {
-      await this.ensureAndSet(
-        `${prefix}.system.status_led_brightness_pct`,
-        (0, import_i18n.tName)("ledBrightness"),
-        "number",
-        "level",
-        ledPct,
-        "%",
-        true
-      );
+      await this.ensureAndSet({
+        id: `${prefix}.system.status_led_brightness_pct`,
+        name: (0, import_i18n.tName)("ledBrightness"),
+        type: "number",
+        role: "level",
+        value: ledPct,
+        unit: "%",
+        write: true,
+        changedOnly: true
+      });
     }
     const apiV1 = (0, import_coerce.coerceBoolean)(record.api_v1_enabled);
     if (apiV1 !== null) {
-      await this.ensureAndSet(
-        `${prefix}.system.api_v1_enabled`,
-        (0, import_i18n.tName)("apiV1Enabled"),
-        "boolean",
-        "switch",
-        apiV1,
-        void 0,
-        true
-      );
+      await this.ensureAndSet({
+        id: `${prefix}.system.api_v1_enabled`,
+        name: (0, import_i18n.tName)("apiV1Enabled"),
+        type: "boolean",
+        role: "switch",
+        value: apiV1,
+        write: true,
+        changedOnly: true
+      });
     }
-    await this.createButton(`${prefix}.system.reboot`, (0, import_i18n.tName)("rebootDevice"));
+    if (!isBattery) {
+      await this.createButton(`${prefix}.system.reboot`, (0, import_i18n.tName)("rebootDevice"));
+    }
     await this.createButton(`${prefix}.system.identify`, (0, import_i18n.tName)("identify"));
   }
   /**
@@ -621,28 +765,40 @@ class StateManager {
     await this.ensureChannel(`${prefix}.battery`, (0, import_i18n.tName)("batteryControl"));
     const mode = (0, import_coerce.coerceString)(record.mode);
     if (mode) {
-      await this.ensureAndSet(
-        `${prefix}.battery.mode`,
-        (0, import_i18n.tName)("batteryMode"),
-        "string",
-        "text",
-        mode,
-        void 0,
-        true,
-        (0, import_i18n.tDesc)("batteryModeDesc"),
-        batteryModeStates()
-      );
+      await this.ensureAndSet({
+        id: `${prefix}.battery.mode`,
+        name: (0, import_i18n.tName)("batteryMode"),
+        type: "string",
+        role: "text",
+        value: mode,
+        write: true,
+        desc: (0, import_i18n.tName)("batteryModeDesc"),
+        states: batteryModeStates(),
+        changedOnly: true
+      });
     }
     if (Array.isArray(record.permissions)) {
-      await this.ensureAndSet(
-        `${prefix}.battery.permissions`,
-        (0, import_i18n.tName)("batteryPermissions"),
-        "string",
-        "json",
-        JSON.stringify(record.permissions),
-        void 0,
-        true
-      );
+      await this.ensureAndSet({
+        id: `${prefix}.battery.permissions`,
+        name: (0, import_i18n.tName)("batteryPermissions"),
+        type: "string",
+        role: "json",
+        value: JSON.stringify(record.permissions),
+        write: true,
+        changedOnly: true
+      });
+    }
+    const chargeToFull = (0, import_coerce.coerceBoolean)(record.charge_to_full);
+    if (chargeToFull !== null) {
+      await this.ensureAndSet({
+        id: `${prefix}.battery.charge_to_full`,
+        name: (0, import_i18n.tName)("batteryChargeToFull"),
+        type: "boolean",
+        role: "switch",
+        value: chargeToFull,
+        write: true,
+        changedOnly: true
+      });
     }
     const numberFields = [
       { key: "battery_count", id: "battery_count", nameKey: "batteryCount", role: "value" },
@@ -666,14 +822,15 @@ class StateManager {
     for (const field of numberFields) {
       const coerced = (0, import_coerce.coerceFiniteNumber)(record[field.key]);
       if (coerced !== null) {
-        await this.ensureAndSet(
-          `${prefix}.battery.${field.id}`,
-          (0, import_i18n.tName)(field.nameKey),
-          "number",
-          field.role,
-          coerced,
-          field.unit
-        );
+        await this.ensureAndSet({
+          id: `${prefix}.battery.${field.id}`,
+          name: (0, import_i18n.tName)(field.nameKey),
+          type: "number",
+          role: field.role,
+          value: coerced,
+          unit: field.unit,
+          changedOnly: true
+        });
       }
     }
   }
@@ -685,7 +842,7 @@ class StateManager {
    */
   async setDeviceConnected(config, connected) {
     const prefix = this.devicePrefix(config);
-    await this.adapter.setStateAsync(`${prefix}.info.connected`, {
+    await this.adapter.setStateChangedAsync(`${prefix}.info.connected`, {
       val: connected,
       ack: true
     });
@@ -760,46 +917,40 @@ class StateManager {
     this.createdIds.add(id);
   }
   /**
-   * Create a state if it doesn't exist
+   * Create a state if it doesn't exist.
    *
-   * @param id    State ID
-   * @param name  State name (translation object or string for device identifiers)
-   * @param type  Value type
-   * @param role  ioBroker role
-   * @param write Whether state is writable
-   * @param unit  Optional unit
-   * @param desc  Optional translation object for `common.desc`
-   * @param states Optional `common.states` map
+   * @param def State definition (options object — avoids long positional argument lists).
    */
-  async createState(id, name, type, role, write, unit, desc, states) {
-    if (this.createdIds.has(id)) {
+  async createState(def) {
+    var _a;
+    if (this.createdIds.has(def.id)) {
       return;
     }
     const common = {
-      name,
-      type,
-      role,
+      name: def.name,
+      type: def.type,
+      role: def.role,
       read: true,
-      write
+      write: (_a = def.write) != null ? _a : false
     };
-    if (unit) {
-      common.unit = unit;
+    if (def.unit) {
+      common.unit = def.unit;
     }
-    if (desc) {
-      common.desc = desc;
+    if (def.desc) {
+      common.desc = def.desc;
     }
-    if (states) {
-      common.states = states;
+    if (def.states) {
+      common.states = def.states;
     }
-    await this.adapter.setObjectNotExistsAsync(id, {
+    await this.adapter.setObjectNotExistsAsync(def.id, {
       type: "state",
       common,
       native: {}
     });
-    if (states) {
-      await this.repairCommonStatesIfBuggy(id, states);
+    if (def.states) {
+      await this.repairCommonStatesIfBuggy(def.id, def.states);
     }
-    this.createdIds.add(id);
+    this.createdIds.add(def.id);
   }
   /**
    * If the persisted object at `id` has `common.states` values that are not
@@ -860,21 +1011,23 @@ class StateManager {
     this.createdIds.add(id);
   }
   /**
-   * Ensure state exists and set value
+   * Ensure a state exists and set its value.
    *
-   * @param id     State ID
-   * @param name   State name (translation object or string)
-   * @param type   Value type
-   * @param role   ioBroker role
-   * @param value  State value
-   * @param unit   Optional unit
-   * @param write  Whether state is writable
-   * @param desc   Optional translation object for `common.desc`
-   * @param states Optional `common.states` map (translation objects)
+   * `changedOnly` routes through `setStateChangedAsync` (skips the write when the value is
+   * unchanged) — used for slow/static fields (energy totals, system, battery control) so the
+   * ~1/s push doesn't churn the DB. Momentary 1 Hz values (power/voltage/current/…) stay on
+   * `setStateAsync`. `changedOnly` also prevents double-writes when REST poll + WS push the
+   * same field.
+   *
+   * @param def State definition + value + optional `changedOnly` flag.
    */
-  async ensureAndSet(id, name, type, role, value, unit, write, desc, states) {
-    await this.createState(id, name, type, role, write != null ? write : false, unit, desc, states);
-    await this.adapter.setStateAsync(id, { val: value, ack: true });
+  async ensureAndSet(def) {
+    await this.createState(def);
+    if (def.changedOnly) {
+      await this.adapter.setStateChangedAsync(def.id, { val: def.value, ack: true });
+    } else {
+      await this.adapter.setStateAsync(def.id, { val: def.value, ack: true });
+    }
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

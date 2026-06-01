@@ -141,10 +141,10 @@ describe("HomeWizardDiscovery", () => {
       const service = {
         name: "test",
         addresses: ["192.168.1.1"],
-        txt: { product_type: "HWE-SKT" },
+        txt: { product_type: "HWE-KWH1" },
       };
       const result = parseService(discovery, service);
-      expect(result?.productType).toBe("HWE-SKT");
+      expect(result?.productType).toBe("HWE-KWH1");
     });
 
     it("should use 'unknown' when no product type in TXT", () => {
@@ -159,12 +159,12 @@ describe("HomeWizardDiscovery", () => {
 
     it("should use service name as serial fallback", () => {
       const service = {
-        name: "energysocket-aabb",
+        name: "p1meter-aabb",
         addresses: ["192.168.1.1"],
-        txt: { product_type: "HWE-SKT" },
+        txt: { product_type: "HWE-P1" },
       };
       const result = parseService(discovery, service);
-      expect(result?.serial).toBe("energysocket-aabb");
+      expect(result?.serial).toBe("p1meter-aabb");
     });
 
     it("should use product type as name fallback", () => {

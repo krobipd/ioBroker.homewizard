@@ -45,6 +45,9 @@ class HomeWizardWebSocket {
   token;
   callbacks;
   timers;
+  agent;
+  /** Override target port — only used by tests against a local wss stub-server. */
+  port;
   ws = null;
   destroyed = false;
   authTimer = null;
@@ -55,12 +58,18 @@ class HomeWizardWebSocket {
    * @param token Bearer token
    * @param callbacks Event callbacks
    * @param timers Timer functions (use adapter-managed timers in production)
+   * @param options Optional overrides — primarily for unit tests against a local wss stub.
+   * @param options.agent HTTPS agent to use; defaults to {@link HW_AGENT} (with HomeWizard CA pinning).
+   * @param options.port  Target port; defaults to 443.
    */
-  constructor(ip, token, callbacks, timers) {
+  constructor(ip, token, callbacks, timers, options = {}) {
+    var _a, _b;
     this.ip = ip;
     this.token = token;
     this.callbacks = callbacks;
     this.timers = timers;
+    this.agent = (_a = options.agent) != null ? _a : import_cacert.HW_AGENT;
+    this.port = (_b = options.port) != null ? _b : 443;
   }
   /** Connect to WebSocket and start auth handshake */
   connect() {
@@ -68,13 +77,14 @@ class HomeWizardWebSocket {
       return;
     }
     this.cleanup();
-    const url = `wss://${this.ip}/api/ws`;
+    const portSeg = this.port !== 443 ? `:${this.port}` : "";
+    const url = `wss://${this.ip}${portSeg}/api/ws`;
     this.callbacks.log.debug(`WS connecting to ${url}`);
     this.ws = new import_ws.default(url, {
-      agent: import_cacert.HW_AGENT,
+      agent: this.agent,
       handshakeTimeout: 1e4
     });
-    this.authTimer = this.timers.setTimeout(() => {
+    this.authTimer = this.timers.schedule(() => {
       this.callbacks.log.debug(`WS auth-timeout (${AUTH_TIMEOUT_MS}ms) \u2014 terminating`);
       this.forceDisconnect();
     }, AUTH_TIMEOUT_MS);
@@ -86,7 +96,7 @@ class HomeWizardWebSocket {
     });
     this.ws.on("pong", () => {
       if (this.pongTimer != null) {
-        this.timers.clearTimeout(this.pongTimer);
+        this.timers.cancel(this.pongTimer);
         this.pongTimer = null;
       }
     });
@@ -118,6 +128,7 @@ class HomeWizardWebSocket {
    * @param raw Raw message data
    */
   handleMessage(raw) {
+    var _a, _b, _c, _d;
     const text = Buffer.isBuffer(raw) ? raw.toString("utf8") : raw instanceof ArrayBuffer ? Buffer.from(raw).toString("utf8") : Array.isArray(raw) ? Buffer.concat(raw).toString("utf8") : "";
     let parsed;
     try {
@@ -141,10 +152,12 @@ class HomeWizardWebSocket {
         this.sendRaw({ type: "authorization", data: this.token });
         break;
       case "authorized":
-        this.callbacks.log.debug("WS authorized, subscribing to measurement");
+        this.callbacks.log.debug("WS authorized, subscribing to measurement + system + batteries");
         this.sendRaw({ type: "subscribe", data: "measurement" });
+        this.sendRaw({ type: "subscribe", data: "system" });
+        this.sendRaw({ type: "subscribe", data: "batteries" });
         if (this.authTimer != null) {
-          this.timers.clearTimeout(this.authTimer);
+          this.timers.cancel(this.authTimer);
           this.authTimer = null;
         }
         this.startHeartbeat();
@@ -157,6 +170,21 @@ class HomeWizardWebSocket {
           this.callbacks.log.warn(`WS measurement without object payload`);
         }
         break;
+      case "system":
+        if ((0, import_coerce.isPlainObject)(parsed.data)) {
+          (_b = (_a = this.callbacks).onSystem) == null ? void 0 : _b.call(_a, parsed.data);
+        }
+        break;
+      case "batteries":
+        if ((0, import_coerce.isPlainObject)(parsed.data)) {
+          (_d = (_c = this.callbacks).onBattery) == null ? void 0 : _d.call(_c, parsed.data);
+        }
+        break;
+      case "error": {
+        const detail = (0, import_coerce.isPlainObject)(parsed.data) && typeof parsed.data.message === "string" ? parsed.data.message : text.substring(0, 200);
+        this.callbacks.log.warn(`WS error: ${detail}`);
+        break;
+      }
       default:
         this.callbacks.log.debug(`WS message type: ${type}`);
         break;
@@ -182,11 +210,11 @@ class HomeWizardWebSocket {
    * device has stopped responding (the documented "API-Lockup" mode).
    */
   startHeartbeat() {
-    this.pingInterval = this.timers.setInterval(() => {
+    this.pingInterval = this.timers.scheduleRepeating(() => {
       if (!this.ws || this.ws.readyState !== import_ws.default.OPEN) {
         return;
       }
-      this.pongTimer = this.timers.setTimeout(() => {
+      this.pongTimer = this.timers.schedule(() => {
         this.callbacks.log.debug(`WS pong-timeout (${PONG_TIMEOUT_MS}ms) \u2014 terminating`);
         this.forceDisconnect();
       }, PONG_TIMEOUT_MS);
@@ -210,15 +238,15 @@ class HomeWizardWebSocket {
   /** Clear all timers. Called on close, cleanup, and from the close-event. */
   clearTimers() {
     if (this.authTimer != null) {
-      this.timers.clearTimeout(this.authTimer);
+      this.timers.cancel(this.authTimer);
       this.authTimer = null;
     }
     if (this.pingInterval != null) {
-      this.timers.clearInterval(this.pingInterval);
+      this.timers.cancelRepeating(this.pingInterval);
       this.pingInterval = null;
     }
     if (this.pongTimer != null) {
-      this.timers.clearTimeout(this.pongTimer);
+      this.timers.cancel(this.pongTimer);
       this.pongTimer = null;
     }
   }

@@ -5,6 +5,10 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -21,6 +25,12 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var main_exports = {};
+__export(main_exports, {
+  HomeWizard: () => HomeWizard
+});
+module.exports = __toCommonJS(main_exports);
 var utils = __toESM(require("@iobroker/adapter-core"));
 var import_adapter_core = require("@iobroker/adapter-core");
 var import_node_path = require("node:path");
@@ -68,24 +78,41 @@ class HomeWizard extends utils.Adapter {
   isPairing = false;
   pairingManualIp = "";
   discoveredDuringPairing = [];
-  unhandledRejectionHandler = null;
-  uncaughtExceptionHandler = null;
   /** Set during onUnload — async paths bail before further setStateAsync calls. */
   unloading = false;
+  /**
+   * Factories for the REST/WS clients — default to the real constructors. Test seams:
+   * a unit test can replace these with fakes to exercise the orchestration (initDevice,
+   * onWsConnected/onWsDisconnected, onStateChange) without real network.
+   *
+   * @param ip Device IP address
+   * @param token Bearer token (empty string for pairing requests)
+   */
+  makeClient = (ip, token) => new import_homewizard_client.HomeWizardClient(ip, token, { log: this.log });
+  makeWebSocket = (ip, token, callbacks, timers) => new import_websocket_client.HomeWizardWebSocket(ip, token, callbacks, timers);
+  /**
+   * Close a connection's WebSocket and clear its poll + reconnect timers.
+   *
+   * @param conn Device connection to tear down
+   */
+  teardownConnection(conn) {
+    var _a;
+    (_a = conn.wsClient) == null ? void 0 : _a.close();
+    if (conn.pollTimer) {
+      this.clearInterval(conn.pollTimer);
+      conn.pollTimer = void 0;
+    }
+    if (conn.reconnectTimer) {
+      this.clearTimeout(conn.reconnectTimer);
+      conn.reconnectTimer = void 0;
+    }
+  }
   /** @param options Adapter options */
   constructor(options = {}) {
     super({ ...options, name: "homewizard" });
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
-    this.unhandledRejectionHandler = (reason) => {
-      this.log.error(`Unhandled rejection: ${(0, import_coerce.errText)(reason)}`);
-    };
-    this.uncaughtExceptionHandler = (err) => {
-      this.log.error(`Uncaught exception: ${err.message}`);
-    };
-    process.on("unhandledRejection", this.unhandledRejectionHandler);
-    process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
   async onReady() {
     try {
@@ -101,11 +128,12 @@ class HomeWizard extends utils.Adapter {
       await this.subscribeStatesAsync("*.system.api_v1_enabled");
       await this.subscribeStatesAsync("*.battery.mode");
       await this.subscribeStatesAsync("*.battery.permissions");
+      await this.subscribeStatesAsync("*.battery.charge_to_full");
       await this.subscribeStatesAsync("*.remove");
       const devices = await this.loadDevicesFromObjects();
       if (devices.length === 0) {
         this.log.info(`No devices configured \u2014 set 'startPairing' to true to add a device`);
-        await this.setStateAsync("info.connection", { val: false, ack: true });
+        await this.setStateChangedAsync("info.connection", { val: false, ack: true });
       }
       for (const device of devices) {
         const key = this.stateManager.devicePrefix(device);
@@ -115,7 +143,9 @@ class HomeWizard extends utils.Adapter {
         this.connections.set(key, conn);
         if (conn.ip) {
           this.log.debug(`Using stored IP ${conn.ip} for ${device.productName}`);
-          void this.initDevice(conn);
+          void this.initDevice(conn).catch(
+            (err) => this.log.error(`initDevice failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`)
+          );
         }
       }
       this.systemPollTimer = this.setInterval(() => {
@@ -222,7 +252,7 @@ class HomeWizard extends utils.Adapter {
    * @param callback Completion callback
    */
   onUnload(callback) {
-    var _a, _b;
+    var _a;
     this.unloading = true;
     try {
       if (this.pairingTimer) {
@@ -239,23 +269,9 @@ class HomeWizard extends utils.Adapter {
       }
       (_a = this.discovery) == null ? void 0 : _a.stop();
       for (const conn of this.connections.values()) {
-        (_b = conn.wsClient) == null ? void 0 : _b.close();
-        if (conn.pollTimer) {
-          this.clearInterval(conn.pollTimer);
-        }
-        if (conn.reconnectTimer) {
-          this.clearTimeout(conn.reconnectTimer);
-        }
+        this.teardownConnection(conn);
       }
       this.connections.clear();
-      if (this.unhandledRejectionHandler) {
-        process.off("unhandledRejection", this.unhandledRejectionHandler);
-        this.unhandledRejectionHandler = null;
-      }
-      if (this.uncaughtExceptionHandler) {
-        process.off("uncaughtException", this.uncaughtExceptionHandler);
-        this.uncaughtExceptionHandler = null;
-      }
       void this.setState("info.connection", { val: false, ack: true });
     } finally {
       callback();
@@ -282,7 +298,7 @@ class HomeWizard extends utils.Adapter {
       if (!conn || !conn.ip) {
         return;
       }
-      const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
+      const client = this.makeClient(conn.ip, conn.config.token);
       try {
         if (id.endsWith(".system.reboot")) {
           this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
@@ -304,7 +320,7 @@ class HomeWizard extends utils.Adapter {
           const mode = (0, import_coerce.validateBatteryMode)(String(state.val));
           if (!mode) {
             this.log.warn(
-              `Invalid battery.mode value: '${String(state.val)}' \u2014 expected one of: zero, to_full, standby`
+              `Invalid battery.mode value: '${String(state.val)}' \u2014 expected one of: zero, to_full, standby, predictive`
             );
             return;
           }
@@ -319,6 +335,9 @@ class HomeWizard extends utils.Adapter {
             return;
           }
           await client.setBatteries({ permissions: result.perms });
+          await this.setStateAsync(id, { val: state.val, ack: true });
+        } else if (id.endsWith(".battery.charge_to_full")) {
+          await client.setBatteries({ charge_to_full: !!state.val });
           await this.setStateAsync(id, { val: state.val, ack: true });
         }
       } catch (err) {
@@ -378,15 +397,14 @@ class HomeWizard extends utils.Adapter {
   }
   /** Poll all discovered devices to attempt pairing */
   async pollPairing() {
-    var _a;
     for (const device of this.discoveredDuringPairing) {
       try {
-        const client = new import_homewizard_client.HomeWizardClient(device.ip, "", { log: this.log });
+        const client = this.makeClient(device.ip, "");
         const result = await client.requestPairing();
         this.log.info(
           `Successfully paired with ${device.name} (${device.productType}) at ${device.ip} \u2014 connecting...`
         );
-        const authedClient = new import_homewizard_client.HomeWizardClient(device.ip, result.token, { log: this.log });
+        const authedClient = this.makeClient(device.ip, result.token);
         const info = await authedClient.getDeviceInfo();
         const deviceConfig = {
           token: result.token,
@@ -401,17 +419,13 @@ class HomeWizard extends utils.Adapter {
         const previous = this.connections.get(key);
         if (previous) {
           this.log.debug(`Re-pair: closing previous connection for ${deviceConfig.productName}`);
-          (_a = previous.wsClient) == null ? void 0 : _a.close();
-          if (previous.pollTimer) {
-            this.clearInterval(previous.pollTimer);
-          }
-          if (previous.reconnectTimer) {
-            this.clearTimeout(previous.reconnectTimer);
-          }
+          this.teardownConnection(previous);
         }
         const conn = (0, import_connection_utils.createDeviceConnection)(deviceConfig, device.ip);
         this.connections.set(key, conn);
-        void this.initDevice(conn);
+        void this.initDevice(conn).catch(
+          (err) => this.log.error(`initDevice failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`)
+        );
         this.discoveredDuringPairing = this.discoveredDuringPairing.filter((d) => d.serial !== info.serial);
         this.updateGlobalConnection();
         continue;
@@ -512,7 +526,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     try {
-      const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
+      const client = this.makeClient(conn.ip, conn.config.token);
       const info = await client.getDeviceInfo();
       if (this.unloading || conn.removed) {
         return;
@@ -554,114 +568,168 @@ class HomeWizard extends utils.Adapter {
     if ((0, import_main_helpers.shouldStartIpRecovery)(conn.wsFailCount, WS_FAILURES_BEFORE_MDNS, MDNS_RETRY_EVERY)) {
       this.startIpRecovery();
     }
-    const key = this.stateManager.devicePrefix(conn.config);
-    const wsClient = new import_websocket_client.HomeWizardWebSocket(
+    const wsClient = this.makeWebSocket(
       conn.ip,
       conn.config.token,
       {
-        onMeasurement: (data) => {
-          if (conn.removed || this.unloading) {
-            return;
-          }
-          this.stateManager.updateMeasurement(conn.config, data).catch((err) => {
-            this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`);
-          });
-        },
-        onConnected: () => {
-          var _a;
-          conn.wsAuthenticated = true;
-          conn.wsFailCount = 0;
-          conn.authFailCount = 0;
-          conn.lastConnectedAt = Date.now();
-          conn.recovering = false;
-          void this.stateManager.setDeviceConnected(conn.config, true);
-          this.updateGlobalConnection();
-          if (conn.pollTimer) {
-            this.clearInterval(conn.pollTimer);
-            conn.pollTimer = void 0;
-          }
-          if (this.discovery && !this.isPairing) {
-            const allConnected = Array.from(this.connections.values()).every((c) => c.wsAuthenticated);
-            if (allConnected) {
-              this.stopIpRecovery();
-            }
-          }
-          if (conn.lastErrorCode) {
-            const now = Date.now();
-            const lastInfo = (_a = this.lastInfoAt.get(conn.config.serial)) != null ? _a : 0;
-            const msg = this.isUnstable(conn) ? `${conn.config.productName}: connection restored (unstable mode)` : `${conn.config.productName}: connection restored`;
-            if ((0, import_main_helpers.shouldEmitAfterCooldown)(lastInfo, now, INFO_COOLDOWN_MS)) {
-              this.lastInfoAt.set(conn.config.serial, now);
-              this.log.info(msg);
-            } else {
-              this.log.debug(`${msg} (cooldown)`);
-            }
-            conn.lastErrorCode = "";
-          }
-          this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
-        },
-        onDisconnected: (error) => {
-          const isAuthError = error instanceof import_homewizard_client.HomeWizardApiError && error.errorCode === "user:unauthorized";
-          if (conn.lastConnectedAt > 0 && !isAuthError) {
-            const duration = Date.now() - conn.lastConnectedAt;
-            const transition = (0, import_main_helpers.decideUnstableTransition)(
-              conn.recentDisconnects,
-              duration,
-              STABLE_THRESHOLD_MS,
-              import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD
-            );
-            if (duration < STABLE_THRESHOLD_MS) {
-              conn.recentDisconnects++;
-            } else {
-              conn.recentDisconnects = 0;
-            }
-            if (transition === "becameUnstable") {
-              this.log.debug(`${conn.config.productName}: unstable connection detected \u2014 using faster reconnect`);
-            } else if (transition === "stabilized") {
-              this.log.debug(`${conn.config.productName}: connection stabilized \u2014 using normal reconnect`);
-            }
-          }
-          conn.wsAuthenticated = false;
-          conn.wsClient = null;
-          conn.recovering = false;
-          void this.stateManager.setDeviceConnected(conn.config, false);
-          this.updateGlobalConnection();
-          if (error) {
-            this.logDeviceError(conn, "ws", error);
-          }
-          if (!this.handleAuthFailure(
-            conn,
-            error,
-            /* cleanupTimers */
-            false
-          )) {
-            return;
-          }
-          this.startRestFallback(conn);
-          conn.wsFailCount++;
-          const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
-          const delay = (0, import_main_helpers.computeReconnectDelay)(conn.wsFailCount, WS_RECONNECT_BASE_MS, maxDelay);
-          this.log.debug(`${key}: WS reconnect in ${delay / 1e3}s (attempt ${conn.wsFailCount})`);
-          conn.reconnectTimer = this.setTimeout(() => {
-            conn.reconnectTimer = void 0;
-            this.connectWebSocket(conn);
-          }, delay);
-        },
+        onMeasurement: (data) => this.onWsMeasurement(conn, data),
+        onSystem: (data) => this.onWsSystem(conn, data),
+        onBattery: (data) => this.onWsBattery(conn, data),
+        onConnected: () => this.onWsConnected(conn),
+        onDisconnected: (error) => this.onWsDisconnected(conn, error),
         log: this.log
       },
       {
-        setTimeout: (cb, ms) => this.setTimeout(cb, ms),
-        clearTimeout: (h) => {
+        schedule: (cb, ms) => this.setTimeout(cb, ms),
+        cancel: (h) => {
           this.clearTimeout(h);
         },
-        setInterval: (cb, ms) => this.setInterval(cb, ms),
-        clearInterval: (h) => {
+        scheduleRepeating: (cb, ms) => this.setInterval(cb, ms),
+        cancelRepeating: (h) => {
           this.clearInterval(h);
         }
       }
     );
     conn.wsClient = wsClient;
     wsClient.connect();
+  }
+  /**
+   * Handle a measurement push.
+   *
+   * @param conn Device connection
+   * @param data Measurement payload
+   */
+  onWsMeasurement(conn, data) {
+    if (conn.removed || this.unloading) {
+      return;
+    }
+    this.stateManager.updateMeasurement(conn.config, data).catch((err) => {
+      this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`);
+    });
+  }
+  /**
+   * Handle a real-time system push (cloud/led changes etc.).
+   *
+   * @param conn Device connection
+   * @param data System payload
+   */
+  onWsSystem(conn, data) {
+    if (conn.removed || this.unloading) {
+      return;
+    }
+    this.stateManager.updateSystem(conn.config, data).catch((err) => {
+      this.log.debug(`updateSystem (ws) failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`);
+    });
+  }
+  /**
+   * Handle a real-time battery-group push (mode/permissions/target power).
+   *
+   * @param conn Device connection
+   * @param data Battery-control payload
+   */
+  onWsBattery(conn, data) {
+    if (conn.removed || this.unloading) {
+      return;
+    }
+    if (!data.battery_count || data.battery_count <= 0) {
+      return;
+    }
+    this.stateManager.updateBattery(conn.config, data).catch((err) => {
+      this.log.debug(`updateBattery (ws) failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`);
+    });
+  }
+  /**
+   * WebSocket authenticated — mark connected, stop REST fallback, log recovery (cooldowned).
+   *
+   * @param conn Device connection
+   */
+  onWsConnected(conn) {
+    var _a;
+    conn.wsAuthenticated = true;
+    conn.wsFailCount = 0;
+    conn.authFailCount = 0;
+    conn.lastConnectedAt = Date.now();
+    conn.recovering = false;
+    void this.stateManager.setDeviceConnected(conn.config, true);
+    this.updateGlobalConnection();
+    if (conn.pollTimer) {
+      this.clearInterval(conn.pollTimer);
+      conn.pollTimer = void 0;
+    }
+    if (this.discovery && !this.isPairing) {
+      const allConnected = Array.from(this.connections.values()).every((c) => c.wsAuthenticated);
+      if (allConnected) {
+        this.stopIpRecovery();
+      }
+    }
+    if (conn.lastErrorCode) {
+      const now = Date.now();
+      const lastInfo = (_a = this.lastInfoAt.get(conn.config.serial)) != null ? _a : 0;
+      const msg = this.isUnstable(conn) ? `${conn.config.productName}: connection restored (unstable mode)` : `${conn.config.productName}: connection restored`;
+      if ((0, import_main_helpers.shouldEmitAfterCooldown)(lastInfo, now, INFO_COOLDOWN_MS)) {
+        this.lastInfoAt.set(conn.config.serial, now);
+        this.log.info(msg);
+      } else {
+        this.log.debug(`${msg} (cooldown)`);
+      }
+      conn.lastErrorCode = "";
+    }
+    this.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
+  }
+  /**
+   * WebSocket disconnected — track stability, start REST fallback, schedule backed-off reconnect
+   * (unless an auth failure stops the loop).
+   *
+   * @param conn Device connection
+   * @param error Disconnect error, if any
+   */
+  onWsDisconnected(conn, error) {
+    const isAuthError = error instanceof import_homewizard_client.HomeWizardApiError && error.errorCode === "user:unauthorized";
+    if (conn.lastConnectedAt > 0 && !isAuthError) {
+      const duration = Date.now() - conn.lastConnectedAt;
+      const transition = (0, import_main_helpers.decideUnstableTransition)(
+        conn.recentDisconnects,
+        duration,
+        STABLE_THRESHOLD_MS,
+        import_connection_utils.UNSTABLE_DISCONNECT_THRESHOLD
+      );
+      if (duration < STABLE_THRESHOLD_MS) {
+        conn.recentDisconnects++;
+      } else {
+        conn.recentDisconnects = 0;
+      }
+      if (transition === "becameUnstable") {
+        this.log.debug(`${conn.config.productName}: unstable connection detected \u2014 using faster reconnect`);
+      } else if (transition === "stabilized") {
+        this.log.debug(`${conn.config.productName}: connection stabilized \u2014 using normal reconnect`);
+      }
+    }
+    conn.wsAuthenticated = false;
+    conn.wsClient = null;
+    conn.recovering = false;
+    void this.stateManager.setDeviceConnected(conn.config, false);
+    this.updateGlobalConnection();
+    if (error) {
+      this.logDeviceError(conn, "ws", error);
+    }
+    if (!this.handleAuthFailure(
+      conn,
+      error,
+      /* cleanupTimers */
+      false
+    )) {
+      return;
+    }
+    this.startRestFallback(conn);
+    conn.wsFailCount++;
+    const maxDelay = this.isUnstable(conn) ? WS_RECONNECT_MAX_UNSTABLE_MS : WS_RECONNECT_MAX_MS;
+    const delay = (0, import_main_helpers.computeReconnectDelay)(conn.wsFailCount, WS_RECONNECT_BASE_MS, maxDelay);
+    const key = this.stateManager.devicePrefix(conn.config);
+    this.log.debug(`${key}: WS reconnect in ${delay / 1e3}s (attempt ${conn.wsFailCount})`);
+    conn.reconnectTimer = this.setTimeout(() => {
+      conn.reconnectTimer = void 0;
+      this.connectWebSocket(conn);
+    }, delay);
   }
   /**
    * Start REST polling as fallback when WebSocket is down.
@@ -676,7 +744,7 @@ class HomeWizard extends utils.Adapter {
     }
     const unstable = this.isUnstable(conn);
     const interval = (0, import_main_helpers.pickRestPollInterval)(unstable, REST_POLL_MS, REST_POLL_UNSTABLE_MS);
-    const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
+    const client = this.makeClient(conn.ip, conn.config.token);
     conn.pollTimer = this.setInterval(async () => {
       if (conn.removed || this.unloading) {
         return;
@@ -726,7 +794,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     try {
-      const client = new import_homewizard_client.HomeWizardClient(conn.ip, conn.config.token, { log: this.log });
+      const client = this.makeClient(conn.ip, conn.config.token);
       const system = await client.getSystem();
       if (conn.removed || this.unloading) {
         return;
@@ -740,6 +808,16 @@ class HomeWizard extends utils.Adapter {
           await this.saveDeviceToObject(conn.config);
         }
       } catch {
+      }
+      if (conn.config.productType === "HWE-P1" && !conn.removed && !this.unloading) {
+        try {
+          const telegram = await client.getTelegram();
+          if (!conn.removed && !this.unloading) {
+            await this.stateManager.updateTelegram(conn.config, telegram);
+          }
+        } catch (err) {
+          this.log.debug(`${conn.config.productName} telegram: ${(0, import_coerce.errText)(err)}`);
+        }
       }
       if (conn.removed || this.unloading) {
         return;
@@ -768,7 +846,7 @@ class HomeWizard extends utils.Adapter {
   /** Update global info.connection based on all device states */
   updateGlobalConnection() {
     const anyConnected = Array.from(this.connections.values()).some((c) => c.wsAuthenticated);
-    void this.setStateAsync("info.connection", {
+    void this.setStateChangedAsync("info.connection", {
       val: anyConnected,
       ack: true
     });
@@ -779,7 +857,6 @@ class HomeWizard extends utils.Adapter {
    * @param stateId The remove state ID
    */
   async removeDevice(stateId) {
-    var _a;
     const conn = this.findConnectionForState(stateId);
     if (!conn) {
       return;
@@ -787,13 +864,10 @@ class HomeWizard extends utils.Adapter {
     const key = this.stateManager.devicePrefix(conn.config);
     this.log.info(`Removing device ${conn.config.productName} (${conn.config.serial})`);
     conn.removed = true;
-    (_a = conn.wsClient) == null ? void 0 : _a.close();
-    if (conn.pollTimer) {
-      this.clearInterval(conn.pollTimer);
+    if (conn.ip && conn.config.token) {
+      void this.makeClient(conn.ip, conn.config.token).deleteUser().catch((err) => this.log.debug(`Token revoke failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`));
     }
-    if (conn.reconnectTimer) {
-      this.clearTimeout(conn.reconnectTimer);
-    }
+    this.teardownConnection(conn);
     this.connections.delete(key);
     await this.stateManager.removeDevice(conn.config);
     this.updateGlobalConnection();
@@ -904,4 +978,8 @@ if (require.main !== module) {
 } else {
   (() => new HomeWizard())();
 }
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  HomeWizard
+});
 //# sourceMappingURL=main.js.map

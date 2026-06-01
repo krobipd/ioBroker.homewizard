@@ -202,12 +202,14 @@ export interface SystemInfo {
   api_v1_enabled?: boolean;
 }
 
-/** Battery control from GET /api/batteries */
+/** Battery control from GET /api/batteries (battery-group level) */
 export interface BatteryControl {
-  /** Battery mode */
-  mode: "zero" | "to_full" | "standby";
-  /** Battery permissions */
+  /** Battery mode (`predictive` since API 2.3.0) */
+  mode: "zero" | "to_full" | "standby" | "predictive";
+  /** Battery permissions (`charge_allowed` / `discharge_allowed`) */
   permissions?: string[];
+  /** Charge all batteries to 100% (writable, API 2.3.0) */
+  charge_to_full?: boolean;
   /** Number of connected batteries */
   battery_count?: number;
   /** Current combined power in W */

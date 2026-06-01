@@ -1,7 +1,7 @@
 import type * as utils from "@iobroker/adapter-core";
 import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject } from "./coerce";
 import type { I18nKey } from "./i18n";
-import { resolveLabel, tDesc, tName } from "./i18n";
+import { resolveLabel, tName } from "./i18n";
 import type { BatteryControl, DeviceConfig, Measurement, SystemInfo } from "./types";
 
 /** Measurement field to state definition mapping */
@@ -12,7 +12,7 @@ interface MeasurementStateDef {
   id: string;
   /** Translation key for `common.name` (resolved via {@link tName}) */
   nameKey: I18nKey;
-  /** Optional translation key for `common.desc` (resolved via {@link tDesc}) */
+  /** Optional translation key for `common.desc` (resolved via {@link tName}) */
   descKey?: I18nKey;
   /** State value type */
   type: ioBroker.CommonType;
@@ -20,6 +20,34 @@ interface MeasurementStateDef {
   role: string;
   /** Unit string */
   unit?: string;
+}
+
+/** Options for {@link StateManager.createState} (avoids long positional argument lists). */
+interface StateDef {
+  /** Full state ID */
+  id: string;
+  /** State name (translation object or device-identifier string) */
+  name: ioBroker.StringOrTranslated;
+  /** Value type */
+  type: ioBroker.CommonType;
+  /** ioBroker role */
+  role: string;
+  /** Whether the state is writable (default false) */
+  write?: boolean;
+  /** Optional unit */
+  unit?: string;
+  /** Optional `common.desc` */
+  desc?: ioBroker.StringOrTranslated;
+  /** Optional `common.states` map (plain-string values) */
+  states?: Record<string, string>;
+}
+
+/** Options for {@link StateManager.ensureAndSet} — a {@link StateDef} plus the value to write. */
+interface StateSet extends StateDef {
+  /** Value to write */
+  value: ioBroker.StateValue;
+  /** Use setStateChangedAsync (skip redundant writes) instead of setStateAsync */
+  changedOnly?: boolean;
 }
 
 /**
@@ -401,6 +429,46 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   { key: "timestamp", id: "timestamp", nameKey: "measurementTimestamp", type: "string", role: "date" },
 ];
 
+// Instantaneous electrical values — change on (almost) every ~1/s push, so a setStateChanged
+// read-compare buys nothing. These stay on setStateAsync; every other measurement field
+// (energy totals, tariff, power-quality counts, capacity tariff, SoC/cycles, model/timestamp)
+// is slow/static and uses setStateChangedAsync to skip redundant 1/s writes.
+const MOMENTARY_KEYS = new Set<string>([
+  "power_w",
+  "power_l1_w",
+  "power_l2_w",
+  "power_l3_w",
+  "voltage_v",
+  "voltage_l1_v",
+  "voltage_l2_v",
+  "voltage_l3_v",
+  "current_a",
+  "current_l1_a",
+  "current_l2_a",
+  "current_l3_a",
+  "frequency_hz",
+  "apparent_current_a",
+  "apparent_current_l1_a",
+  "apparent_current_l2_a",
+  "apparent_current_l3_a",
+  "reactive_current_a",
+  "reactive_current_l1_a",
+  "reactive_current_l2_a",
+  "reactive_current_l3_a",
+  "apparent_power_va",
+  "apparent_power_l1_va",
+  "apparent_power_l2_va",
+  "apparent_power_l3_va",
+  "reactive_power_var",
+  "reactive_power_l1_var",
+  "reactive_power_l2_var",
+  "reactive_power_l3_var",
+  "power_factor",
+  "power_factor_l1",
+  "power_factor_l2",
+  "power_factor_l3",
+]);
+
 /**
  * Build a `common.states` map for tariff (T1-T4) with plain-string labels.
  *
@@ -409,26 +477,31 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
  * on dropdown open (verified hassemu v1.28.4, 2026-05-12).
  *
  */
+// Cached after first build — the system language is fixed for the adapter run
+// (I18n.init runs once in onReady), so these label maps never change at runtime.
+// Avoids rebuilding the object on every ~1/s measurement push.
+let tariffStatesCache: Record<string, string> | null = null;
 function tariffStates(): Record<string, string> {
-  return {
+  return (tariffStatesCache ??= {
     1: resolveLabel("tariff1"),
     2: resolveLabel("tariff2"),
     3: resolveLabel("tariff3"),
     4: resolveLabel("tariff4"),
-  };
+  });
 }
 
 /**
  * Build a `common.states` map for HWE-BAT battery.mode with plain-string labels.
- * Same constraint as {@link tariffStates}.
- *
+ * Same constraint + same memoization as {@link tariffStates}. `predictive` since API 2.3.0.
  */
+let batteryModeStatesCache: Record<string, string> | null = null;
 function batteryModeStates(): Record<string, string> {
-  return {
+  return (batteryModeStatesCache ??= {
     zero: resolveLabel("modeZero"),
     to_full: resolveLabel("modeToFull"),
     standby: resolveLabel("modeStandby"),
-  };
+    predictive: resolveLabel("modePredictive"),
+  });
 }
 
 /** Manages ioBroker state creation and updates for HomeWizard devices */
@@ -485,15 +558,43 @@ export class StateManager {
       { preserve: { common: ["name"] } },
     );
 
-    await this.createState(`${prefix}.info.productName`, tName("productName"), "string", "text", false);
-    await this.createState(`${prefix}.info.productType`, tName("productType"), "string", "text", false);
-    await this.createState(`${prefix}.info.firmware`, tName("firmware"), "string", "text", false);
-    await this.createState(`${prefix}.info.connected`, tName("connected"), "boolean", "indicator.reachable", false);
-    await this.createState(`${prefix}.info.wifi_rssi_db`, tName("wifiRssi"), "number", "value", false, "dBm");
-    await this.createState(`${prefix}.info.uptime_s`, tName("uptime"), "number", "value", false, "s");
+    await this.createState({
+      id: `${prefix}.info.productName`,
+      name: tName("productName"),
+      type: "string",
+      role: "text",
+    });
+    await this.createState({
+      id: `${prefix}.info.productType`,
+      name: tName("productType"),
+      type: "string",
+      role: "text",
+    });
+    await this.createState({ id: `${prefix}.info.firmware`, name: tName("firmware"), type: "string", role: "text" });
+    await this.createState({
+      id: `${prefix}.info.connected`,
+      name: tName("connected"),
+      type: "boolean",
+      role: "indicator.reachable",
+    });
+    await this.createState({ id: `${prefix}.info.wifi_ssid`, name: tName("wifiSsid"), type: "string", role: "text" });
+    await this.createState({
+      id: `${prefix}.info.wifi_rssi_db`,
+      name: tName("wifiRssi"),
+      type: "number",
+      role: "value",
+      unit: "dBm",
+    });
+    await this.createState({
+      id: `${prefix}.info.uptime_s`,
+      name: tName("uptime"),
+      type: "number",
+      role: "value",
+      unit: "s",
+    });
 
     // Remove device button
-    await this.createButton(`${prefix}.remove`, tName("removeDevice"), tDesc("removeDeviceDesc"));
+    await this.createButton(`${prefix}.remove`, tName("removeDevice"), tName("removeDeviceDesc"));
 
     // Set initial info values
     await this.adapter.setStateAsync(`${prefix}.info.productName`, {
@@ -537,17 +638,17 @@ export class StateManager {
       }
       if (coerced !== null) {
         writes.push(
-          this.ensureAndSet(
-            `${mPrefix}.${def.id}`,
-            tName(def.nameKey),
-            def.type,
-            def.role,
-            coerced,
-            def.unit,
-            undefined,
-            def.descKey ? tDesc(def.descKey) : undefined,
-            def.key === "tariff" ? tariffStates() : undefined,
-          ),
+          this.ensureAndSet({
+            id: `${mPrefix}.${def.id}`,
+            name: tName(def.nameKey),
+            type: def.type,
+            role: def.role,
+            value: coerced,
+            unit: def.unit,
+            desc: def.descKey ? tName(def.descKey) : undefined,
+            states: def.key === "tariff" ? tariffStates() : undefined,
+            changedOnly: !MOMENTARY_KEYS.has(def.key),
+          }),
         );
       }
     }
@@ -583,20 +684,68 @@ export class StateManager {
         const extWrites: Promise<void>[] = [];
         if (value !== null) {
           extWrites.push(
-            this.ensureAndSet(`${extId}.value`, tName("externalValue"), "number", "value", value, unit ?? undefined),
+            this.ensureAndSet({
+              id: `${extId}.value`,
+              name: tName("externalValue"),
+              type: "number",
+              role: "value",
+              value,
+              unit: unit ?? undefined,
+              changedOnly: true,
+            }),
           );
         }
         if (unit) {
-          extWrites.push(this.ensureAndSet(`${extId}.unit`, tName("externalUnit"), "string", "text", unit));
+          extWrites.push(
+            this.ensureAndSet({
+              id: `${extId}.unit`,
+              name: tName("externalUnit"),
+              type: "string",
+              role: "text",
+              value: unit,
+              changedOnly: true,
+            }),
+          );
         }
         if (timestamp) {
           extWrites.push(
-            this.ensureAndSet(`${extId}.timestamp`, tName("externalTimestamp"), "string", "date", timestamp),
+            this.ensureAndSet({
+              id: `${extId}.timestamp`,
+              name: tName("externalTimestamp"),
+              type: "string",
+              role: "date",
+              value: timestamp,
+              changedOnly: true,
+            }),
           );
         }
         await Promise.all(extWrites);
       }
     }
+  }
+
+  /**
+   * Update the raw P1 telegram state (P1 Meter only). Written at the system-poll cadence,
+   * not the 1/s measurement feed — the raw DSMR datagram is bulky text.
+   *
+   * @param config Device configuration
+   * @param telegram Raw P1 telegram text
+   */
+  async updateTelegram(config: DeviceConfig, telegram: string): Promise<void> {
+    const value = coerceString(telegram);
+    if (value === null) {
+      return;
+    }
+    const prefix = this.devicePrefix(config);
+    await this.ensureChannel(`${prefix}.measurement`, tName("measurement"));
+    await this.ensureAndSet({
+      id: `${prefix}.measurement.telegram`,
+      name: tName("telegram"),
+      type: "string",
+      role: "text",
+      value,
+      changedOnly: true,
+    });
   }
 
   /**
@@ -612,59 +761,92 @@ export class StateManager {
     const prefix = this.devicePrefix(config);
     const record = system as Record<string, unknown>;
 
-    // WiFi/uptime in info channel
+    // WiFi SSID/RSSI + uptime in info channel — slow-changing → changedOnly.
+    const ssid = coerceString(record.wifi_ssid);
+    if (ssid !== null) {
+      await this.ensureAndSet({
+        id: `${prefix}.info.wifi_ssid`,
+        name: tName("wifiSsid"),
+        type: "string",
+        role: "text",
+        value: ssid,
+        changedOnly: true,
+      });
+    }
     const rssi = coerceFiniteNumber(record.wifi_rssi_db);
     if (rssi !== null) {
-      await this.ensureAndSet(`${prefix}.info.wifi_rssi_db`, tName("wifiRssi"), "number", "value", rssi, "dBm");
+      await this.ensureAndSet({
+        id: `${prefix}.info.wifi_rssi_db`,
+        name: tName("wifiRssi"),
+        type: "number",
+        role: "value",
+        value: rssi,
+        unit: "dBm",
+        changedOnly: true,
+      });
     }
     const uptime = coerceFiniteNumber(record.uptime_s);
     if (uptime !== null) {
-      await this.ensureAndSet(`${prefix}.info.uptime_s`, tName("uptime"), "number", "value", uptime, "s");
+      await this.ensureAndSet({
+        id: `${prefix}.info.uptime_s`,
+        name: tName("uptime"),
+        type: "number",
+        role: "value",
+        value: uptime,
+        unit: "s",
+        changedOnly: true,
+      });
     }
 
     // System control channel (cached after first call per device)
     await this.ensureChannel(`${prefix}.system`, tName("systemSettings"));
 
+    // HWE-BAT: cloud_enabled is read-only (always true) and reboot is unsupported.
+    const isBattery = config.productType === "HWE-BAT";
+
     const cloudEnabled = coerceBoolean(record.cloud_enabled);
     if (cloudEnabled !== null) {
-      await this.ensureAndSet(
-        `${prefix}.system.cloud_enabled`,
-        tName("cloudEnabled"),
-        "boolean",
-        "switch",
-        cloudEnabled,
-        undefined,
-        true,
-      );
+      await this.ensureAndSet({
+        id: `${prefix}.system.cloud_enabled`,
+        name: tName("cloudEnabled"),
+        type: "boolean",
+        role: "switch",
+        value: cloudEnabled,
+        write: !isBattery,
+        changedOnly: true,
+      });
     }
     const ledPct = coerceFiniteNumber(record.status_led_brightness_pct);
     if (ledPct !== null) {
-      await this.ensureAndSet(
-        `${prefix}.system.status_led_brightness_pct`,
-        tName("ledBrightness"),
-        "number",
-        "level",
-        ledPct,
-        "%",
-        true,
-      );
+      await this.ensureAndSet({
+        id: `${prefix}.system.status_led_brightness_pct`,
+        name: tName("ledBrightness"),
+        type: "number",
+        role: "level",
+        value: ledPct,
+        unit: "%",
+        write: true,
+        changedOnly: true,
+      });
     }
 
     const apiV1 = coerceBoolean(record.api_v1_enabled);
     if (apiV1 !== null) {
-      await this.ensureAndSet(
-        `${prefix}.system.api_v1_enabled`,
-        tName("apiV1Enabled"),
-        "boolean",
-        "switch",
-        apiV1,
-        undefined,
-        true,
-      );
+      await this.ensureAndSet({
+        id: `${prefix}.system.api_v1_enabled`,
+        name: tName("apiV1Enabled"),
+        type: "boolean",
+        role: "switch",
+        value: apiV1,
+        write: true,
+        changedOnly: true,
+      });
     }
 
-    // Action buttons
-    await this.createButton(`${prefix}.system.reboot`, tName("rebootDevice"));
+    // Action buttons (reboot is unsupported on the Plug-In Battery)
+    if (!isBattery) {
+      await this.createButton(`${prefix}.system.reboot`, tName("rebootDevice"));
+    }
     await this.createButton(`${prefix}.system.identify`, tName("identify"));
   }
 
@@ -685,28 +867,41 @@ export class StateManager {
 
     const mode = coerceString(record.mode);
     if (mode) {
-      await this.ensureAndSet(
-        `${prefix}.battery.mode`,
-        tName("batteryMode"),
-        "string",
-        "text",
-        mode,
-        undefined,
-        true,
-        tDesc("batteryModeDesc"),
-        batteryModeStates(),
-      );
+      await this.ensureAndSet({
+        id: `${prefix}.battery.mode`,
+        name: tName("batteryMode"),
+        type: "string",
+        role: "text",
+        value: mode,
+        write: true,
+        desc: tName("batteryModeDesc"),
+        states: batteryModeStates(),
+        changedOnly: true,
+      });
     }
     if (Array.isArray(record.permissions)) {
-      await this.ensureAndSet(
-        `${prefix}.battery.permissions`,
-        tName("batteryPermissions"),
-        "string",
-        "json",
-        JSON.stringify(record.permissions),
-        undefined,
-        true,
-      );
+      await this.ensureAndSet({
+        id: `${prefix}.battery.permissions`,
+        name: tName("batteryPermissions"),
+        type: "string",
+        role: "json",
+        value: JSON.stringify(record.permissions),
+        write: true,
+        changedOnly: true,
+      });
+    }
+    // charge_to_full (API 2.3.0) — writable switch: charge all batteries to 100%.
+    const chargeToFull = coerceBoolean(record.charge_to_full);
+    if (chargeToFull !== null) {
+      await this.ensureAndSet({
+        id: `${prefix}.battery.charge_to_full`,
+        name: tName("batteryChargeToFull"),
+        type: "boolean",
+        role: "switch",
+        value: chargeToFull,
+        write: true,
+        changedOnly: true,
+      });
     }
 
     const numberFields: Array<{
@@ -737,14 +932,15 @@ export class StateManager {
     for (const field of numberFields) {
       const coerced = coerceFiniteNumber(record[field.key]);
       if (coerced !== null) {
-        await this.ensureAndSet(
-          `${prefix}.battery.${field.id}`,
-          tName(field.nameKey),
-          "number",
-          field.role,
-          coerced,
-          field.unit,
-        );
+        await this.ensureAndSet({
+          id: `${prefix}.battery.${field.id}`,
+          name: tName(field.nameKey),
+          type: "number",
+          role: field.role,
+          value: coerced,
+          unit: field.unit,
+          changedOnly: true,
+        });
       }
     }
   }
@@ -757,7 +953,7 @@ export class StateManager {
    */
   async setDeviceConnected(config: DeviceConfig, connected: boolean): Promise<void> {
     const prefix = this.devicePrefix(config);
-    await this.adapter.setStateAsync(`${prefix}.info.connected`, {
+    await this.adapter.setStateChangedAsync(`${prefix}.info.connected`, {
       val: connected,
       ack: true,
     });
@@ -843,60 +1039,44 @@ export class StateManager {
   }
 
   /**
-   * Create a state if it doesn't exist
+   * Create a state if it doesn't exist.
    *
-   * @param id    State ID
-   * @param name  State name (translation object or string for device identifiers)
-   * @param type  Value type
-   * @param role  ioBroker role
-   * @param write Whether state is writable
-   * @param unit  Optional unit
-   * @param desc  Optional translation object for `common.desc`
-   * @param states Optional `common.states` map
+   * @param def State definition (options object — avoids long positional argument lists).
    */
-  private async createState(
-    id: string,
-    name: ioBroker.StringOrTranslated,
-    type: ioBroker.CommonType,
-    role: string,
-    write: boolean,
-    unit?: string,
-    desc?: ioBroker.StringOrTranslated,
-    states?: Record<string, string>,
-  ): Promise<void> {
-    if (this.createdIds.has(id)) {
+  private async createState(def: StateDef): Promise<void> {
+    if (this.createdIds.has(def.id)) {
       return;
     }
     const common: Partial<ioBroker.StateCommon> = {
-      name,
-      type,
-      role,
+      name: def.name,
+      type: def.type,
+      role: def.role,
       read: true,
-      write,
+      write: def.write ?? false,
     };
-    if (unit) {
-      common.unit = unit;
+    if (def.unit) {
+      common.unit = def.unit;
     }
-    if (desc) {
-      common.desc = desc;
+    if (def.desc) {
+      common.desc = def.desc;
     }
-    if (states) {
-      common.states = states;
+    if (def.states) {
+      common.states = def.states;
     }
-    await this.adapter.setObjectNotExistsAsync(id, {
+    await this.adapter.setObjectNotExistsAsync(def.id, {
       type: "state",
       common: common as ioBroker.StateCommon,
       native: {},
     });
-    if (states) {
+    if (def.states) {
       // Existing datapoints from earlier releases may carry translation-object
       // VALUES in `common.states` (v0.7.0 introduced tLabel-as-string casts).
       // setObjectNotExistsAsync is a no-op for those — actively replace if any
       // value is not plain-string. Admin renders states-values as React child:
       // an object triggers React Error #31 → fatal "Error in GUI" on dropdown.
-      await this.repairCommonStatesIfBuggy(id, states);
+      await this.repairCommonStatesIfBuggy(def.id, def.states);
     }
-    this.createdIds.add(id);
+    this.createdIds.add(def.id);
   }
 
   /**
@@ -963,30 +1143,22 @@ export class StateManager {
   }
 
   /**
-   * Ensure state exists and set value
+   * Ensure a state exists and set its value.
    *
-   * @param id     State ID
-   * @param name   State name (translation object or string)
-   * @param type   Value type
-   * @param role   ioBroker role
-   * @param value  State value
-   * @param unit   Optional unit
-   * @param write  Whether state is writable
-   * @param desc   Optional translation object for `common.desc`
-   * @param states Optional `common.states` map (translation objects)
+   * `changedOnly` routes through `setStateChangedAsync` (skips the write when the value is
+   * unchanged) — used for slow/static fields (energy totals, system, battery control) so the
+   * ~1/s push doesn't churn the DB. Momentary 1 Hz values (power/voltage/current/…) stay on
+   * `setStateAsync`. `changedOnly` also prevents double-writes when REST poll + WS push the
+   * same field.
+   *
+   * @param def State definition + value + optional `changedOnly` flag.
    */
-  private async ensureAndSet(
-    id: string,
-    name: ioBroker.StringOrTranslated,
-    type: ioBroker.CommonType,
-    role: string,
-    value: ioBroker.StateValue,
-    unit?: string,
-    write?: boolean,
-    desc?: ioBroker.StringOrTranslated,
-    states?: Record<string, string>,
-  ): Promise<void> {
-    await this.createState(id, name, type, role, write ?? false, unit, desc, states);
-    await this.adapter.setStateAsync(id, { val: value, ack: true });
+  private async ensureAndSet(def: StateSet): Promise<void> {
+    await this.createState(def);
+    if (def.changedOnly) {
+      await this.adapter.setStateChangedAsync(def.id, { val: def.value, ack: true });
+    } else {
+      await this.adapter.setStateAsync(def.id, { val: def.value, ack: true });
+    }
   }
 }
