@@ -116,18 +116,12 @@ class HomeWizardClient {
   async deleteUser() {
     await this.request("DELETE", "/api/user", { name: "local/iobroker" });
   }
-  /** Get the most recent raw P1 telegram (GET /api/telegram, plain text — P1 Meter only). */
-  async getTelegram() {
-    return this.request("GET", "/api/telegram", void 0, false);
-  }
   /**
    * @param method HTTP method
    * @param path API path
    * @param body Optional request body
-   * @param parseJson Parse the response as JSON (default). `false` resolves the raw response
-   *   text — used for `GET /api/telegram`, which returns a plain-text P1 datagram, not JSON.
    */
-  request(method, path, body, parseJson = true) {
+  request(method, path, body) {
     return new Promise((resolve, reject) => {
       var _a;
       const bodyStr = body ? JSON.stringify(body) : void 0;
@@ -174,10 +168,6 @@ class HomeWizardClient {
             );
             if (!data) {
               resolve(void 0);
-              return;
-            }
-            if (!parseJson) {
-              resolve(data);
               return;
             }
             try {

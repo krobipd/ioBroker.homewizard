@@ -809,16 +809,6 @@ class HomeWizard extends utils.Adapter {
         }
       } catch {
       }
-      if (conn.config.productType === "HWE-P1" && !conn.removed && !this.unloading) {
-        try {
-          const telegram = await client.getTelegram();
-          if (!conn.removed && !this.unloading) {
-            await this.stateManager.updateTelegram(conn.config, telegram);
-          }
-        } catch (err) {
-          this.log.debug(`${conn.config.productName} telegram: ${(0, import_coerce.errText)(err)}`);
-        }
-      }
       if (conn.removed || this.unloading) {
         return;
       }

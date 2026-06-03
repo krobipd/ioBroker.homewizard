@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.10.0",
+    "version": "0.11.0",
     "news": {
+      "0.11.0": {
+        "en": "Removed the raw P1 telegram datapoint — its data is already available as parsed measurement states; the leftover state is cleaned up automatically on existing P1 meters.",
+        "de": "Roher P1-Telegramm-Datenpunkt entfernt — seine Werte stehen ohnehin als geparste Messdaten-States bereit; der verbliebene State wird auf bestehenden P1-Zählern automatisch aufgeräumt.",
+        "ru": "Удалён необработанный датапоинт телеграммы P1 — его значения и так доступны как разобранные состояния измерений; оставшийся стейт на существующих счётчиках P1 удаляется автоматически.",
+        "pt": "Removido o datapoint do telegrama P1 bruto — os seus valores já estão disponíveis como estados de medição processados; o estado restante é limpo automaticamente nos medidores P1 existentes.",
+        "nl": "Ruwe P1-telegram-datapunt verwijderd — de waarden zijn al beschikbaar als verwerkte meet-states; de achtergebleven state wordt automatisch opgeruimd op bestaande P1-meters.",
+        "fr": "Point de données du télégramme P1 brut supprimé — ses valeurs sont déjà disponibles comme états de mesure analysés ; l'état résiduel est nettoyé automatiquement sur les compteurs P1 existants.",
+        "it": "Rimosso il datapoint del telegramma P1 grezzo — i suoi valori sono già disponibili come stati di misura elaborati; lo stato residuo viene rimosso automaticamente sui contatori P1 esistenti.",
+        "es": "Eliminado el datapoint del telegrama P1 sin procesar — sus valores ya están como estados de medición procesados; el estado restante se limpia automáticamente en los medidores P1 existentes.",
+        "pl": "Usunięto surowy punkt danych telegramu P1 — jego wartości są już dostępne jako przetworzone stany pomiarowe; pozostały stan jest automatycznie usuwany na istniejących licznikach P1.",
+        "uk": "Видалено необроблений датапоінт телеграми P1 — його значення вже доступні як оброблені стани вимірювань; залишковий стан автоматично видаляється на наявних лічильниках P1.",
+        "zh-cn": "移除了原始 P1 报文数据点——其数据已作为解析后的测量状态提供；现有 P1 电表上的残留状态会自动清理。"
+      },
       "0.10.0": {
         "en": "New predictive battery mode and charge-to-full switch, real-time system and battery updates, plus new WiFi-network and raw P1-telegram states.",
         "de": "Neuer Predictive-Batteriemodus und Voll-laden-Schalter, Echtzeit-Updates für System und Batterie sowie neue Datenpunkte für WLAN-Netzwerk und rohes P1-Telegramm.",
@@ -80,19 +93,6 @@
         "pl": "Poprawiona obsługa błędów i stabilność.",
         "uk": "Покращено обробку помилок та стабільність.",
         "zh-cn": "改进了错误处理和稳定性。"
-      },
-      "0.8.2": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Bereinigung. Keine sichtbaren Änderungen.",
-        "ru": "Внутренняя очистка. Нет видимых изменений для пользователей.",
-        "pt": "Limpeza interna. Sem alterações visíveis para o utilizador.",
-        "nl": "Interne opruiming. Geen zichtbare wijzigingen voor gebruikers.",
-        "fr": "Nettoyage interne. Aucun changement visible pour l utilisateur.",
-        "it": "Pulizia interna. Nessuna modifica visibile per l utente.",
-        "es": "Limpieza interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzne porządki. Brak widocznych zmian dla użytkownika.",
-        "uk": "Внутрішнє прибирання. Без видимих змін для користувача.",
-        "zh-cn": "内部清理。无用户可见的更改。"
       }
     },
     "titleLang": {

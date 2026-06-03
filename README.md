@@ -177,6 +177,10 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 0.11.0 (2026-06-03)
+
+- Removed the raw P1 telegram datapoint — its data is already available as parsed measurement states; the leftover state is cleaned up automatically on existing P1 meters.
+
 ### 0.10.0 (2026-06-01)
 
 - New battery controls: a forecast-based predictive charging mode and a one-shot charge-to-full switch, in addition to the existing zero, to-full and standby modes.
@@ -196,10 +200,6 @@ homewizard.0.
 ### 0.9.1 (2026-05-23)
 
 - Internal cleanup. No user-facing changes.
-
-### 0.9.0 (2026-05-22)
-
-- User-modified state names are no longer overwritten on adapter restart
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
