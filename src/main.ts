@@ -998,20 +998,6 @@ export class HomeWizard extends utils.Adapter {
         // surfaces real connectivity issues.
       }
 
-      // Raw P1 telegram (P1 Meter only) — fetched at the system-poll cadence, not the 1/s
-      // measurement feed (the DSMR datagram is bulky). Placed before the battery block, whose
-      // 404 path returns early on no-battery devices like the P1.
-      if (conn.config.productType === "HWE-P1" && !conn.removed && !this.unloading) {
-        try {
-          const telegram = await client.getTelegram();
-          if (!conn.removed && !this.unloading) {
-            await this.stateManager.updateTelegram(conn.config, telegram);
-          }
-        } catch (err) {
-          this.log.debug(`${conn.config.productName} telegram: ${errText(err)}`);
-        }
-      }
-
       // Also poll battery if device supports it. 404 = no battery — silent.
       // Other errors (500, timeout, malformed body) used to be swallowed
       // entirely; now they surface at debug so post-mortem diagnosis is

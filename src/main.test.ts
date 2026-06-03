@@ -51,7 +51,6 @@ interface FakeClient {
   deleteUser: ReturnType<typeof vi.fn>;
   getSystem: ReturnType<typeof vi.fn>;
   getDeviceInfo: ReturnType<typeof vi.fn>;
-  getTelegram: ReturnType<typeof vi.fn>;
   getBatteries: ReturnType<typeof vi.fn>;
 }
 
@@ -64,7 +63,6 @@ function makeFakeClient(): FakeClient {
     deleteUser: vi.fn(async () => {}),
     getSystem: vi.fn(async () => ({ cloud_enabled: true })),
     getDeviceInfo: vi.fn(async () => ({ product_name: "P1" })),
-    getTelegram: vi.fn(async () => "/ISK5\\2M550E\r\n!1234"),
     getBatteries: vi.fn(async () => ({})),
   };
 }
@@ -100,7 +98,6 @@ function setup(): {
     updateMeasurement: ReturnType<typeof vi.fn>;
     updateSystem: ReturnType<typeof vi.fn>;
     updateBattery: ReturnType<typeof vi.fn>;
-    updateTelegram: ReturnType<typeof vi.fn>;
   };
 } {
   const hw = new HomeWizard();
@@ -119,7 +116,6 @@ function setup(): {
     updateMeasurement: vi.fn(async () => {}),
     updateSystem: vi.fn(async () => {}),
     updateBattery: vi.fn(async () => {}),
-    updateTelegram: vi.fn(async () => {}),
   };
   internal.stateManager = stateMgr;
   internal.connections.set("hwe-p1_aabb", conn);
@@ -287,21 +283,5 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
 
     expect(unstableDelay).toBeLessThanOrEqual(60_000);
     expect(stableDelay).toBeGreaterThan(60_000);
-  });
-});
-
-describe("HomeWizard pollSystemInfo telegram branch (A5)", () => {
-  it("fetches and stores the raw P1 telegram for a P1 meter", async () => {
-    const { hw, client, stateMgr } = setup(); // default conn is HWE-P1
-    await call(hw, "pollSystemInfo", makeConn());
-    expect(client.getTelegram).toHaveBeenCalled();
-    expect(stateMgr.updateTelegram).toHaveBeenCalledWith(expect.objectContaining({ productType: "HWE-P1" }), expect.any(String));
-  });
-
-  it("skips the telegram fetch for a non-P1 device (gate that avoids the 404)", async () => {
-    const { hw, client, stateMgr } = setup();
-    await call(hw, "pollSystemInfo", makeConn({ config: { token: "t", productType: "HWE-KWH1", serial: "kwh1", productName: "kWh" } }));
-    expect(client.getTelegram).not.toHaveBeenCalled();
-    expect(stateMgr.updateTelegram).not.toHaveBeenCalled();
   });
 });

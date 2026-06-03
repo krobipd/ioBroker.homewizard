@@ -963,18 +963,6 @@ describe("StateManager", () => {
       expect(adapter.states.get("hwe-p1_aabbccddeeff.info.wifi_ssid")?.val).toBe("MyNetwork");
     });
 
-    it("A5: updateTelegram creates measurement.telegram", async () => {
-      await manager.updateTelegram(testDevice, "/ISK5\\2M550E-1012\r\n!1234");
-      const state = adapter.states.get("hwe-p1_aabbccddeeff.measurement.telegram");
-      expect(state?.val).toBe("/ISK5\\2M550E-1012\r\n!1234");
-      expect(adapter.objects.get("hwe-p1_aabbccddeeff.measurement.telegram")?.common.role).toBe("text");
-    });
-
-    it("A5: updateTelegram drops empty payload", async () => {
-      await manager.updateTelegram(testDevice, "");
-      expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.telegram")).toBe(false);
-    });
-
     it("A1: battery.mode states include the predictive label", async () => {
       await manager.updateBattery(testDevice, { mode: "predictive" });
       const states = adapter.objects.get("hwe-p1_aabbccddeeff.battery.mode")!.common.states as Record<string, string>;

@@ -725,30 +725,6 @@ export class StateManager {
   }
 
   /**
-   * Update the raw P1 telegram state (P1 Meter only). Written at the system-poll cadence,
-   * not the 1/s measurement feed — the raw DSMR datagram is bulky text.
-   *
-   * @param config Device configuration
-   * @param telegram Raw P1 telegram text
-   */
-  async updateTelegram(config: DeviceConfig, telegram: string): Promise<void> {
-    const value = coerceString(telegram);
-    if (value === null) {
-      return;
-    }
-    const prefix = this.devicePrefix(config);
-    await this.ensureChannel(`${prefix}.measurement`, tName("measurement"));
-    await this.ensureAndSet({
-      id: `${prefix}.measurement.telegram`,
-      name: tName("telegram"),
-      type: "string",
-      role: "text",
-      value,
-      changedOnly: true,
-    });
-  }
-
-  /**
    * Update system states
    *
    * @param config Device configuration
@@ -981,7 +957,8 @@ export class StateManager {
   }
 
   /**
-   * Remove measurement states from old locations (pre-v0.4.0: device root instead of measurement/ channel)
+   * Remove obsolete states: pre-v0.4.0 device-root paths (now under measurement/) plus
+   * states retired in later versions (v0.11.0: raw P1 telegram).
    *
    * @param config Device configuration
    */
@@ -996,6 +973,8 @@ export class StateManager {
     }
     // External was at device root too
     oldIds.push(`${prefix}.external`);
+    // Retired in v0.11.0: raw P1 telegram (DSMR passthrough, not part of the v2 data model)
+    oldIds.push(`${prefix}.measurement.telegram`);
 
     let removed = 0;
     for (const id of oldIds) {
