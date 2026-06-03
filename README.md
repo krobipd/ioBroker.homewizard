@@ -117,7 +117,6 @@ homewizard.0.
     │   ├── monthly_power_peak_timestamp — Monthly peak timestamp (string)
     │   ├── meter_model          — Meter model identifier (string)
     │   ├── timestamp            — Measurement timestamp (string)
-    │   ├── telegram             — Raw P1 telegram text (string, P1 only)
     │   ├── quality/             — Power quality counters
     │   │   ├── voltage_sag_l1..l3_count
     │   │   ├── voltage_swell_l1..l3_count
