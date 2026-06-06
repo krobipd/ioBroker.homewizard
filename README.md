@@ -202,6 +202,8 @@ homewizard.0.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
+[Older changelogs can be found there](CHANGELOG_OLD.md)
+
 ## Support Development
 
 This adapter is free and open source. If you find it useful, consider buying me a coffee:
