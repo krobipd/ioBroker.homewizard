@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.11.0",
+    "version": "0.12.0",
     "news": {
+      "0.12.0": {
+        "en": "Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.",
+        "de": "Optionale Fehlermeldung über Sentry hinzugefügt: Abstürze werden an den Entwickler gesendet, damit Probleme schneller behoben werden. Nur aktiv bei eingeschalteter ioBroker-Diagnose; anonym.",
+        "ru": "Добавлена необязательная отправка ошибок через Sentry: сбои отправляются разработчику, чтобы быстрее их устранять. Работает только при включённой диагностике ioBroker; анонимно.",
+        "pt": "Adicionado relatório de erros opcional via Sentry: as falhas são enviadas ao programador para corrigir problemas mais rápido. Ativo apenas com o diagnóstico do ioBroker ligado; anónimo.",
+        "nl": "Optionele foutrapportage via Sentry toegevoegd: crashes worden naar de ontwikkelaar gestuurd om problemen sneller op te lossen. Alleen actief met ioBroker-diagnostiek ingeschakeld; anoniem.",
+        "fr": "Rapport d'erreurs optionnel via Sentry ajouté : les plantages sont envoyés au développeur pour corriger plus vite. Actif seulement si le diagnostic ioBroker est activé ; anonyme.",
+        "it": "Aggiunta segnalazione errori opzionale via Sentry: gli arresti vengono inviati allo sviluppatore per risolvere prima i problemi. Attivo solo con la diagnostica ioBroker attiva; anonimo.",
+        "es": "Añadido informe de errores opcional mediante Sentry: los fallos se envían al desarrollador para solucionar problemas más rápido. Activo solo con el diagnóstico de ioBroker activado; anónimo.",
+        "pl": "Dodano opcjonalne raportowanie błędów przez Sentry: awarie są wysyłane do dewelopera, aby szybciej rozwiązywać problemy. Aktywne tylko przy włączonej diagnostyce ioBroker; anonimowo.",
+        "uk": "Додано необов'язкову відправку помилок через Sentry: збої надсилаються розробнику, щоб швидше їх виправляти. Працює лише з увімкненою діагностикою ioBroker; анонімно.",
+        "zh-cn": "新增可选的 Sentry 错误上报：崩溃信息会发送给开发者以更快修复问题。仅在启用 ioBroker 诊断时生效；匿名。"
+      },
       "0.11.0": {
         "en": "Removed the raw P1 telegram datapoint — its data is already available as parsed measurement states; the leftover state is cleaned up automatically on existing P1 meters.",
         "de": "Roher P1-Telegramm-Datenpunkt entfernt — seine Werte stehen ohnehin als geparste Messdaten-States bereit; der verbliebene State wird auf bestehenden P1-Zählern automatisch aufgeräumt.",
@@ -80,19 +93,11 @@
         "pl": "Nazwy stanów zmienione przez użytkownika nie są już nadpisywane przy restarcie adaptera.",
         "uk": "Змінені користувачем назви станів більше не перезаписуються при перезапуску адаптера.",
         "zh-cn": "用户修改的状态名称在适配器重启时不再被覆盖。"
-      },
-      "0.8.3": {
-        "en": "Improved error handling and stability.",
-        "de": "Verbesserte Fehlerbehandlung und Stabilität.",
-        "ru": "Улучшена обработка ошибок и стабильность.",
-        "pt": "Tratamento de erros e estabilidade melhorados.",
-        "nl": "Verbeterde foutafhandeling en stabiliteit.",
-        "fr": "Gestion des erreurs et stabilité améliorées.",
-        "it": "Gestione degli errori e stabilità migliorate.",
-        "es": "Mejora del manejo de errores y la estabilidad.",
-        "pl": "Poprawiona obsługa błędów i stabilność.",
-        "uk": "Покращено обробку помилок та стабільність.",
-        "zh-cn": "改进了错误处理和稳定性。"
+      }
+    },
+    "plugins": {
+      "sentry": {
+        "dsn": "https://66f27ceff38c1ce1e6cdcc3095ba06d3@o4511524771266560.ingest.de.sentry.io/4511524773560400"
       }
     },
     "titleLang": {

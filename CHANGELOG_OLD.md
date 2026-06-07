@@ -1,4 +1,8 @@
 # Older Changes
+## 0.9.1 (2026-05-23)
+
+- Internal cleanup. No user-facing changes.
+
 ## 0.9.0 (2026-05-22)
 
 - User-modified state names are no longer overwritten on adapter restart
