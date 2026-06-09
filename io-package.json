@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.12.0",
+    "version": "0.12.1",
     "news": {
+      "0.12.1": {
+        "en": "Internal refactoring. No user-facing changes.",
+        "de": "Interne Überarbeitung. Keine für Nutzer sichtbaren Änderungen.",
+        "ru": "Внутренняя переработка. Никаких изменений для пользователей.",
+        "pt": "Refatoração interna. Sem alterações visíveis para o utilizador.",
+        "nl": "Interne herstructurering. Geen zichtbare wijzigingen voor gebruikers.",
+        "fr": "Refactorisation interne. Aucun changement visible pour l'utilisateur.",
+        "it": "Refactoring interno. Nessuna modifica visibile per l'utente.",
+        "es": "Refactorización interna. Sin cambios visibles para el usuario.",
+        "pl": "Wewnętrzna refaktoryzacja. Brak zmian widocznych dla użytkownika.",
+        "uk": "Внутрішня переробка. Жодних змін для користувачів.",
+        "zh-cn": "内部重构。对用户无可见变化。"
+      },
       "0.12.0": {
         "en": "Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.",
         "de": "Optionale Fehlermeldung über Sentry hinzugefügt: Abstürze werden an den Entwickler gesendet, damit Probleme schneller behoben werden. Nur aktiv bei eingeschalteter ioBroker-Diagnose; anonym.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzne porządki. Brak widocznych zmian dla użytkownika.",
         "uk": "Внутрішнє прибирання. Без видимих змін для користувача.",
         "zh-cn": "内部清理。无用户可见的更改。"
-      },
-      "0.9.0": {
-        "en": "User-modified state names are no longer overwritten on adapter restart.",
-        "de": "Vom Benutzer geänderte Datenpunktnamen werden beim Neustart nicht mehr überschrieben.",
-        "ru": "Пользовательские имена состояний больше не перезаписываются при перезапуске адаптера.",
-        "pt": "Nomes de estados modificados pelo utilizador já não são substituídos ao reiniciar o adaptador.",
-        "nl": "Door gebruiker gewijzigde statusnamen worden niet meer overschreven bij herstart van de adapter.",
-        "fr": "Les noms d états modifiés par l utilisateur ne sont plus écrasés au redémarrage de l adaptateur.",
-        "it": "I nomi degli stati modificati dall utente non vengono più sovrascritti al riavvio dell adattatore.",
-        "es": "Los nombres de estados modificados por el usuario ya no se sobrescriben al reiniciar el adaptador.",
-        "pl": "Nazwy stanów zmienione przez użytkownika nie są już nadpisywane przy restarcie adaptera.",
-        "uk": "Змінені користувачем назви станів більше не перезаписуються при перезапуску адаптера.",
-        "zh-cn": "用户修改的状态名称在适配器重启时不再被覆盖。"
       }
     },
     "plugins": {

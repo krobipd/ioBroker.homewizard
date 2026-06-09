@@ -1,4 +1,4 @@
-import { classifyError, createDeviceConnection, UNSTABLE_DISCONNECT_THRESHOLD } from "./connection-utils";
+import { classifyError, createDeviceConnection } from "./connection-utils";
 import { HomeWizardApiError } from "./homewizard-client";
 import type { DeviceConfig } from "./types";
 
@@ -100,11 +100,5 @@ describe("createDeviceConnection", () => {
 
   it("should handle empty IP", () => {
     expect(createDeviceConnection(testConfig, "").ip).toBe("");
-  });
-});
-
-describe("UNSTABLE_DISCONNECT_THRESHOLD", () => {
-  it("should be 3", () => {
-    expect(UNSTABLE_DISCONNECT_THRESHOLD).toBe(3);
   });
 });

@@ -117,11 +117,6 @@ class HomeWizardWebSocket {
     this.destroyed = true;
     this.cleanup();
   }
-  /** Whether the WebSocket is currently open */
-  get isConnected() {
-    var _a;
-    return ((_a = this.ws) == null ? void 0 : _a.readyState) === import_ws.default.OPEN;
-  }
   /**
    * Handle incoming WebSocket message
    *

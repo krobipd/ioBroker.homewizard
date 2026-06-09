@@ -151,11 +151,6 @@ export class HomeWizardWebSocket {
     this.cleanup();
   }
 
-  /** Whether the WebSocket is currently open */
-  get isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
-  }
-
   /**
    * Handle incoming WebSocket message
    *

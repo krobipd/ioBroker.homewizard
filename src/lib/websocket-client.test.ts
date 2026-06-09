@@ -140,10 +140,10 @@ describe("HomeWizardWebSocket", () => {
       ws.close();
     });
 
-    it("should not be connected initially", () => {
+    it("does not open a socket until connect() is called", () => {
       const { callbacks } = createCallbackTracker();
       const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks, createNativeTimerDeps());
-      expect(ws.isConnected).toBe(false);
+      expect((ws as unknown as { ws: unknown }).ws).toBeNull();
       ws.close();
     });
   });
@@ -166,9 +166,9 @@ describe("HomeWizardWebSocket", () => {
       const { callbacks } = createCallbackTracker();
       const ws = new HomeWizardWebSocket("192.168.1.1", "testtoken", callbacks, createNativeTimerDeps());
       ws.close();
-      // connect after close should be a no-op (destroyed flag)
+      // connect after close must be a no-op (destroyed flag) — no socket created
       ws.connect();
-      expect(ws.isConnected).toBe(false);
+      expect((ws as unknown as { ws: unknown }).ws).toBeNull();
     });
   });
 
@@ -617,7 +617,6 @@ describe("HomeWizardWebSocket against a real wss stub-server (T4)", () => {
     expect(stub.state.token).toBe("mytoken");
     await waitUntil(() => stub.state.subs.length === 3);
     expect([...stub.state.subs].sort()).toEqual(["batteries", "measurement", "system"]);
-    expect(ws.isConnected).toBe(true);
   });
 
   it("delivers pushed measurement / system / battery frames to the callbacks", async () => {
