@@ -22,7 +22,7 @@ vi.mock("@iobroker/adapter-core", () => {
   };
 });
 
-import { StateManager } from "./state-manager";
+import { MEASUREMENT_STATE_DEFS, MOMENTARY_KEYS, StateManager } from "./state-manager";
 import type { DeviceConfig, Measurement, SystemInfo, BatteryControl } from "./types";
 
 interface CommonNameTranslated {
@@ -151,6 +151,25 @@ const testDevice: DeviceConfig = {
   serial: "aabbccddeeff",
   productName: "P1 Meter",
 };
+
+describe("MOMENTARY_KEYS invariant", () => {
+  it("every momentary key references an existing measurement def (typo guard)", () => {
+    // A MOMENTARY_KEYS entry without a matching def key would silently do
+    // nothing — the field would fall back to changed-only writes and the
+    // 1/s push optimization would quietly stop applying to it.
+    const defKeys = new Set(MEASUREMENT_STATE_DEFS.map(d => d.key));
+    const orphans = [...MOMENTARY_KEYS].filter(k => !defKeys.has(k));
+    expect(orphans).toEqual([]);
+  });
+
+  it("momentary keys are the instantaneous electrical values, not totals/metadata", () => {
+    // Energy totals and metadata must NOT be momentary — they change slowly,
+    // so skipping redundant writes (setStateChangedAsync) is the whole point.
+    for (const slowKey of ["energy_import_kwh", "energy_export_kwh", "tariff", "meter_model", "timestamp"]) {
+      expect(MOMENTARY_KEYS.has(slowKey), `${slowKey} must not be momentary`).toBe(false);
+    }
+  });
+});
 
 describe("StateManager", () => {
   let adapter: MockAdapter;

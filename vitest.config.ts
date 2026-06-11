@@ -7,5 +7,14 @@ export default defineConfig({
     watch: false,
     pool: "forks",
     forks: { singleFork: false },
+    coverage: {
+      // Explicit include so files that no test imports still show up as 0 %
+      // — without this the v8 provider silently omits them and the headline
+      // number overstates real coverage (fleet lesson from the govee-smart
+      // v2.16.1 audit; homewizard currently hides nothing, this is the guard
+      // against a future untested file staying invisible).
+      include: ["src/**/*.ts"],
+      exclude: ["src/**/*.test.ts", "src/**/*.d.ts"],
+    },
   },
 });

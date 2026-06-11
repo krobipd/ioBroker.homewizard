@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.12.1",
     "news": {
+      "NEXT": {
+        "en": "Reboot and identify buttons reset themselves after the action and stay clickable. Re-paired devices show their first connection warning again right away.",
+        "de": "Neustart- und Identifizieren-Buttons setzen sich nach der Aktion zurück und bleiben klickbar. Neu gekoppelte Geräte zeigen ihre erste Verbindungswarnung wieder sofort.",
+        "ru": "Кнопки перезагрузки и идентификации сбрасываются после действия и остаются кликабельными. Повторно сопряжённые устройства снова сразу показывают первое предупреждение о соединении.",
+        "pt": "Os botões de reiniciar e identificar são redefinidos após a ação e continuam clicáveis. Dispositivos emparelhados novamente mostram o primeiro aviso de conexão de imediato.",
+        "nl": "Herstart- en identificatieknoppen resetten zichzelf na de actie en blijven klikbaar. Opnieuw gekoppelde apparaten tonen hun eerste verbindingswaarschuwing weer direct.",
+        "fr": "Les boutons redémarrer et identifier se réinitialisent après l'action et restent cliquables. Les appareils ré-appairés affichent de nouveau leur premier avertissement de connexion.",
+        "it": "I pulsanti di riavvio e identificazione si ripristinano dopo l'azione e restano cliccabili. I dispositivi riaccoppiati mostrano di nuovo subito il primo avviso di connessione.",
+        "es": "Los botones de reinicio e identificación se restablecen tras la acción y siguen siendo clicables. Los dispositivos emparejados de nuevo muestran su primera advertencia de conexión de inmediato.",
+        "pl": "Przyciski restartu i identyfikacji resetują się po akcji i pozostają klikalne. Ponownie sparowane urządzenia od razu pokazują pierwsze ostrzeżenie o połączeniu.",
+        "uk": "Кнопки перезавантаження та ідентифікації скидаються після дії та залишаються клікабельними. Повторно з'єднані пристрої знову одразу показують перше попередження про з'єднання.",
+        "zh-cn": "重启和识别按钮在操作后会自行复位并保持可点击。重新配对的设备会立即再次显示首次连接警告。"
+      },
       "0.12.1": {
         "en": "Internal refactoring. No user-facing changes.",
         "de": "Interne Überarbeitung. Keine für Nutzer sichtbaren Änderungen.",
@@ -80,19 +93,6 @@
         "pl": "Dziennik zmian przepisany w stylu zorientowanym na użytkownika we wszystkich wersjach.",
         "uk": "Журнал змін переписано у стилі орієнтованому на користувача для всіх версій.",
         "zh-cn": "所有版本的更新日志已改写为面向用户的风格。"
-      },
-      "0.9.1": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Bereinigung. Keine sichtbaren Änderungen.",
-        "ru": "Внутренняя очистка. Нет видимых изменений для пользователей.",
-        "pt": "Limpeza interna. Sem alterações visíveis para o utilizador.",
-        "nl": "Interne opruiming. Geen zichtbare wijzigingen voor gebruikers.",
-        "fr": "Nettoyage interne. Aucun changement visible pour l utilisateur.",
-        "it": "Pulizia interna. Nessuna modifica visibile per l utente.",
-        "es": "Limpieza interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzne porządki. Brak widocznych zmian dla użytkownika.",
-        "uk": "Внутрішнє прибирання. Без видимих змін для користувача.",
-        "zh-cn": "内部清理。无用户可见的更改。"
       }
     },
     "plugins": {

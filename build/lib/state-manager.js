@@ -18,6 +18,8 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var state_manager_exports = {};
 __export(state_manager_exports, {
+  MEASUREMENT_STATE_DEFS: () => MEASUREMENT_STATE_DEFS,
+  MOMENTARY_KEYS: () => MOMENTARY_KEYS,
   StateManager: () => StateManager
 });
 module.exports = __toCommonJS(state_manager_exports);
@@ -1011,6 +1013,8 @@ class StateManager {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  MEASUREMENT_STATE_DEFS,
+  MOMENTARY_KEYS,
   StateManager
 });
 //# sourceMappingURL=state-manager.js.map

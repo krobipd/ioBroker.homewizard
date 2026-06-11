@@ -59,7 +59,10 @@ function sanitize(str: string): string {
   return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
 }
 
-const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
+// Exported for unit-tests only (invariant lock: every MOMENTARY_KEYS entry must
+// reference an existing def key — a typo would silently demote the field to
+// changed-only writes). Production code uses these via StateManager methods.
+export const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   // Power
   { key: "power_w", id: "power_w", nameKey: "powerTotal", type: "number", role: "value.power", unit: "W" },
   { key: "power_l1_w", id: "power_l1_w", nameKey: "powerL1", type: "number", role: "value.power", unit: "W" },
@@ -433,7 +436,8 @@ const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
 // read-compare buys nothing. These stay on setStateAsync; every other measurement field
 // (energy totals, tariff, power-quality counts, capacity tariff, SoC/cycles, model/timestamp)
 // is slow/static and uses setStateChangedAsync to skip redundant 1/s writes.
-const MOMENTARY_KEYS = new Set<string>([
+// Exported for unit-tests only (subset-invariant against MEASUREMENT_STATE_DEFS).
+export const MOMENTARY_KEYS = new Set<string>([
   "power_w",
   "power_l1_w",
   "power_l2_w",

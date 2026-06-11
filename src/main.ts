@@ -86,6 +86,13 @@ export class HomeWizard extends utils.Adapter {
   private systemPollTimer: ioBroker.Interval | undefined = undefined;
   private ipRecoveryTimer: ioBroker.Timeout | undefined = undefined;
   private isPairing = false;
+  /**
+   * In-flight guard for {@link pollPairing}: the poll runs every 2 s, but a
+   * single device's requestPairing can hang up to the 10 s HTTP timeout —
+   * without the guard, overlapping polls would fire concurrent POST /api/user
+   * against the same device.
+   */
+  private pairingPollBusy = false;
   private pairingManualIp = "";
   private discoveredDuringPairing: DiscoveredDevice[] = [];
   /** Set during onUnload — async paths bail before further setStateAsync calls. */
@@ -102,6 +109,7 @@ export class HomeWizard extends utils.Adapter {
     new HomeWizardClient(ip, token, { log: this.log });
   private makeWebSocket: (ip: string, token: string, callbacks: WsCallbacks, timers: TimerDeps) => HomeWizardWebSocket =
     (ip, token, callbacks, timers) => new HomeWizardWebSocket(ip, token, callbacks, timers);
+  private makeDiscovery: () => HomeWizardDiscovery = () => new HomeWizardDiscovery(this.log);
 
   /**
    * Close a connection's WebSocket and clear its poll + reconnect timers.
@@ -305,15 +313,19 @@ export class HomeWizard extends utils.Adapter {
     try {
       if (this.pairingTimer) {
         this.clearTimeout(this.pairingTimer);
+        this.pairingTimer = undefined;
       }
       if (this.pairingPollTimer) {
         this.clearInterval(this.pairingPollTimer);
+        this.pairingPollTimer = undefined;
       }
       if (this.systemPollTimer) {
         this.clearInterval(this.systemPollTimer);
+        this.systemPollTimer = undefined;
       }
       if (this.ipRecoveryTimer) {
         this.clearTimeout(this.ipRecoveryTimer);
+        this.ipRecoveryTimer = undefined;
       }
 
       this.discovery?.stop();
@@ -351,6 +363,9 @@ export class HomeWizard extends utils.Adapter {
 
       const conn = this.findConnectionForState(id);
       if (!conn || !conn.ip) {
+        // Orphaned state (device removed but state written) or device without
+        // IP yet — surface at debug so a user-side diagnosis is possible.
+        this.log.debug(`stateChange ${id}: no matching connected device — ignored`);
         return;
       }
 
@@ -360,8 +375,12 @@ export class HomeWizard extends utils.Adapter {
         if (id.endsWith(".system.reboot")) {
           this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
           await client.reboot();
+          // Reset the button so it is clickable again in Admin (fleet pattern,
+          // same as startPairing above — a button must not stay `true, ack=false`).
+          await this.setStateAsync(id, { val: false, ack: true });
         } else if (id.endsWith(".system.identify")) {
           await client.identify();
+          await this.setStateAsync(id, { val: false, ack: true });
         } else if (id.endsWith(".system.cloud_enabled")) {
           await client.setSystem({ cloud_enabled: !!state.val });
           await this.setStateAsync(id, { val: state.val, ack: true });
@@ -452,7 +471,7 @@ export class HomeWizard extends utils.Adapter {
       // Restart mDNS browser to trigger fresh query — already-cached devices
       // won't be re-announced otherwise and pairing would never find them
       if (!this.discovery) {
-        this.discovery = new HomeWizardDiscovery(this.log);
+        this.discovery = this.makeDiscovery();
       }
       this.discovery.start(discovered => {
         this.onDeviceDiscovered(discovered);
@@ -473,6 +492,19 @@ export class HomeWizard extends utils.Adapter {
 
   /** Poll all discovered devices to attempt pairing */
   private async pollPairing(): Promise<void> {
+    if (this.pairingPollBusy) {
+      return;
+    }
+    this.pairingPollBusy = true;
+    try {
+      await this.pollPairingDevices();
+    } finally {
+      this.pairingPollBusy = false;
+    }
+  }
+
+  /** One pairing-poll pass over all discovered devices. */
+  private async pollPairingDevices(): Promise<void> {
     for (const device of this.discoveredDuringPairing) {
       try {
         const client = this.makeClient(device.ip, "");
@@ -568,7 +600,7 @@ export class HomeWizard extends utils.Adapter {
     // offline is just spam.
     this.log.debug(`Device unreachable — searching for new IP via mDNS`);
 
-    this.discovery = new HomeWizardDiscovery(this.log);
+    this.discovery = this.makeDiscovery();
     this.discovery.start(discovered => {
       // Match against disconnected devices
       for (const conn of this.connections.values()) {
@@ -1069,6 +1101,12 @@ export class HomeWizard extends utils.Adapter {
     // Disconnect
     this.teardownConnection(conn);
     this.connections.delete(key);
+    // Drop the per-device cooldown stamps — otherwise a re-pair of the same
+    // serial within the cooldown window inherits the old device's stamp and
+    // its first warn/info is silently suppressed (and the maps grow forever
+    // across pair/remove cycles).
+    this.lastWarnAt.delete(conn.config.serial);
+    this.lastInfoAt.delete(conn.config.serial);
 
     // Delete device object and all states (no adapter restart!)
     await this.stateManager.removeDevice(conn.config);

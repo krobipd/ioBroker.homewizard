@@ -179,6 +179,11 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Reboot and identify buttons reset themselves after the action, so they stay clickable in the admin UI
+- Re-pairing a removed device no longer inherits the old device's log cooldown — its first connection warning shows up immediately again
+
 ### 0.12.1 (2026-06-09)
 
 - Internal refactoring. No user-facing changes.
