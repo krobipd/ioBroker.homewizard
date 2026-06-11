@@ -179,7 +179,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.12.2 (2026-06-11)
 
 - Reboot and identify buttons reset themselves after the action, so they stay clickable in the admin UI
 - Re-pairing a removed device no longer inherits the old device's log cooldown — its first connection warning shows up immediately again
@@ -202,11 +202,6 @@ homewizard.0.
 - System settings and battery status now update in real time as the device reports them, instead of only on the periodic refresh.
 - Two new data points: the WiFi network name the device is connected to, and the raw P1 telegram text (P1 meter only).
 - Removing a device now revokes its access token on the HomeWizard device, so no unused tokens are left behind.
-
-### 0.9.3 (2026-05-23)
-
-- User-modified device names are no longer overwritten on adapter restart or IP recovery.
-- Improved timer management for ioBroker compact mode.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

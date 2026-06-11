@@ -1,4 +1,9 @@
 # Older Changes
+## 0.9.3 (2026-05-23)
+
+- User-modified device names are no longer overwritten on adapter restart or IP recovery.
+- Improved timer management for ioBroker compact mode.
+
 ## 0.9.2 (2026-05-23)
 
 - Changelog rewritten in user-centric style across all versions.

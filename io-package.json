@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.12.1",
+    "version": "0.12.2",
     "news": {
-      "NEXT": {
+      "0.12.2": {
         "en": "Reboot and identify buttons reset themselves after the action and stay clickable. Re-paired devices show their first connection warning again right away.",
         "de": "Neustart- und Identifizieren-Buttons setzen sich nach der Aktion zurück und bleiben klickbar. Neu gekoppelte Geräte zeigen ihre erste Verbindungswarnung wieder sofort.",
         "ru": "Кнопки перезагрузки и идентификации сбрасываются после действия и остаются кликабельными. Повторно сопряжённые устройства снова сразу показывают первое предупреждение о соединении.",
