@@ -181,13 +181,11 @@ homewizard.0.
 -->
 ### **WORK IN PROGRESS**
 
-- Security: the adapter now verifies each device's TLS certificate identity, so it only ever talks to your real device (HomeWizard API v2 best practice)
+- Security: the adapter now checks each device's certificate, so it only ever talks to your real device
 - Pairing a device by manual IP no longer leaves repeated pairing attempts and throwaway tokens behind on the device
-- Hardened: oversized device responses are capped, invalid device IPs are rejected, and the pairing IP is restricted to your local network
-- Fixed a rare crash if the database hiccupped while a device connected or disconnected
-- A warning is now logged if a script switches on the device's insecure legacy v1 API
+- The manual pairing IP field now rejects addresses that are not on your home network
+- Fixed a rare crash while a device was connecting or disconnecting
 - Meter identifier and protocol version are now available as states
-- An early warning is logged before the bundled security certificate expires (end of 2031)
 
 ### 0.12.2 (2026-06-11) — stable
 
