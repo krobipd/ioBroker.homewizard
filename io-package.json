@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.12.2",
+    "version": "0.13.0",
     "news": {
-      "NEXT": {
+      "0.13.0": {
         "en": "Security: the adapter verifies each device's certificate and only talks to your real device, and manual-IP pairing leaves no leftover logins. Adds meter-ID and protocol-version states.",
         "de": "Sicherheit: Der Adapter prüft das Geräte-Zertifikat und spricht nur mit deinem echten Gerät, und Pairing per manueller IP lässt keine Alt-Logins zurück. Neu: Zähler-ID, Protokollversion.",
         "ru": "Безопасность: адаптер проверяет сертификат устройства и связывается только с вашим, а сопряжение по ручному IP не оставляет лишних входов. Новое: ID счётчика, версия протокола.",

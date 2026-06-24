@@ -179,7 +179,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.13.0 (2026-06-24)
 
 - Security: the adapter now checks each device's certificate, so it only ever talks to your real device
 - Pairing a device by manual IP no longer leaves repeated pairing attempts and throwaway tokens behind on the device
@@ -203,13 +203,6 @@ homewizard.0.
 ### 0.11.0 (2026-06-03)
 
 - Removed the raw P1 telegram datapoint — its data is already available as parsed measurement states; the leftover state is cleaned up automatically on existing P1 meters.
-
-### 0.10.0 (2026-06-01)
-
-- New battery controls: a forecast-based predictive charging mode and a one-shot charge-to-full switch, in addition to the existing zero, to-full and standby modes.
-- System settings and battery status now update in real time as the device reports them, instead of only on the periodic refresh.
-- Two new data points: the WiFi network name the device is connected to, and the raw P1 telegram text (P1 meter only).
-- Removing a device now revokes its access token on the HomeWizard device, so no unused tokens are left behind.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 
