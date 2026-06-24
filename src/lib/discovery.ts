@@ -1,4 +1,5 @@
 import Bonjour from "bonjour-service";
+import { isValidIpv4 } from "./coerce";
 import type { DiscoveredDevice } from "./types";
 
 type BonjourService = ReturnType<InstanceType<typeof Bonjour>["publish"]>;
@@ -86,8 +87,11 @@ export class HomeWizardDiscovery {
    * @param service Bonjour service record
    */
   private parseService(service: BonjourService): DiscoveredDevice | null {
-    // IPv4 address
-    const ip = service.addresses?.find((addr: string) => addr.includes("."));
+    // Pick a syntactically-valid IPv4. `addr.includes(".")` alone would also
+    // accept an IPv4-mapped IPv6 or a malformed string, which then drives every
+    // outbound request + the wss URL. isValidIpv4 rejects anything that isn't a
+    // clean IPv4 (a spoofed/garbage mDNS address can't redirect us off-LAN).
+    const ip = service.addresses?.find((addr: string) => isValidIpv4(addr));
     if (!ip) {
       this.log.debug(`mDNS: no IPv4 address for ${service.name}`);
       return null;

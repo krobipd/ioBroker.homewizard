@@ -395,6 +395,8 @@ const MEASUREMENT_STATE_DEFS = [
   { key: "cycles", id: "cycles", nameKey: "cycles", type: "number", role: "value" },
   // Metadata
   { key: "meter_model", id: "meter_model", nameKey: "meterModel", type: "string", role: "text" },
+  { key: "unique_id", id: "unique_id", nameKey: "meterIdentifier", type: "string", role: "text" },
+  { key: "protocol_version", id: "protocol_version", nameKey: "protocolVersion", type: "number", role: "value" },
   { key: "timestamp", id: "timestamp", nameKey: "measurementTimestamp", type: "string", role: "date" }
 ];
 const MOMENTARY_KEYS = /* @__PURE__ */ new Set([

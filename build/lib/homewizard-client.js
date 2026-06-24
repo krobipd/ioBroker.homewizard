@@ -34,6 +34,7 @@ __export(homewizard_client_exports, {
 module.exports = __toCommonJS(homewizard_client_exports);
 var https = __toESM(require("node:https"));
 var import_cacert = require("./cacert");
+const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 class HomeWizardClient {
   ip;
   token;
@@ -42,6 +43,8 @@ class HomeWizardClient {
   port;
   /** Optional logger for per-call debug-trace (request entry + response success/fail). */
   log;
+  /** CN of the most recent server certificate — captured so the pairing flow can pin the device's TLS identity. */
+  lastServerCn = null;
   /**
    * @param ip      Device IP address
    * @param token   Bearer token (empty string for pairing requests)
@@ -60,7 +63,18 @@ class HomeWizardClient {
   }
   /** Get device info (GET /api) */
   async getDeviceInfo() {
-    return this.request("GET", "/api");
+    const info = await this.request("GET", "/api");
+    if (!info || typeof info.product_type !== "string" || typeof info.serial !== "string" || typeof info.product_name !== "string") {
+      throw new HomeWizardApiError(200, JSON.stringify(info), "GET /api (malformed device info)");
+    }
+    return info;
+  }
+  /**
+   * CN of the most recent server certificate seen on this client, or null.
+   * Used at pairing to pin the device's TLS identity (see {@link createDeviceAgent}).
+   */
+  getServerCertCn() {
+    return this.lastServerCn;
   }
   /** Request pairing token (POST /api/user) — 403 until button pressed */
   async requestPairing() {
@@ -148,22 +162,36 @@ class HomeWizardClient {
           timeout: 1e4
         },
         (res) => {
+          var _a2, _b, _c;
+          const socket = res.socket;
+          const cn = (_c = (_b = (_a2 = socket == null ? void 0 : socket.getPeerCertificate) == null ? void 0 : _a2.call(socket)) == null ? void 0 : _b.subject) == null ? void 0 : _c.CN;
+          if (typeof cn === "string" && cn.length > 0) {
+            this.lastServerCn = cn;
+          }
           const chunks = [];
+          let size = 0;
           res.on("error", reject);
-          res.on("data", (chunk) => chunks.push(chunk));
+          res.on("data", (chunk) => {
+            size += chunk.length;
+            if (size > MAX_RESPONSE_BYTES) {
+              req.destroy(new Error(`Response body too large (>${MAX_RESPONSE_BYTES} bytes): ${method} ${path}`));
+              return;
+            }
+            chunks.push(chunk);
+          });
           res.on("end", () => {
-            var _a2, _b, _c;
+            var _a3, _b2, _c2;
             const data = Buffer.concat(chunks).toString();
             const elapsedMs = Date.now() - startMs;
-            const statusCode = (_a2 = res.statusCode) != null ? _a2 : 0;
+            const statusCode = (_a3 = res.statusCode) != null ? _a3 : 0;
             if (!statusCode || statusCode >= 400) {
               const snippet = data.length > 200 ? `${data.slice(0, 200)}\u2026` : data;
-              (_b = this.log) == null ? void 0 : _b.debug(`HTTPS ${method} ${path}: status=${statusCode} elapsed=${elapsedMs}ms body="${snippet}"`);
+              (_b2 = this.log) == null ? void 0 : _b2.debug(`HTTPS ${method} ${path}: status=${statusCode} elapsed=${elapsedMs}ms body="${snippet}"`);
               const error = new HomeWizardApiError(statusCode, data, `${method} ${path}`);
               reject(error);
               return;
             }
-            (_c = this.log) == null ? void 0 : _c.debug(
+            (_c2 = this.log) == null ? void 0 : _c2.debug(
               `HTTPS ${method} ${path}: status=${statusCode} elapsed=${elapsedMs}ms bytes=${data.length}`
             );
             if (!data) {

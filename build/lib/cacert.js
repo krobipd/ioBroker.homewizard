@@ -28,8 +28,10 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var cacert_exports = {};
 __export(cacert_exports, {
+  CA_NOT_AFTER: () => CA_NOT_AFTER,
   HOMEWIZARD_CA_CERT: () => HOMEWIZARD_CA_CERT,
-  HW_AGENT: () => HW_AGENT
+  HW_AGENT: () => HW_AGENT,
+  createDeviceAgent: () => createDeviceAgent
 });
 module.exports = __toCommonJS(cacert_exports);
 var https = __toESM(require("node:https"));
@@ -52,15 +54,40 @@ QautcQnI8WxPvCIQf5anyzgAyJC5ac6/CkB+iyPcuWcG3RMYvXnC0QoTlRa5YMlE
 FweVDlT2C/MdDyOxiAD/H1EP/eaySnU0zsxyD0yNFRKsQfQ+UJEPd2GS1AGA1lTy
 CGdyYj/Gghrusw0hM4rYXQSERWGF0mpEnuJ+7bHDolHu0rzgTQ==
 -----END CERTIFICATE-----`;
+const CA_NOT_AFTER = /* @__PURE__ */ new Date("2031-12-16T19:12:12Z");
 const HW_AGENT = new https.Agent({
   ca: HOMEWIZARD_CA_CERT,
   rejectUnauthorized: true,
-  // Device certs use appliance/type/serial as hostname — not matchable via IP
+  minVersion: "TLSv1.2",
+  // CN unknown pre-pairing — verified per-device once paired (createDeviceAgent).
   checkServerIdentity: () => void 0
 });
+const deviceAgents = /* @__PURE__ */ new Map();
+function createDeviceAgent(expectedCn) {
+  let agent = deviceAgents.get(expectedCn);
+  if (!agent) {
+    agent = new https.Agent({
+      ca: HOMEWIZARD_CA_CERT,
+      rejectUnauthorized: true,
+      minVersion: "TLSv1.2",
+      checkServerIdentity: (_hostname, cert) => {
+        var _a;
+        const cn = typeof ((_a = cert == null ? void 0 : cert.subject) == null ? void 0 : _a.CN) === "string" ? cert.subject.CN : void 0;
+        if (cn === expectedCn) {
+          return void 0;
+        }
+        return new Error(`HomeWizard certificate CN mismatch: expected "${expectedCn}", got "${cn != null ? cn : "?"}"`);
+      }
+    });
+    deviceAgents.set(expectedCn, agent);
+  }
+  return agent;
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  CA_NOT_AFTER,
   HOMEWIZARD_CA_CERT,
-  HW_AGENT
+  HW_AGENT,
+  createDeviceAgent
 });
 //# sourceMappingURL=cacert.js.map

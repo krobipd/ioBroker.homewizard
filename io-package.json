@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.12.2",
     "news": {
+      "NEXT": {
+        "en": "Security hardening: the adapter verifies each device's TLS certificate identity and restricts the pairing IP to your LAN. Fixes manual-IP pairing leaving throwaway tokens behind and a rare crash during connect/disconnect; adds meter-identifier and protocol-version states.",
+        "de": "Sicherheits-Härtung: Der Adapter prüft die TLS-Zertifikat-Identität jedes Geräts und beschränkt die Pairing-IP auf dein LAN. Behebt zurückgelassene Wegwerf-Token beim Pairing per manueller IP und einen seltenen Absturz beim Verbinden/Trennen; neue States für Zähler-Kennung und Protokollversion.",
+        "ru": "Усиление безопасности: адаптер проверяет идентичность TLS-сертификата каждого устройства и ограничивает IP сопряжения вашей локальной сетью. Исправлены оставшиеся одноразовые токены при сопряжении по ручному IP и редкий сбой при подключении/отключении; добавлены состояния идентификатора счётчика и версии протокола.",
+        "pt": "Reforço de segurança: o adaptador verifica a identidade do certificado TLS de cada dispositivo e restringe o IP de emparelhamento à sua rede local. Corrige tokens descartáveis deixados no emparelhamento por IP manual e uma falha rara ao conectar/desconectar; adiciona estados de identificador do contador e versão do protocolo.",
+        "nl": "Beveiligingsverbetering: de adapter controleert de TLS-certificaatidentiteit van elk apparaat en beperkt het koppelings-IP tot je lokale netwerk. Lost achtergebleven wegwerptokens bij koppelen via handmatig IP op en een zeldzame crash bij verbinden/verbreken; voegt states voor meter-identificatie en protocolversie toe.",
+        "fr": "Renforcement de la sécurité : l'adaptateur vérifie l'identité du certificat TLS de chaque appareil et limite l'IP d'appairage à votre réseau local. Corrige les jetons jetables laissés lors de l'appairage par IP manuelle et un plantage rare lors de la connexion/déconnexion ; ajoute les états identifiant du compteur et version du protocole.",
+        "it": "Rafforzamento della sicurezza: l'adattatore verifica l'identità del certificato TLS di ogni dispositivo e limita l'IP di accoppiamento alla rete locale. Corregge i token usa e getta lasciati durante l'accoppiamento tramite IP manuale e un raro arresto durante connessione/disconnessione; aggiunge gli stati identificatore del contatore e versione del protocollo.",
+        "es": "Refuerzo de seguridad: el adaptador verifica la identidad del certificado TLS de cada dispositivo y restringe la IP de emparejamiento a tu red local. Corrige los tokens desechables que quedaban al emparejar por IP manual y un fallo poco frecuente al conectar/desconectar; añade estados de identificador del medidor y versión del protocolo.",
+        "pl": "Wzmocnienie bezpieczeństwa: adapter weryfikuje tożsamość certyfikatu TLS każdego urządzenia i ogranicza IP parowania do sieci lokalnej. Naprawia pozostawione jednorazowe tokeny przy parowaniu przez ręczne IP oraz rzadką awarię podczas łączenia/rozłączania; dodaje stany identyfikatora licznika i wersji protokołu.",
+        "uk": "Посилення безпеки: адаптер перевіряє ідентичність TLS-сертифіката кожного пристрою та обмежує IP сполучення вашою локальною мережею. Виправляє залишені одноразові токени під час сполучення за ручним IP і рідкісний збій під час підключення/відключення; додає стани ідентифікатора лічильника та версії протоколу.",
+        "zh-cn": "安全加固：适配器现在会验证每个设备的 TLS 证书身份，并将配对 IP 限制在本地网络内。修复了通过手动 IP 配对时遗留的一次性令牌以及连接/断开时的罕见崩溃；新增电表标识符和协议版本状态。"
+      },
       "0.12.2": {
         "en": "Reboot and identify buttons reset themselves after the action and stay clickable. Re-paired devices show their first connection warning again right away.",
         "de": "Neustart- und Identifizieren-Buttons setzen sich nach der Aktion zurück und bleiben klickbar. Neu gekoppelte Geräte zeigen ihre erste Verbindungswarnung wieder sofort.",
@@ -80,19 +93,6 @@
         "pl": "Nazwy urządzeń zmienione przez użytkownika nie są już nadpisywane przy ponownym uruchomieniu adaptera lub odzyskiwaniu IP. Ulepszone zarządzanie timerami w trybie kompaktowym.",
         "uk": "Змінені користувачем назви пристроїв більше не перезаписуються при перезапуску адаптера або відновленні IP. Покращено керування таймерами для компактного режиму.",
         "zh-cn": "用户修改的设备名称在适配器重启或IP恢复时不再被覆盖。改进了紧凑模式的定时器管理。"
-      },
-      "0.9.2": {
-        "en": "Changelog rewritten in user-centric style across all versions.",
-        "de": "Changelog in benutzerfreundlichem Stil über alle Versionen umgeschrieben.",
-        "ru": "Журнал изменений переписан в пользовательском стиле для всех версий.",
-        "pt": "Changelog reescrito em estilo orientado ao utilizador em todas as versões.",
-        "nl": "Changelog herschreven in gebruikersgerichte stijl voor alle versies.",
-        "fr": "Journal des modifications réécrit dans un style orienté utilisateur pour toutes les versions.",
-        "it": "Changelog riscritto in stile orientato all utente per tutte le versioni.",
-        "es": "Registro de cambios reescrito en estilo orientado al usuario en todas las versiones.",
-        "pl": "Dziennik zmian przepisany w stylu zorientowanym na użytkownika we wszystkich wersjach.",
-        "uk": "Журнал змін переписано у стилі орієнтованому на користувача для всіх версій.",
-        "zh-cn": "所有版本的更新日志已改写为面向用户的风格。"
       }
     },
     "plugins": {

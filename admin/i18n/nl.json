@@ -101,6 +101,8 @@
   "stateOfCharge": "Laadstatus",
   "cycles": "Laadcycli",
   "meterModel": "Metermodel",
+  "meterIdentifier": "Meter-identificatie",
+  "protocolVersion": "Protocolversie",
   "measurementTimestamp": "Meettijdstempel",
   "voltageSag": "Aantal spanningsdips (spanning onder drempel van de meter)",
   "voltageSwell": "Aantal spanningspieken (spanning boven drempel van de meter)",

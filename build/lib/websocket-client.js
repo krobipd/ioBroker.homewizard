@@ -37,6 +37,7 @@ module.exports = __toCommonJS(websocket_client_exports);
 var import_ws = __toESM(require("ws"));
 var import_cacert = require("./cacert");
 var import_coerce = require("./coerce");
+var import_homewizard_client = require("./homewizard-client");
 const AUTH_TIMEOUT_MS = 45e3;
 const PING_INTERVAL_MS = 3e4;
 const PONG_TIMEOUT_MS = 1e4;
@@ -53,6 +54,10 @@ class HomeWizardWebSocket {
   authTimer = null;
   pingInterval = null;
   pongTimer = null;
+  /** True once the device sent "authorized" — gates auth-error classification. */
+  authorized = false;
+  /** Set when the device rejected the handshake (bad token) — passed to onDisconnected. */
+  authError = null;
   /**
    * @param ip Device IP address
    * @param token Bearer token
@@ -77,12 +82,17 @@ class HomeWizardWebSocket {
       return;
     }
     this.cleanup();
+    this.authorized = false;
+    this.authError = null;
     const portSeg = this.port !== 443 ? `:${this.port}` : "";
     const url = `wss://${this.ip}${portSeg}/api/ws`;
     this.callbacks.log.debug(`WS connecting to ${url}`);
     this.ws = new import_ws.default(url, {
       agent: this.agent,
-      handshakeTimeout: 1e4
+      handshakeTimeout: 1e4,
+      // v2 frames are a few KB; cap well below the ws 100 MiB default so a
+      // hostile/buggy device cannot push an oversized frame at us.
+      maxPayload: 1048576
     });
     this.authTimer = this.timers.schedule(() => {
       this.callbacks.log.debug(`WS auth-timeout (${AUTH_TIMEOUT_MS}ms) \u2014 terminating`);
@@ -101,11 +111,12 @@ class HomeWizardWebSocket {
       }
     });
     this.ws.on("close", (code, reason) => {
+      var _a;
       this.callbacks.log.debug(`WS closed: ${code} ${reason.toString()}`);
       this.clearTimers();
       this.ws = null;
       if (!this.destroyed) {
-        this.callbacks.onDisconnected();
+        this.callbacks.onDisconnected((_a = this.authError) != null ? _a : void 0);
       }
     });
     this.ws.on("error", (err) => {
@@ -147,6 +158,7 @@ class HomeWizardWebSocket {
         this.sendRaw({ type: "authorization", data: this.token });
         break;
       case "authorized":
+        this.authorized = true;
         this.callbacks.log.debug("WS authorized, subscribing to measurement + system + batteries");
         this.sendRaw({ type: "subscribe", data: "measurement" });
         this.sendRaw({ type: "subscribe", data: "system" });
@@ -159,6 +171,9 @@ class HomeWizardWebSocket {
         this.callbacks.onConnected();
         break;
       case "measurement":
+        if (!this.authorized) {
+          break;
+        }
         if ((0, import_coerce.isPlainObject)(parsed.data)) {
           this.callbacks.onMeasurement(parsed.data);
         } else {
@@ -166,11 +181,17 @@ class HomeWizardWebSocket {
         }
         break;
       case "system":
+        if (!this.authorized) {
+          break;
+        }
         if ((0, import_coerce.isPlainObject)(parsed.data)) {
           (_b = (_a = this.callbacks).onSystem) == null ? void 0 : _b.call(_a, parsed.data);
         }
         break;
       case "batteries":
+        if (!this.authorized) {
+          break;
+        }
         if ((0, import_coerce.isPlainObject)(parsed.data)) {
           (_d = (_c = this.callbacks).onBattery) == null ? void 0 : _d.call(_c, parsed.data);
         }
@@ -178,6 +199,10 @@ class HomeWizardWebSocket {
       case "error": {
         const detail = (0, import_coerce.isPlainObject)(parsed.data) && typeof parsed.data.message === "string" ? parsed.data.message : text.substring(0, 200);
         this.callbacks.log.warn(`WS error: ${detail}`);
+        if (!this.authorized) {
+          this.authError = new import_homewizard_client.HomeWizardApiError(401, '{"error":{"code":"user:unauthorized"}}', "ws auth");
+          this.forceDisconnect();
+        }
         break;
       }
       default:
@@ -208,6 +233,9 @@ class HomeWizardWebSocket {
     this.pingInterval = this.timers.scheduleRepeating(() => {
       if (!this.ws || this.ws.readyState !== import_ws.default.OPEN) {
         return;
+      }
+      if (this.pongTimer != null) {
+        this.timers.cancel(this.pongTimer);
       }
       this.pongTimer = this.timers.schedule(() => {
         this.callbacks.log.debug(`WS pong-timeout (${PONG_TIMEOUT_MS}ms) \u2014 terminating`);

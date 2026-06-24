@@ -101,6 +101,8 @@
   "stateOfCharge": "Stato di carica",
   "cycles": "Cicli di carica",
   "meterModel": "Modello del contatore",
+  "meterIdentifier": "Identificatore del contatore",
+  "protocolVersion": "Versione del protocollo",
   "measurementTimestamp": "Timestamp della misurazione",
   "voltageSag": "Numero di cali di tensione (tensione scesa sotto la soglia del contatore)",
   "voltageSwell": "Numero di picchi di tensione (tensione oltre la soglia del contatore)",

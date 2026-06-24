@@ -1,6 +1,15 @@
 import * as https from "node:https";
+import type * as tls from "node:tls";
 import { HW_AGENT } from "./cacert";
-import type { BatteryControl, DeviceInfo, Measurement, PairingResponse, SystemInfo } from "./types";
+import type {
+  BatteryControl,
+  BatterySettingsWrite,
+  DeviceInfo,
+  Measurement,
+  PairingResponse,
+  SystemInfo,
+  SystemSettingsWrite,
+} from "./types";
 
 /** Minimal logger surface — only debug needed for HTTPS-trace. */
 export interface HomeWizardClientLogger {
@@ -12,6 +21,12 @@ export interface HomeWizardClientLogger {
   debug(msg: string): void;
 }
 
+/**
+ * Hard cap on a single HTTP response body — guards against a buggy/compromised/
+ * MITM device streaming an unbounded body (OOM). Real v2 bodies are a few KB.
+ */
+const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
+
 /** HTTPS client for HomeWizard API v2 */
 export class HomeWizardClient {
   private readonly ip: string;
@@ -21,6 +36,8 @@ export class HomeWizardClient {
   private readonly port: number;
   /** Optional logger for per-call debug-trace (request entry + response success/fail). */
   private readonly log: HomeWizardClientLogger | null;
+  /** CN of the most recent server certificate — captured so the pairing flow can pin the device's TLS identity. */
+  private lastServerCn: string | null = null;
 
   /**
    * @param ip      Device IP address
@@ -44,7 +61,27 @@ export class HomeWizardClient {
 
   /** Get device info (GET /api) */
   async getDeviceInfo(): Promise<DeviceInfo> {
-    return this.request<DeviceInfo>("GET", "/api");
+    const info = await this.request<DeviceInfo>("GET", "/api");
+    // Validate the shape like requestPairing does — getDeviceInfo feeds devicePrefix()
+    // → sanitize(), which throws on a non-string product_type/serial. A malformed or
+    // non-conformant response would otherwise crash (or orphan a token at pairing).
+    if (
+      !info ||
+      typeof info.product_type !== "string" ||
+      typeof info.serial !== "string" ||
+      typeof info.product_name !== "string"
+    ) {
+      throw new HomeWizardApiError(200, JSON.stringify(info), "GET /api (malformed device info)");
+    }
+    return info;
+  }
+
+  /**
+   * CN of the most recent server certificate seen on this client, or null.
+   * Used at pairing to pin the device's TLS identity (see {@link createDeviceAgent}).
+   */
+  getServerCertCn(): string | null {
+    return this.lastServerCn;
   }
 
   /** Request pairing token (POST /api/user) — 403 until button pressed */
@@ -75,7 +112,7 @@ export class HomeWizardClient {
    *
    * @param settings System settings to update
    */
-  async setSystem(settings: Partial<SystemInfo>): Promise<SystemInfo> {
+  async setSystem(settings: SystemSettingsWrite): Promise<SystemInfo> {
     return this.request<SystemInfo>("PUT", "/api/system", settings);
   }
 
@@ -99,7 +136,7 @@ export class HomeWizardClient {
    *
    * @param settings Battery control settings to update
    */
-  async setBatteries(settings: Partial<BatteryControl>): Promise<BatteryControl> {
+  async setBatteries(settings: BatterySettingsWrite): Promise<BatteryControl> {
     return this.request<BatteryControl>("PUT", "/api/batteries", settings);
   }
 
@@ -150,9 +187,26 @@ export class HomeWizardClient {
           timeout: 10_000,
         },
         res => {
+          // Capture the server cert CN (leaf) so the pairing flow can pin the
+          // device's TLS identity. Defensive: the socket may not expose a cert.
+          const socket = res.socket as tls.TLSSocket | undefined;
+          const cn = socket?.getPeerCertificate?.()?.subject?.CN;
+          if (typeof cn === "string" && cn.length > 0) {
+            this.lastServerCn = cn;
+          }
+
           const chunks: Buffer[] = [];
+          let size = 0;
           res.on("error", reject);
-          res.on("data", (chunk: Buffer) => chunks.push(chunk));
+          res.on("data", (chunk: Buffer) => {
+            size += chunk.length;
+            if (size > MAX_RESPONSE_BYTES) {
+              // Abort an oversized/streaming body before it OOMs the process.
+              req.destroy(new Error(`Response body too large (>${MAX_RESPONSE_BYTES} bytes): ${method} ${path}`));
+              return;
+            }
+            chunks.push(chunk);
+          });
           res.on("end", () => {
             const data = Buffer.concat(chunks).toString();
             const elapsedMs = Date.now() - startMs;

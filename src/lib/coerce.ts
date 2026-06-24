@@ -91,6 +91,36 @@ export function isValidIpv4(value: unknown): boolean {
   return true;
 }
 
+/**
+ * True only for a syntactically-valid IPv4 that could plausibly be a HomeWizard
+ * device on the LAN — additionally rejects loopback (127/8), link-local
+ * (169.254/16, incl. the cloud-metadata IP), unspecified (0.x) and broadcast
+ * (255.255.255.255). Used for the user-supplied pairing IP so it cannot be abused
+ * as a connect/port-probe oracle against the host itself or a metadata endpoint.
+ *
+ * @param value Raw user input.
+ */
+export function isAssignableDeviceIpv4(value: unknown): boolean {
+  if (!isValidIpv4(value)) {
+    return false;
+  }
+  const parts = (value as string).split(".").map(Number);
+  const [a, b] = parts;
+  if (a === 127) {
+    return false; // loopback
+  }
+  if (a === 169 && b === 254) {
+    return false; // link-local (incl. 169.254.169.254 cloud metadata)
+  }
+  if (a === 0) {
+    return false; // unspecified / "this network"
+  }
+  if (parts.every(p => p === 255)) {
+    return false; // limited broadcast
+  }
+  return true;
+}
+
 // Allowed values for `battery.mode` per HomeWizard API v2 (`zero`, `to_full`,
 // `standby`, `predictive` since API 2.3.0). This whitelist is only the
 // user-friendly early warning — the device itself rejects unknown modes with an

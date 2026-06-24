@@ -101,6 +101,8 @@
   "stateOfCharge": "Estado de carga",
   "cycles": "Ciclos de carga",
   "meterModel": "Modelo del medidor",
+  "meterIdentifier": "Identificador del medidor",
+  "protocolVersion": "Versión del protocolo",
   "measurementTimestamp": "Marca de tiempo de la medición",
   "voltageSag": "Número de caídas de tensión (tensión por debajo del umbral del medidor)",
   "voltageSwell": "Número de picos de tensión (tensión por encima del umbral del medidor)",

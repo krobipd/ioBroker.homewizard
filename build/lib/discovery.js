@@ -33,6 +33,7 @@ __export(discovery_exports, {
 });
 module.exports = __toCommonJS(discovery_exports);
 var import_bonjour_service = __toESM(require("bonjour-service"));
+var import_coerce = require("./coerce");
 function coerceTxtValue(value) {
   if (typeof value === "string" && value.length > 0) {
     return value;
@@ -90,7 +91,7 @@ class HomeWizardDiscovery {
    */
   parseService(service) {
     var _a, _b, _c, _d, _e, _f, _g;
-    const ip = (_a = service.addresses) == null ? void 0 : _a.find((addr) => addr.includes("."));
+    const ip = (_a = service.addresses) == null ? void 0 : _a.find((addr) => (0, import_coerce.isValidIpv4)(addr));
     if (!ip) {
       this.log.debug(`mDNS: no IPv4 address for ${service.name}`);
       return null;

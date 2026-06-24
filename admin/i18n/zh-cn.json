@@ -101,6 +101,8 @@
   "stateOfCharge": "电量状态",
   "cycles": "充电循环",
   "meterModel": "电表型号",
+  "meterIdentifier": "电表标识符",
+  "protocolVersion": "协议版本",
   "measurementTimestamp": "测量时间戳",
   "voltageSag": "电压骤降次数（电压低于电表阈值）",
   "voltageSwell": "电压骤升次数（电压超过电表阈值）",

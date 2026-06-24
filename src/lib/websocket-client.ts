@@ -2,6 +2,7 @@ import type * as https from "node:https";
 import WebSocket from "ws";
 import { HW_AGENT } from "./cacert";
 import { isPlainObject } from "./coerce";
+import { HomeWizardApiError } from "./homewizard-client";
 import type { BatteryControl, Measurement, SystemInfo } from "./types";
 
 /** Auth handshake must complete within this window (Doku says 40s, +5s slack). */
@@ -65,6 +66,10 @@ export class HomeWizardWebSocket {
   private authTimer: unknown = null;
   private pingInterval: unknown = null;
   private pongTimer: unknown = null;
+  /** True once the device sent "authorized" — gates auth-error classification. */
+  private authorized = false;
+  /** Set when the device rejected the handshake (bad token) — passed to onDisconnected. */
+  private authError: Error | null = null;
 
   /**
    * @param ip Device IP address
@@ -97,6 +102,8 @@ export class HomeWizardWebSocket {
     }
 
     this.cleanup();
+    this.authorized = false;
+    this.authError = null;
 
     const portSeg = this.port !== 443 ? `:${this.port}` : "";
     const url = `wss://${this.ip}${portSeg}/api/ws`;
@@ -105,6 +112,9 @@ export class HomeWizardWebSocket {
     this.ws = new WebSocket(url, {
       agent: this.agent,
       handshakeTimeout: 10_000,
+      // v2 frames are a few KB; cap well below the ws 100 MiB default so a
+      // hostile/buggy device cannot push an oversized frame at us.
+      maxPayload: 1_048_576,
     });
 
     // Auth-watchdog: server must finish the auth handshake within
@@ -135,7 +145,9 @@ export class HomeWizardWebSocket {
       this.clearTimers();
       this.ws = null;
       if (!this.destroyed) {
-        this.callbacks.onDisconnected();
+        // Pass a typed auth error if the device rejected us during the handshake,
+        // so the reconnect loop can apply the auth-stop; else undefined = normal drop.
+        this.callbacks.onDisconnected(this.authError ?? undefined);
       }
     });
 
@@ -190,6 +202,7 @@ export class HomeWizardWebSocket {
         break;
 
       case "authorized":
+        this.authorized = true;
         // Subscribe to the three real-time topics this adapter consumes (explicit, not "*",
         // to avoid device/user-topic noise). system/batteries push control-state changes;
         // measurement is the ~1/s data feed.
@@ -207,6 +220,11 @@ export class HomeWizardWebSocket {
         break;
 
       case "measurement":
+        // Ignore data frames received before the handshake completes — a server
+        // that pushes data pre-"authorized" is misbehaving; don't trust it.
+        if (!this.authorized) {
+          break;
+        }
         if (isPlainObject(parsed.data)) {
           this.callbacks.onMeasurement(parsed.data);
         } else {
@@ -215,6 +233,9 @@ export class HomeWizardWebSocket {
         break;
 
       case "system":
+        if (!this.authorized) {
+          break;
+        }
         // isPlainObject-guarded WS payload; updateSystem re-validates every field, so the
         // boundary cast is safe (the typed shape is aspirational, not trusted).
         if (isPlainObject(parsed.data)) {
@@ -223,6 +244,9 @@ export class HomeWizardWebSocket {
         break;
 
       case "batteries":
+        if (!this.authorized) {
+          break;
+        }
         if (isPlainObject(parsed.data)) {
           this.callbacks.onBattery?.(parsed.data as unknown as BatteryControl);
         }
@@ -234,6 +258,14 @@ export class HomeWizardWebSocket {
             ? parsed.data.message
             : text.substring(0, 200);
         this.callbacks.log.warn(`WS error: ${detail}`);
+        // An error frame during the auth handshake (before "authorized") means the
+        // device rejected us — almost always a bad/revoked token. Surface it as a
+        // typed auth error so the reconnect loop applies the auth-stop instead of
+        // retrying forever. (A normal network drop closes without an error frame.)
+        if (!this.authorized) {
+          this.authError = new HomeWizardApiError(401, '{"error":{"code":"user:unauthorized"}}', "ws auth");
+          this.forceDisconnect();
+        }
         break;
       }
 
@@ -268,7 +300,11 @@ export class HomeWizardWebSocket {
         return;
       }
       // Arm the pong-timer first, then ping. If pong arrives, the pong
-      // handler clears it; if it doesn't, we terminate.
+      // handler clears it; if it doesn't, we terminate. Clear any stale
+      // pong-timer first (defensive — should already be null by here).
+      if (this.pongTimer != null) {
+        this.timers.cancel(this.pongTimer);
+      }
       this.pongTimer = this.timers.schedule(() => {
         this.callbacks.log.debug(`WS pong-timeout (${PONG_TIMEOUT_MS}ms) — terminating`);
         this.forceDisconnect();

@@ -23,6 +23,7 @@ __export(coerce_exports, {
   coerceFiniteNumber: () => coerceFiniteNumber,
   coerceString: () => coerceString,
   errText: () => errText,
+  isAssignableDeviceIpv4: () => isAssignableDeviceIpv4,
   isPlainObject: () => isPlainObject,
   isValidIpv4: () => isValidIpv4,
   parseBatteryPermissions: () => parseBatteryPermissions,
@@ -74,6 +75,26 @@ function isValidIpv4(value) {
     if (part.length > 1 && part.startsWith("0")) {
       return false;
     }
+  }
+  return true;
+}
+function isAssignableDeviceIpv4(value) {
+  if (!isValidIpv4(value)) {
+    return false;
+  }
+  const parts = value.split(".").map(Number);
+  const [a, b] = parts;
+  if (a === 127) {
+    return false;
+  }
+  if (a === 169 && b === 254) {
+    return false;
+  }
+  if (a === 0) {
+    return false;
+  }
+  if (parts.every((p) => p === 255)) {
+    return false;
   }
   return true;
 }
@@ -133,6 +154,7 @@ function errText(err) {
   coerceFiniteNumber,
   coerceString,
   errText,
+  isAssignableDeviceIpv4,
   isPlainObject,
   isValidIpv4,
   parseBatteryPermissions,

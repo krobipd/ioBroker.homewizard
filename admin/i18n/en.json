@@ -101,6 +101,8 @@
   "stateOfCharge": "State of charge",
   "cycles": "Charge cycles",
   "meterModel": "Meter model",
+  "meterIdentifier": "Meter identifier",
+  "protocolVersion": "Protocol version",
   "measurementTimestamp": "Measurement timestamp",
   "voltageSag": "Number of voltage sag events (voltage dropped below the meter's threshold)",
   "voltageSwell": "Number of voltage swell events (voltage exceeded the meter's threshold)",

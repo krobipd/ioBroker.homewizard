@@ -101,6 +101,8 @@
   "stateOfCharge": "Estado de carga",
   "cycles": "Ciclos de carga",
   "meterModel": "Modelo do contador",
+  "meterIdentifier": "Identificador do contador",
+  "protocolVersion": "Versão do protocolo",
   "measurementTimestamp": "Carimbo de hora da medição",
   "voltageSag": "Número de quedas de tensão (tensão abaixo do limite do contador)",
   "voltageSwell": "Número de picos de tensão (tensão acima do limite do contador)",

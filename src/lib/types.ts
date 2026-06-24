@@ -1,3 +1,4 @@
+import type { BatteryMode } from "./coerce";
 import type { HomeWizardWebSocket } from "./websocket-client";
 
 /** Persisted config for a single paired device (stored in device object native) */
@@ -12,6 +13,12 @@ export interface DeviceConfig {
   productName: string;
   /** Fixed IP address (only when manually set, empty = mDNS) */
   ip?: string;
+  /**
+   * Server certificate CN captured at pairing (`appliance/<product_type>/<serial>`).
+   * Pins the TLS identity for established connections (see {@link createDeviceAgent}).
+   * Absent on devices paired before v0.13.0 — captured lazily on the next connect.
+   */
+  certCn?: string;
 }
 
 /** Response from GET /api */
@@ -202,10 +209,30 @@ export interface SystemInfo {
   api_v1_enabled?: boolean;
 }
 
+/** Writable subset of system settings (PUT /api/system) — read-only fields (uptime_s, wifi_*) stay unrepresentable in a write. */
+export interface SystemSettingsWrite {
+  /** Enable/disable the HomeWizard cloud connection. */
+  cloud_enabled?: boolean;
+  /** Status LED brightness 0-100%. */
+  status_led_brightness_pct?: number;
+  /** Enable/disable the legacy v1 API on the device. */
+  api_v1_enabled?: boolean;
+}
+
+/** Writable subset of battery settings (PUT /api/batteries) — read-only fields (power_w, battery_count) stay unrepresentable in a write. */
+export interface BatterySettingsWrite {
+  /** Battery mode. */
+  mode?: BatteryMode;
+  /** Battery permissions (`charge_allowed` / `discharge_allowed`). */
+  permissions?: string[];
+  /** Charge all batteries to 100% (one-shot). */
+  charge_to_full?: boolean;
+}
+
 /** Battery control from GET /api/batteries (battery-group level) */
 export interface BatteryControl {
-  /** Battery mode (`predictive` since API 2.3.0) */
-  mode: "zero" | "to_full" | "standby" | "predictive";
+  /** Battery mode (`predictive` since API 2.3.0). Union derived from the single source {@link BatteryMode}. */
+  mode: BatteryMode;
   /** Battery permissions (`charge_allowed` / `discharge_allowed`) */
   permissions?: string[];
   /** Charge all batteries to 100% (writable, API 2.3.0) */
@@ -270,4 +297,6 @@ export interface DeviceConnection {
   recovering: boolean;
   /** True after the device was removed — async tasks (in-flight REST/WS) check this before writing further state. */
   removed: boolean;
+  /** True while a measurement write is in flight — drops flooded pushes (latest-wins backpressure). */
+  measurementBusy?: boolean;
 }

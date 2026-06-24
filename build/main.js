@@ -37,6 +37,7 @@ var import_node_path = require("node:path");
 var import_coerce = require("./lib/coerce");
 var import_connection_utils = require("./lib/connection-utils");
 var import_discovery = require("./lib/discovery");
+var import_cacert = require("./lib/cacert");
 var import_homewizard_client = require("./lib/homewizard-client");
 var import_main_helpers = require("./lib/main-helpers");
 var import_state_manager = require("./lib/state-manager");
@@ -94,9 +95,10 @@ class HomeWizard extends utils.Adapter {
    *
    * @param ip Device IP address
    * @param token Bearer token (empty string for pairing requests)
+   * @param certCn Stored cert CN for per-device TLS pinning (undefined during pairing/migration)
    */
-  makeClient = (ip, token) => new import_homewizard_client.HomeWizardClient(ip, token, { log: this.log });
-  makeWebSocket = (ip, token, callbacks, timers) => new import_websocket_client.HomeWizardWebSocket(ip, token, callbacks, timers);
+  makeClient = (ip, token, certCn) => new import_homewizard_client.HomeWizardClient(ip, token, { log: this.log, agent: certCn ? (0, import_cacert.createDeviceAgent)(certCn) : void 0 });
+  makeWebSocket = (ip, token, callbacks, timers, certCn) => new import_websocket_client.HomeWizardWebSocket(ip, token, callbacks, timers, certCn ? { agent: (0, import_cacert.createDeviceAgent)(certCn) } : void 0);
   makeDiscovery = () => new import_discovery.HomeWizardDiscovery(this.log);
   /**
    * Close a connection's WebSocket and clear its poll + reconnect timers.
@@ -126,6 +128,12 @@ class HomeWizard extends utils.Adapter {
     try {
       await import_adapter_core.I18n.init((0, import_node_path.join)(this.adapterDir, "admin"), this);
       this.stateManager = new import_state_manager.StateManager(this);
+      const caDaysLeft = Math.floor((import_cacert.CA_NOT_AFTER.getTime() - Date.now()) / 864e5);
+      if (caDaysLeft < 90) {
+        this.log.warn(
+          `Bundled HomeWizard CA certificate expires in ${caDaysLeft} days (${import_cacert.CA_NOT_AFTER.toISOString().slice(0, 10)}) \u2014 an adapter update will be needed to keep connecting.`
+        );
+      }
       await this.setStateAsync("startPairing", { val: false, ack: true });
       await this.setStateAsync("pairingIp", { val: "", ack: true });
       await this.subscribeStatesAsync("startPairing");
@@ -207,7 +215,8 @@ class HomeWizard extends utils.Adapter {
         productType: native.productType || "unknown",
         serial: native.serial,
         productName: native.productName || native.productType || "unknown",
-        ...native.ip ? { ip: native.ip } : {}
+        ...native.ip && (0, import_coerce.isValidIpv4)(native.ip) ? { ip: native.ip } : {},
+        ...native.certCn ? { certCn: native.certCn } : {}
       });
     }
     return devices;
@@ -230,7 +239,8 @@ class HomeWizard extends utils.Adapter {
           productType: config.productType,
           serial: config.serial,
           productName: config.productName,
-          ...config.ip ? { ip: config.ip } : {}
+          ...config.ip ? { ip: config.ip } : {},
+          ...config.certCn ? { certCn: config.certCn } : {}
         }
       },
       { preserve: { common: ["name"] } }
@@ -247,6 +257,10 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     if (this.discoveredDuringPairing.find((d) => d.serial === discovered.serial)) {
+      return;
+    }
+    if (this.discoveredDuringPairing.length >= 50) {
+      this.log.debug(`mDNS: discovery list full (50) \u2014 ignoring ${discovered.name}`);
       return;
     }
     this.discoveredDuringPairing.push(discovered);
@@ -284,7 +298,8 @@ class HomeWizard extends utils.Adapter {
         this.teardownConnection(conn);
       }
       this.connections.clear();
-      void this.setState("info.connection", { val: false, ack: true });
+      this.setState("info.connection", { val: false, ack: true }).catch(() => {
+      });
     } finally {
       callback();
     }
@@ -311,7 +326,7 @@ class HomeWizard extends utils.Adapter {
         this.log.debug(`stateChange ${id}: no matching connected device \u2014 ignored`);
         return;
       }
-      const client = this.makeClient(conn.ip, conn.config.token);
+      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
       try {
         if (id.endsWith(".system.reboot")) {
           this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
@@ -324,11 +339,19 @@ class HomeWizard extends utils.Adapter {
           await client.setSystem({ cloud_enabled: !!state.val });
           await this.setStateAsync(id, { val: state.val, ack: true });
         } else if (id.endsWith(".system.status_led_brightness_pct")) {
-          await client.setSystem({
-            status_led_brightness_pct: Number(state.val)
-          });
-          await this.setStateAsync(id, { val: state.val, ack: true });
+          const pct = (0, import_coerce.coerceFiniteNumber)(state.val);
+          if (pct === null || pct < 0 || pct > 100) {
+            this.log.warn(`Invalid status_led_brightness_pct '${String(state.val)}' \u2014 expected a number 0-100`);
+            return;
+          }
+          await client.setSystem({ status_led_brightness_pct: pct });
+          await this.setStateAsync(id, { val: pct, ack: true });
         } else if (id.endsWith(".system.api_v1_enabled")) {
+          if (state.val) {
+            this.log.warn(
+              `${conn.config.productName}: enabling the legacy v1 API \u2014 it has no TLS and no token, so any host on the LAN can then read and control this device without authentication.`
+            );
+          }
           await client.setSystem({ api_v1_enabled: !!state.val });
           await this.setStateAsync(id, { val: state.val, ack: true });
         } else if (id.endsWith(".battery.mode")) {
@@ -376,8 +399,10 @@ class HomeWizard extends utils.Adapter {
     this.pairingManualIp = (ipState == null ? void 0 : ipState.val) ? String(ipState.val).trim() : "";
     await this.setStateAsync("pairingIp", { val: "", ack: true });
     if (this.pairingManualIp) {
-      if (!(0, import_coerce.isValidIpv4)(this.pairingManualIp)) {
-        this.log.warn(`Invalid pairing IP '${this.pairingManualIp}' \u2014 expected IPv4 (e.g. 192.168.1.42)`);
+      if (!(0, import_coerce.isAssignableDeviceIpv4)(this.pairingManualIp)) {
+        this.log.warn(
+          `Invalid pairing IP '${this.pairingManualIp}' \u2014 expected a LAN IPv4 (e.g. 192.168.1.42), not loopback/link-local/broadcast`
+        );
         this.isPairing = false;
         this.pairingManualIp = "";
         return;
@@ -403,7 +428,7 @@ class HomeWizard extends utils.Adapter {
       });
     }
     this.pairingPollTimer = this.setInterval(() => {
-      void this.pollPairing();
+      this.pollPairing().catch((err) => this.log.debug(`pollPairing failed: ${(0, import_coerce.errText)(err)}`));
     }, PAIRING_POLL_MS);
     this.pairingTimer = this.setTimeout(() => {
       this.stopPairing();
@@ -425,20 +450,24 @@ class HomeWizard extends utils.Adapter {
   /** One pairing-poll pass over all discovered devices. */
   async pollPairingDevices() {
     for (const device of this.discoveredDuringPairing) {
+      let issuedToken;
       try {
         const client = this.makeClient(device.ip, "");
         const result = await client.requestPairing();
+        issuedToken = result.token;
         this.log.info(
           `Successfully paired with ${device.name} (${device.productType}) at ${device.ip} \u2014 connecting...`
         );
         const authedClient = this.makeClient(device.ip, result.token);
         const info = await authedClient.getDeviceInfo();
+        const certCn = authedClient.getServerCertCn();
         const deviceConfig = {
           token: result.token,
           productType: info.product_type,
           serial: info.serial,
           productName: info.product_name,
-          ip: device.ip
+          ip: device.ip,
+          ...certCn ? { certCn } : {}
         };
         await this.saveDeviceToObject(deviceConfig);
         await this.stateManager.createDeviceStates(deviceConfig);
@@ -453,12 +482,16 @@ class HomeWizard extends utils.Adapter {
         void this.initDevice(conn).catch(
           (err) => this.log.error(`initDevice failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`)
         );
-        this.discoveredDuringPairing = this.discoveredDuringPairing.filter((d) => d.serial !== info.serial);
+        this.discoveredDuringPairing = this.discoveredDuringPairing.filter((d) => d !== device);
         this.updateGlobalConnection();
         continue;
       } catch (err) {
         if (err instanceof import_homewizard_client.HomeWizardApiError && err.statusCode === 403) {
           continue;
+        }
+        if (issuedToken) {
+          this.makeClient(device.ip, issuedToken).deleteUser().catch(() => {
+          });
         }
         this.log.debug(`Pairing poll error for ${device.ip}: ${(0, import_coerce.errText)(err)}`);
       }
@@ -553,10 +586,19 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     try {
-      const client = this.makeClient(conn.ip, conn.config.token);
+      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
       const info = await client.getDeviceInfo();
       if (this.unloading || conn.removed) {
         return;
+      }
+      if (!conn.config.certCn) {
+        const certCn = client.getServerCertCn();
+        if (certCn) {
+          conn.config.certCn = certCn;
+          this.saveDeviceToObject(conn.config).catch(
+            (err) => this.log.debug(`Failed to persist cert CN for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`)
+          );
+        }
       }
       const key = this.stateManager.devicePrefix(conn.config);
       await this.setStateAsync(`${key}.info.firmware`, {
@@ -615,10 +657,17 @@ class HomeWizard extends utils.Adapter {
         cancelRepeating: (h) => {
           this.clearInterval(h);
         }
-      }
+      },
+      conn.config.certCn
     );
     conn.wsClient = wsClient;
-    wsClient.connect();
+    try {
+      wsClient.connect();
+    } catch (err) {
+      conn.recovering = false;
+      conn.wsClient = null;
+      this.logDeviceError(conn, "ws", err);
+    }
   }
   /**
    * Handle a measurement push.
@@ -630,8 +679,14 @@ class HomeWizard extends utils.Adapter {
     if (conn.removed || this.unloading) {
       return;
     }
+    if (conn.measurementBusy) {
+      return;
+    }
+    conn.measurementBusy = true;
     this.stateManager.updateMeasurement(conn.config, data).catch((err) => {
       this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`);
+    }).finally(() => {
+      conn.measurementBusy = false;
     });
   }
   /**
@@ -677,7 +732,9 @@ class HomeWizard extends utils.Adapter {
     conn.authFailCount = 0;
     conn.lastConnectedAt = Date.now();
     conn.recovering = false;
-    void this.stateManager.setDeviceConnected(conn.config, true);
+    this.stateManager.setDeviceConnected(conn.config, true).catch(
+      (err) => this.log.debug(`setDeviceConnected(true) failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`)
+    );
     this.updateGlobalConnection();
     if (conn.pollTimer) {
       this.clearInterval(conn.pollTimer);
@@ -734,7 +791,9 @@ class HomeWizard extends utils.Adapter {
     conn.wsAuthenticated = false;
     conn.wsClient = null;
     conn.recovering = false;
-    void this.stateManager.setDeviceConnected(conn.config, false);
+    this.stateManager.setDeviceConnected(conn.config, false).catch(
+      (err) => this.log.debug(`setDeviceConnected(false) failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`)
+    );
     this.updateGlobalConnection();
     if (error) {
       this.logDeviceError(conn, "ws", error);
@@ -771,7 +830,7 @@ class HomeWizard extends utils.Adapter {
     }
     const unstable = this.isUnstable(conn);
     const interval = (0, import_main_helpers.pickRestPollInterval)(unstable, REST_POLL_MS, REST_POLL_UNSTABLE_MS);
-    const client = this.makeClient(conn.ip, conn.config.token);
+    const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
     conn.pollTimer = this.setInterval(async () => {
       if (conn.removed || this.unloading) {
         return;
@@ -821,7 +880,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     try {
-      const client = this.makeClient(conn.ip, conn.config.token);
+      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
       const system = await client.getSystem();
       if (conn.removed || this.unloading) {
         return;
@@ -863,10 +922,10 @@ class HomeWizard extends utils.Adapter {
   /** Update global info.connection based on all device states */
   updateGlobalConnection() {
     const anyConnected = Array.from(this.connections.values()).some((c) => c.wsAuthenticated);
-    void this.setStateChangedAsync("info.connection", {
+    this.setStateChangedAsync("info.connection", {
       val: anyConnected,
       ack: true
-    });
+    }).catch((err) => this.log.debug(`Failed to update info.connection: ${(0, import_coerce.errText)(err)}`));
   }
   /**
    * Remove a device — disconnect, delete states and object
@@ -882,7 +941,7 @@ class HomeWizard extends utils.Adapter {
     this.log.info(`Removing device ${conn.config.productName} (${conn.config.serial})`);
     conn.removed = true;
     if (conn.ip && conn.config.token) {
-      void this.makeClient(conn.ip, conn.config.token).deleteUser().catch((err) => this.log.debug(`Token revoke failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`));
+      void this.makeClient(conn.ip, conn.config.token, conn.config.certCn).deleteUser().catch((err) => this.log.debug(`Token revoke failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`));
     }
     this.teardownConnection(conn);
     this.connections.delete(key);

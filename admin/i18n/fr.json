@@ -101,6 +101,8 @@
   "stateOfCharge": "État de charge",
   "cycles": "Cycles de charge",
   "meterModel": "Modèle de compteur",
+  "meterIdentifier": "Identifiant du compteur",
+  "protocolVersion": "Version du protocole",
   "measurementTimestamp": "Horodatage de la mesure",
   "voltageSag": "Nombre de creux de tension (tension descendue sous le seuil du compteur)",
   "voltageSwell": "Nombre de surtensions (tension supérieure au seuil du compteur)",

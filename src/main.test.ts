@@ -54,6 +54,7 @@ interface FakeClient {
   getBatteries: ReturnType<typeof vi.fn>;
   getMeasurement: ReturnType<typeof vi.fn>;
   requestPairing: ReturnType<typeof vi.fn>;
+  getServerCertCn: ReturnType<typeof vi.fn>;
 }
 
 function makeFakeClient(): FakeClient {
@@ -68,6 +69,7 @@ function makeFakeClient(): FakeClient {
     getBatteries: vi.fn(async () => ({})),
     getMeasurement: vi.fn(async () => ({ power_w: 1 })),
     requestPairing: vi.fn(async () => ({ token: "fresh-token" })),
+    getServerCertCn: vi.fn(() => null),
   };
 }
 
@@ -244,6 +246,25 @@ describe("HomeWizard onStateChange routing", () => {
     const { hw, client } = setup();
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.cloud_enabled", active(false));
     expect(client.setSystem).toHaveBeenCalledWith({ cloud_enabled: false });
+  });
+
+  it("system.status_led_brightness_pct: forwards a valid 0-100 number", async () => {
+    const { hw, client } = setup();
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", active(50));
+    expect(client.setSystem).toHaveBeenCalledWith({ status_led_brightness_pct: 50 });
+  });
+
+  it("system.status_led_brightness_pct: rejects a non-numeric or out-of-range value (S1-4)", async () => {
+    const { hw, client } = setup();
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", active("abc"));
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", active(150));
+    expect(client.setSystem).not.toHaveBeenCalled();
+  });
+
+  it("system.api_v1_enabled: forwards the toggle (and warns when enabling) (S5-1b)", async () => {
+    const { hw, client } = setup();
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.api_v1_enabled", active(true));
+    expect(client.setSystem).toHaveBeenCalledWith({ api_v1_enabled: true });
   });
 
   it("ignores acked states", async () => {
@@ -510,6 +531,30 @@ describe("HomeWizard pollPairing", () => {
     expect(i.discoveredDuringPairing).toHaveLength(0);
   });
 
+  it("removes the just-paired entry by identity, not serial (D1-1 manual-IP placeholder)", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    // Manual-IP path enqueues a placeholder with serial "unknown"; the device
+    // reports its real serial. Filtering by serial would never match → re-POST loop.
+    i.discoveredDuringPairing = [{ ip: "192.168.1.71", productType: "unknown", serial: "unknown", name: "192.168.1.71" }];
+    client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "real99", product_name: "P1" });
+    await i.pollPairing();
+    await settle();
+
+    expect(i.discoveredDuringPairing).toHaveLength(0); // removed by identity
+  });
+
+  it("revokes the just-issued token if device setup fails (S1-1, no orphaned token)", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    i.discoveredDuringPairing = [{ ip: "192.168.1.72", productType: "HWE-P1", serial: "x", name: "P1" }];
+    client.getDeviceInfo.mockRejectedValueOnce(new Error("malformed device info"));
+    await i.pollPairing();
+    await settle();
+
+    expect(client.deleteUser).toHaveBeenCalled();
+  });
+
   it("re-pair of an existing serial tears down the previous connection (no zombie WS)", async () => {
     const { hw, client, conn } = setup();
     const i = internalOf(hw);
@@ -649,6 +694,23 @@ describe("HomeWizard initDevice", () => {
     expect(wsInstances).toHaveLength(1);
     expect(wsInstances[0].connect).toHaveBeenCalled();
     expect(stateMgr.updateSystem).toHaveBeenCalled(); // pollSystemInfo ran
+  });
+
+  it("captures and persists the cert CN on first connect when none is stored (lazy migration)", async () => {
+    const { hw, client, conn } = setup();
+    const i = internalOf(hw);
+    conn.config.certCn = undefined; // device paired before v0.13.0
+    client.getDeviceInfo.mockResolvedValue({ product_name: "P1", firmware_version: "6.4" });
+    client.getServerCertCn.mockReturnValue("appliance/p1dongle/aabb");
+    await i.initDevice(conn);
+    await settle();
+
+    expect(conn.config.certCn).toBe("appliance/p1dongle/aabb");
+    expect(i.extendObjectAsync).toHaveBeenCalledWith(
+      "hwe-p1_aabb",
+      expect.objectContaining({ native: expect.objectContaining({ certCn: "appliance/p1dongle/aabb" }) }),
+      expect.anything(),
+    );
   });
 
   it("does nothing for a device removed mid-flight", async () => {

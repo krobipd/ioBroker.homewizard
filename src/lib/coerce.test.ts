@@ -4,6 +4,7 @@ import {
   coerceFiniteNumber,
   coerceString,
   errText,
+  isAssignableDeviceIpv4,
   isPlainObject,
   isValidIpv4,
   parseBatteryPermissions,
@@ -257,5 +258,27 @@ describe("isValidIpv4", () => {
     expect(isValidIpv4(null)).toBe(false);
     expect(isValidIpv4(42)).toBe(false);
     expect(isValidIpv4({})).toBe(false);
+  });
+});
+
+describe("isAssignableDeviceIpv4 (S5-2 pairing IP guard)", () => {
+  it("accepts normal LAN IPv4 addresses", () => {
+    expect(isAssignableDeviceIpv4("192.168.1.42")).toBe(true);
+    expect(isAssignableDeviceIpv4("10.0.0.5")).toBe(true);
+    expect(isAssignableDeviceIpv4("172.16.3.9")).toBe(true);
+  });
+
+  it("rejects loopback, link-local (incl. cloud metadata), unspecified and broadcast", () => {
+    expect(isAssignableDeviceIpv4("127.0.0.1")).toBe(false);
+    expect(isAssignableDeviceIpv4("169.254.169.254")).toBe(false);
+    expect(isAssignableDeviceIpv4("0.0.0.0")).toBe(false);
+    expect(isAssignableDeviceIpv4("255.255.255.255")).toBe(false);
+  });
+
+  it("rejects anything that is not a clean IPv4 (no hostnames, no IPv6)", () => {
+    expect(isAssignableDeviceIpv4("homewizard.local")).toBe(false);
+    expect(isAssignableDeviceIpv4("fe80::1")).toBe(false);
+    expect(isAssignableDeviceIpv4("192.168.1.300")).toBe(false);
+    expect(isAssignableDeviceIpv4(undefined)).toBe(false);
   });
 });

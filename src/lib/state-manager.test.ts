@@ -38,6 +38,8 @@ interface ObjectDef {
 
 interface MockAdapterMetrics {
   setObjectNotExistsCalls: number;
+  /** Count of actual state writes (setStateAsync always; setStateChangedAsync only on change). */
+  stateWrites: number;
 }
 
 interface StateValue {
@@ -68,7 +70,7 @@ interface MockAdapter {
 function createMockAdapter(): MockAdapter {
   const objects = new Map<string, ObjectDef>();
   const states = new Map<string, StateValue>();
-  const metrics: MockAdapterMetrics = { setObjectNotExistsCalls: 0 };
+  const metrics: MockAdapterMetrics = { setObjectNotExistsCalls: 0, stateWrites: 0 };
 
   return {
     namespace: "homewizard.0",
@@ -119,6 +121,7 @@ function createMockAdapter(): MockAdapter {
       return objects.get(id) || null;
     },
     setStateAsync: async (id: string, state: StateValue): Promise<void> => {
+      metrics.stateWrites++;
       states.set(id, state);
     },
     // Faithful to ioBroker: write only when the value actually changed.
@@ -127,6 +130,7 @@ function createMockAdapter(): MockAdapter {
       if (prev && prev.val === state.val) {
         return;
       }
+      metrics.stateWrites++;
       states.set(id, state);
     },
     delObjectAsync: async (id: string, _opts?: { recursive: boolean }): Promise<void> => {
@@ -478,6 +482,13 @@ describe("StateManager", () => {
       status_led_brightness_pct: 50,
       api_v1_enabled: false,
     };
+
+    it("skips redundant writes when an identical system poll repeats (changed-only, Design-Decision 11) — D4-3", async () => {
+      await manager.updateSystem(testDevice, system);
+      const writesAfterFirst = adapter.metrics.stateWrites;
+      await manager.updateSystem(testDevice, system); // identical → all changed-only system fields skip
+      expect(adapter.metrics.stateWrites).toBe(writesAfterFirst);
+    });
 
     it("should update wifi and uptime in info channel", async () => {
       await manager.updateSystem(testDevice, system);

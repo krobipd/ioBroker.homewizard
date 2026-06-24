@@ -30,14 +30,54 @@ CGdyYj/Gghrusw0hM4rYXQSERWGF0mpEnuJ+7bHDolHu0rzgTQ==
 -----END CERTIFICATE-----`;
 
 /**
- * Shared HTTPS agent for HomeWizard connections.
- * Validates cert chain against the HomeWizard CA certificate.
- * Hostname verification is skipped because device certs use
- * non-standard hostnames (appliance/type/serial).
+ * notAfter of the bundled CA (see header above). After this instant, every device
+ * certificate fails validation under `rejectUnauthorized:true` and all connections
+ * break — the adapter must ship a refreshed CA before then.
+ */
+export const CA_NOT_AFTER = new Date("2031-12-16T19:12:12Z");
+
+/**
+ * Blanket HTTPS agent — validates the cert chain against the HomeWizard CA but
+ * does NOT verify the hostname/CN. Used ONLY during initial pairing, where the
+ * device's identity (cert CN = `appliance/<product_type>/<serial>`) is not yet
+ * known. Established devices use {@link createDeviceAgent}, which pins the CN.
  */
 export const HW_AGENT = new https.Agent({
   ca: HOMEWIZARD_CA_CERT,
   rejectUnauthorized: true,
-  // Device certs use appliance/type/serial as hostname — not matchable via IP
+  minVersion: "TLSv1.2",
+  // CN unknown pre-pairing — verified per-device once paired (createDeviceAgent).
   checkServerIdentity: () => undefined,
 });
+
+const deviceAgents = new Map<string, https.Agent>();
+
+/**
+ * Per-device HTTPS agent that pins the server certificate's Common Name to the
+ * device's known identity (`appliance/<product_type>/<serial>`, captured at
+ * pairing). HomeWizard API v2 best practice: the CA proves the cert belongs to a
+ * genuine HomeWizard device, the CN check proves it is THIS device — so a LAN
+ * attacker owning a *different* HomeWizard device (also CA-signed) cannot MITM the
+ * connection and harvest the bearer token. Agents are memoized per CN.
+ *
+ * @param expectedCn The device's certificate CN captured at pairing.
+ */
+export function createDeviceAgent(expectedCn: string): https.Agent {
+  let agent = deviceAgents.get(expectedCn);
+  if (!agent) {
+    agent = new https.Agent({
+      ca: HOMEWIZARD_CA_CERT,
+      rejectUnauthorized: true,
+      minVersion: "TLSv1.2",
+      checkServerIdentity: (_hostname, cert) => {
+        const cn = typeof cert?.subject?.CN === "string" ? cert.subject.CN : undefined;
+        if (cn === expectedCn) {
+          return undefined;
+        }
+        return new Error(`HomeWizard certificate CN mismatch: expected "${expectedCn}", got "${cn ?? "?"}"`);
+      },
+    });
+    deviceAgents.set(expectedCn, agent);
+  }
+  return agent;
+}

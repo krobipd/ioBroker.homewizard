@@ -101,6 +101,8 @@
   "stateOfCharge": "Ladezustand",
   "cycles": "Ladezyklen",
   "meterModel": "Zählertyp",
+  "meterIdentifier": "Zähler-Kennung",
+  "protocolVersion": "Protokollversion",
   "measurementTimestamp": "Mess-Zeitstempel",
   "voltageSag": "Anzahl Spannungseinbrüche (Spannung unter Schwellwert des Zählers gefallen)",
   "voltageSwell": "Anzahl Spannungserhöhungen (Spannung über Schwellwert des Zählers)",

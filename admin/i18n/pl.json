@@ -101,6 +101,8 @@
   "stateOfCharge": "Stan naładowania",
   "cycles": "Cykle ładowania",
   "meterModel": "Model licznika",
+  "meterIdentifier": "Identyfikator licznika",
+  "protocolVersion": "Wersja protokołu",
   "measurementTimestamp": "Znacznik czasu pomiaru",
   "voltageSag": "Liczba zapadów napięcia (napięcie poniżej progu licznika)",
   "voltageSwell": "Liczba przepięć (napięcie powyżej progu licznika)",

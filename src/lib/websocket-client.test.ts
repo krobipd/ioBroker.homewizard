@@ -173,7 +173,15 @@ describe("HomeWizardWebSocket", () => {
   });
 
   describe("handleMessage (via internal access)", () => {
-    function callHandleMessage(ws: HomeWizardWebSocket, msg: unknown): void {
+    function callHandleMessage(
+      ws: HomeWizardWebSocket,
+      msg: unknown,
+      opts: { authorized?: boolean } = {},
+    ): void {
+      // Data frames (measurement/system/batteries) are only processed after the
+      // handshake completes; preset the flag so these unit tests exercise the
+      // post-auth path (pass { authorized: false } to test pre-auth dropping).
+      (ws as unknown as { authorized: boolean }).authorized = opts.authorized ?? true;
       const raw = Buffer.from(JSON.stringify(msg));
       (ws as unknown as { handleMessage: (raw: Buffer) => void }).handleMessage(raw);
     }
@@ -382,6 +390,58 @@ describe("HomeWizardWebSocket", () => {
 
       const warnLogs = tracker.logs.filter(l => l.level === "warn");
       expect(warnLogs.some(l => l.msg.startsWith("WS error:"))).toBe(true);
+      ws.close();
+    });
+
+    it("ignores data frames received before the handshake completes (S3-5)", () => {
+      const { callbacks, tracker } = createCallbackTracker();
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
+
+      callHandleMessage(ws, { type: "measurement", data: { power_w: 99 } }, { authorized: false });
+
+      expect(tracker.measurements).toHaveLength(0);
+      ws.close();
+    });
+
+    it("stages a typed auth error on an error frame before authorization (D4-1/D2-1)", () => {
+      const { callbacks } = createCallbackTracker();
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
+
+      // An error frame during the handshake (before "authorized") stages a typed
+      // auth error so onWsDisconnected can apply the auth-stop. (forceDisconnect is
+      // a no-op here without a live socket; assert the staged error directly.)
+      callHandleMessage(ws, { type: "error", data: { message: "unauthorized" } }, { authorized: false });
+
+      const authError = (ws as unknown as { authError: Error | null }).authError;
+      expect(authError).toBeInstanceOf(Error);
+      expect((authError as unknown as { errorCode: string }).errorCode).toBe("user:unauthorized");
+      ws.close();
+    });
+
+    it("fires the auth-timeout watchdog and terminates the socket (D4-2)", () => {
+      const { callbacks } = createCallbackTracker();
+      let authCb: (() => void) | undefined;
+      const captureTimers = {
+        schedule: (cb: () => void, ms: number) => {
+          if (ms >= 40_000) {
+            authCb = cb; // the auth watchdog (AUTH_TIMEOUT_MS)
+          }
+          return Symbol("t");
+        },
+        cancel: () => {},
+        scheduleRepeating: () => Symbol("i"),
+        cancelRepeating: () => {},
+      };
+      const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks, captureTimers);
+      ws.connect();
+      // Swap in a fake socket so the watchdog's forceDisconnect → terminate is observable.
+      const fakeWs = { terminate: vi.fn(), removeAllListeners: vi.fn(), on: vi.fn(), readyState: 1 };
+      (ws as unknown as { ws: unknown }).ws = fakeWs;
+
+      expect(authCb).toBeDefined();
+      authCb!(); // fire the auth-timeout watchdog
+
+      expect(fakeWs.terminate).toHaveBeenCalled();
       ws.close();
     });
   });
