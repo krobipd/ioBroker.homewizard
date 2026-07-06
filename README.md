@@ -179,7 +179,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### 0.13.0 (2026-06-24) — stable
+### 0.13.0 (2026-06-24)
 
 - Security: the adapter now checks each device's certificate, so it only ever talks to your real device
 - Pairing a device by manual IP no longer leaves repeated pairing attempts and throwaway tokens behind on the device
