@@ -1,4 +1,8 @@
 # Older Changes
+## 0.11.0 (2026-06-03)
+
+- Removed the raw P1 telegram datapoint — its data is already available as parsed measurement states; the leftover state is cleaned up automatically on existing P1 meters.
+
 ## 0.10.0 (2026-06-01)
 
 - New battery controls: a forecast-based predictive charging mode and a one-shot charge-to-full switch, in addition to the existing zero, to-full and standby modes.

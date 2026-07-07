@@ -179,6 +179,15 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 0.14.0 (2026-07-07)
+
+- A brief WiFi dropout no longer makes the adapter wrongly treat a device as having a permanently unstable connection after a single outage
+- Power-quality values (voltage sag/swell and power-fail counts) now sit in a named "quality" sub-folder under measurement instead of loose
+- The Plug-In Battery's cloud-connection state is now a read-only indicator instead of a switch that could never be toggled
+- Corrected state roles (grid frequency, reactive power) and 0–100 bounds (LED brightness, charge level); existing devices pick these up automatically on the next start and keep any names you changed
+- Security: after an update, an older device is verified by its serial from the very first connection — its access token no longer briefly crosses a not-fully-verified connection
+- Security: device and network-discovery names are cleaned before they reach the log, and pairing now cross-checks the device's serial against its certificate
+
 ### 0.13.0 (2026-06-24)
 
 - Security: the adapter now checks each device's certificate, so it only ever talks to your real device
@@ -199,10 +208,6 @@ homewizard.0.
 ### 0.12.0 (2026-06-07)
 
 - Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.
-
-### 0.11.0 (2026-06-03)
-
-- Removed the raw P1 telegram datapoint — its data is already available as parsed measurement states; the leftover state is cleaned up automatically on existing P1 meters.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

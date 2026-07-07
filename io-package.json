@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.13.0",
+    "version": "0.14.0",
     "news": {
+      "0.14.0": {
+        "en": "Reconnect fix for brief WiFi dropouts, a new measurement.quality folder, and corrected state roles and 0–100 bounds that existing devices adopt automatically on the next start.",
+        "de": "Reconnect-Fix bei kurzen WLAN-Ausfällen, neuer measurement.quality-Ordner sowie korrigierte Rollen und 0–100-Grenzen, die Bestandsgeräte beim nächsten Start automatisch übernehmen.",
+        "ru": "Исправление переподключения при коротких сбоях Wi-Fi, новая папка measurement.quality, а также исправленные роли и границы 0–100, которые устройства применяют при следующем запуске.",
+        "pt": "Correção de reconexão em quedas breves de Wi-Fi, nova pasta measurement.quality e papéis de estado corrigidos com limites 0–100 que os dispositivos existentes adotam no próximo arranque.",
+        "nl": "Herverbindingsfix bij korte wifi-onderbrekingen, een nieuwe measurement.quality-map en gecorrigeerde rollen en 0–100-grenzen die bestaande apparaten bij de volgende start overnemen.",
+        "fr": "Correction de reconnexion lors de brèves coupures Wi-Fi, un nouveau dossier measurement.quality, et des rôles et bornes 0–100 corrigés que les appareils existants adoptent au prochain démarrage.",
+        "it": "Correzione della riconnessione per brevi cadute Wi-Fi, una nuova cartella measurement.quality e ruoli e limiti 0–100 corretti che i dispositivi esistenti adottano al prossimo avvio.",
+        "es": "Corrección de reconexión para cortes breves de Wi-Fi, una nueva carpeta measurement.quality y roles y límites 0–100 corregidos que los dispositivos existentes adoptan en el próximo inicio.",
+        "pl": "Poprawka ponownego łączenia przy krótkich przerwach Wi-Fi, nowy folder measurement.quality oraz poprawione role i zakresy 0–100, które istniejące urządzenia przyjmują przy następnym starcie.",
+        "uk": "Виправлення перепідключення під час коротких збоїв Wi-Fi, нова тека measurement.quality, а також виправлені ролі та межі 0–100, які наявні пристрої застосовують під час наступного запуску.",
+        "zh-cn": "修复短暂 WiFi 断连后的重连问题，新增 measurement.quality 分组，并修正状态角色和 0–100 范围，现有设备在下次启动时自动应用。"
+      },
       "0.13.0": {
         "en": "Security: the adapter verifies each device's certificate and only talks to your real device, and manual-IP pairing leaves no leftover logins. Adds meter-ID and protocol-version states.",
         "de": "Sicherheit: Der Adapter prüft das Geräte-Zertifikat und spricht nur mit deinem echten Gerät, und Pairing per manueller IP lässt keine Alt-Logins zurück. Neu: Zähler-ID, Protokollversion.",
@@ -80,19 +93,6 @@
         "pl": "Nowy tryb predictive baterii i przełącznik pełnego ładowania, aktualizacje systemu i baterii w czasie rzeczywistym oraz nowe punkty danych dla sieci Wi-Fi i telegramu P1.",
         "uk": "Новий режим predictive для батареї та перемикач повного заряджання, оновлення системи й батареї в реальному часі, а також нові точки даних для мережі Wi-Fi і телеграми P1.",
         "zh-cn": "新增电池 predictive 模式和充满开关，系统和电池数据实时更新，并新增 WiFi 网络和原始 P1 电报数据点。"
-      },
-      "0.9.3": {
-        "en": "User-modified device names are no longer overwritten on adapter restart or IP recovery. Improved timer management for compact mode.",
-        "de": "Vom Benutzer geänderte Gerätenamen werden beim Adapter-Neustart oder IP-Recovery nicht mehr überschrieben. Verbessertes Timer-Management für den Compact-Modus.",
-        "ru": "Пользовательские имена устройств больше не перезаписываются при перезапуске адаптера или восстановлении IP. Улучшено управление таймерами для компактного режима.",
-        "pt": "Nomes de dispositivos modificados pelo utilizador já não são substituídos ao reiniciar o adaptador ou na recuperação de IP. Gestão de temporizadores melhorada para o modo compacto.",
-        "nl": "Door de gebruiker gewijzigde apparaatnamen worden niet meer overschreven bij het herstarten van de adapter of IP-recovery. Verbeterd timerbeheer voor compacte modus.",
-        "fr": "Les noms d'appareils modifiés par l'utilisateur ne sont plus écrasés lors du redémarrage de l'adaptateur ou de la récupération IP. Gestion améliorée des minuteries pour le mode compact.",
-        "it": "I nomi dei dispositivi modificati dall'utente non vengono più sovrascritti al riavvio dell'adattatore o durante il recupero IP. Gestione migliorata dei timer per la modalità compatta.",
-        "es": "Los nombres de dispositivos modificados por el usuario ya no se sobrescriben al reiniciar el adaptador o durante la recuperación de IP. Gestión mejorada de temporizadores para el modo compacto.",
-        "pl": "Nazwy urządzeń zmienione przez użytkownika nie są już nadpisywane przy ponownym uruchomieniu adaptera lub odzyskiwaniu IP. Ulepszone zarządzanie timerami w trybie kompaktowym.",
-        "uk": "Змінені користувачем назви пристроїв більше не перезаписуються при перезапуску адаптера або відновленні IP. Покращено керування таймерами для компактного режиму.",
-        "zh-cn": "用户修改的设备名称在适配器重启或IP恢复时不再被覆盖。改进了紧凑模式的定时器管理。"
       }
     },
     "plugins": {
