@@ -1043,6 +1043,28 @@ export class StateManager {
   }
 
   /**
+   * I6: mark the pre-v0.4.0/v0.11.0 legacy-state cleanup as complete so later
+   * restarts skip the per-device scan. A write-once indicator state at the adapter
+   * root (fleet pattern, beszel L6). Idempotent — the object create is a no-op once
+   * it exists and the value only ever flips false→true.
+   */
+  async markLegacyCleanupDone(): Promise<void> {
+    await this.adapter.setObjectNotExistsAsync("info.legacyMigrated", {
+      type: "state",
+      common: {
+        name: "Legacy state cleanup completed",
+        type: "boolean",
+        role: "indicator",
+        read: true,
+        write: false,
+        def: false,
+      },
+      native: {},
+    });
+    await this.adapter.setStateAsync("info.legacyMigrated", { val: true, ack: true });
+  }
+
+  /**
    * Get device object ID prefix
    *
    * @param config Device configuration

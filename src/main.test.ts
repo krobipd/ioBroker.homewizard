@@ -137,6 +137,7 @@ interface FakeStateMgr {
   updateBattery: ReturnType<typeof vi.fn>;
   createDeviceStates: ReturnType<typeof vi.fn>;
   cleanupMovedStates: ReturnType<typeof vi.fn>;
+  markLegacyCleanupDone: ReturnType<typeof vi.fn>;
 }
 
 /** Build a HomeWizard with fake client/ws/discovery factories + a fake stateManager + one registered conn. */
@@ -196,6 +197,7 @@ function setup(): {
     updateBattery: vi.fn(async () => {}),
     createDeviceStates: vi.fn(async () => {}),
     cleanupMovedStates: vi.fn(async () => {}),
+    markLegacyCleanupDone: vi.fn(async () => {}),
   };
   internal.stateManager = stateMgr;
   internal.connections.set("hwe-p1_aabb", conn);
@@ -871,6 +873,42 @@ describe("HomeWizard onReady", () => {
 
     expect(i.connections.has("hwe-p1_dev1")).toBe(true);
     expect(wsInstances.length).toBeGreaterThanOrEqual(1); // initDevice → connectWebSocket
+  });
+
+  // Note: onReady builds its own real StateManager (main.ts), so these assert on
+  // the adapter's marker write, not on the injected fake stateMgr.
+  it("records the one-shot legacy marker when it is not yet set (I6)", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      "homewizard.0.hwe-p1_dev1": {
+        type: "device",
+        native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
+      },
+    });
+    // getStateAsync defaults to null → marker not set → cleanup runs + marker written
+    await i.onReady();
+    await settle();
+
+    expect(i.setStateAsync).toHaveBeenCalledWith("info.legacyMigrated", { val: true, ack: true });
+  });
+
+  it("does not re-write the legacy marker when it is already set (I6)", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      "homewizard.0.hwe-p1_dev1": {
+        type: "device",
+        native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
+      },
+    });
+    i.getStateAsync.mockResolvedValue({ val: true, ack: true }); // marker already set
+    await i.onReady();
+    await settle();
+
+    expect(i.setStateAsync).not.toHaveBeenCalledWith("info.legacyMigrated", { val: true, ack: true });
   });
 });
 

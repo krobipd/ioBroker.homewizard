@@ -190,9 +190,19 @@ export class HomeWizard extends utils.Adapter {
         await this.setStateChangedAsync("info.connection", { val: false, ack: true });
       }
 
+      // I6: one-shot marker for the pre-v0.4.0/v0.11.0 legacy-state cleanup. Those
+      // orphan paths only exist on installs upgraded through those versions; once
+      // swept, the marker lets later restarts skip ~62 getObject probes per device.
+      // Fleet pattern (beszel L6). The marker is a write-once state, so getStateAsync
+      // is reliable here (the lgtv stale-snapshot bug was about concurrently-modified
+      // objects, not a value that only ever flips false→true once).
+      const legacyCleanupDone = (await this.getStateAsync("info.legacyMigrated"))?.val === true;
+
       for (const device of devices) {
         const key = this.stateManager.devicePrefix(device);
-        await this.stateManager.cleanupMovedStates(device);
+        if (!legacyCleanupDone) {
+          await this.stateManager.cleanupMovedStates(device);
+        }
         await this.stateManager.createDeviceStates(device);
         const conn = createDeviceConnection(device, device.ip || "");
         this.connections.set(key, conn);
@@ -203,6 +213,11 @@ export class HomeWizard extends utils.Adapter {
             this.log.error(`initDevice failed for ${conn.config.productName}: ${errText(err)}`),
           );
         }
+      }
+
+      // I6: record the cleanup as done so the next start skips the legacy scan.
+      if (!legacyCleanupDone) {
+        await this.stateManager.markLegacyCleanupDone();
       }
 
       this.systemPollTimer = this.setInterval(() => {
