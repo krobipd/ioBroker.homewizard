@@ -530,6 +530,14 @@ export class StateManager {
    * exist". On `removeDevice(prefix)` all `prefix.*` IDs are dropped.
    */
   private readonly createdIds = new Set<string>();
+  /**
+   * L15: memoized device-ID prefix per config object. `devicePrefix` runs two
+   * `sanitize()` regex passes; on the ~1/s measurement hot path that repeats for
+   * an unchanging (productType, serial). Keyed by the config object identity
+   * (stable per connection, immutable fields) → auto-dropped when the connection
+   * is replaced on re-pair.
+   */
+  private readonly prefixCache = new WeakMap<DeviceConfig, string>();
 
   /** @param adapter The ioBroker adapter instance */
   constructor(adapter: utils.AdapterInstance) {
@@ -625,10 +633,15 @@ export class StateManager {
   /**
    * Update measurement states — only creates states that have values
    *
-   * @param config Device configuration
-   * @param data Measurement data
+   * @param config  Device configuration
+   * @param data    Measurement data
+   * @param isStale L1: optional guard `() => conn.removed || this.unloading`.
+   *   The caller checks it before invoking, but a push carries many awaits;
+   *   if the device is removed (or the adapter unloads) mid-write, re-creating
+   *   objects after `delObjectAsync` would leave orphans. Re-checked after each
+   *   channel-create await so a concurrent removal aborts before the next write.
    */
-  async updateMeasurement(config: DeviceConfig, data: Measurement): Promise<void> {
+  async updateMeasurement(config: DeviceConfig, data: Measurement, isStale?: () => boolean): Promise<void> {
     if (!isPlainObject(data)) {
       return;
     }
@@ -637,6 +650,9 @@ export class StateManager {
 
     // Ensure measurement channel exists (cached after first call per device)
     await this.ensureChannel(mPrefix, tName("measurement"));
+    if (isStale?.()) {
+      return;
+    }
 
     // Main measurement values — coerce per declared type. Once a state's object
     // is in the cache, ensureAndSet only does one setStateAsync per field — those
@@ -662,21 +678,7 @@ export class StateManager {
         coerced = coerceString(raw);
       }
       if (coerced !== null) {
-        writes.push(
-          this.ensureAndSet({
-            id: `${mPrefix}.${def.id}`,
-            name: tName(def.nameKey),
-            type: def.type,
-            role: def.role,
-            value: coerced,
-            unit: def.unit,
-            min: def.min,
-            max: def.max,
-            desc: def.descKey ? tName(def.descKey) : undefined,
-            states: def.key === "tariff" ? tariffStates() : undefined,
-            changedOnly: !MOMENTARY_KEYS.has(def.key),
-          }),
-        );
+        writes.push(this.setMeasurementField(mPrefix, def, coerced));
       }
     }
     await Promise.all(writes);
@@ -692,6 +694,9 @@ export class StateManager {
       // object-store bloat. Real devices report 1–3 meters; matches the mDNS
       // discovery-list cap of 50.
       for (const rawExt of external.slice(0, 50)) {
+        if (isStale?.()) {
+          return;
+        }
         if (!isPlainObject(rawExt)) {
           continue;
         }
@@ -758,10 +763,13 @@ export class StateManager {
   /**
    * Update system states
    *
-   * @param config Device configuration
-   * @param system System info data
+   * @param config  Device configuration
+   * @param system  System info data
+   * @param isStale L1: optional guard `() => conn.removed || this.unloading` —
+   *   re-checked after the system-channel create so a device removed mid-poll
+   *   doesn't get its `system.*` control states re-created as orphans.
    */
-  async updateSystem(config: DeviceConfig, system: SystemInfo): Promise<void> {
+  async updateSystem(config: DeviceConfig, system: SystemInfo, isStale?: () => boolean): Promise<void> {
     if (!isPlainObject(system)) {
       return;
     }
@@ -807,6 +815,9 @@ export class StateManager {
 
     // System control channel (cached after first call per device)
     await this.ensureChannel(`${prefix}.system`, tName("systemSettings"));
+    if (isStale?.()) {
+      return;
+    }
 
     // HWE-BAT: cloud_enabled is read-only (always true) and reboot is unsupported.
     const isBattery = config.productType === "HWE-BAT";
@@ -1030,7 +1041,12 @@ export class StateManager {
    * @param config Device configuration
    */
   devicePrefix(config: DeviceConfig): string {
-    return `${sanitize(config.productType)}_${sanitize(config.serial)}`;
+    let prefix = this.prefixCache.get(config);
+    if (prefix === undefined) {
+      prefix = `${sanitize(config.productType)}_${sanitize(config.serial)}`;
+      this.prefixCache.set(config, prefix);
+    }
+    return prefix;
   }
 
   /**
@@ -1083,11 +1099,23 @@ export class StateManager {
     if (def.states) {
       common.states = def.states;
     }
-    await this.adapter.setObjectNotExistsAsync(def.id, {
-      type: "state",
-      common: common as ioBroker.StateCommon,
-      native: {},
-    });
+    // DP-retrofit: extendObject (not setObjectNotExists) on first touch so a
+    // changed `common` — M3 cloud_enabled role switch→indicator, L11/I2 min/max,
+    // I1 role precision — reaches states that already exist on an upgraded
+    // install. User-renamed names are preserved via `preserve.common.name`.
+    // createdIds-gated → runs once per state per restart, with NO getObject read,
+    // so the fragile-snapshot migration anti-pattern (lgtv #418/#421) cannot
+    // occur. Fleet pattern (beszel v0.9.0); uses the same extendObjectAsync +
+    // preserve:name form as createDeviceStates above.
+    await this.adapter.extendObjectAsync(
+      def.id,
+      {
+        type: "state",
+        common,
+        native: {},
+      },
+      { preserve: { common: ["name"] } },
+    );
     if (def.states) {
       // Existing datapoints from earlier releases may carry translation-object
       // VALUES in `common.states` (v0.7.0 introduced tLabel-as-string casts).
@@ -1179,6 +1207,44 @@ export class StateManager {
       await this.adapter.setStateChangedAsync(def.id, { val: def.value, ack: true });
     } else {
       await this.adapter.setStateAsync(def.id, { val: def.value, ack: true });
+    }
+  }
+
+  /**
+   * Measurement hot-path writer (~1/s per P1, up to ~30 fields). L14: the
+   * translated `common.name`/`desc` and the tariff `states` map are built ONLY
+   * when the object is first created (cold path, `createdIds`-gated). Once the
+   * state is cached this does a single value write with no `tName()` /
+   * `tariffStates()` allocation — the eager per-field `tName()` in the old
+   * `ensureAndSet` loop was thrown away on every push after the first.
+   *
+   * Momentary 1 Hz fields (power/voltage/current/…) use `setStateAsync`;
+   * slow fields (energy totals) use `setStateChangedAsync` — same routing as
+   * the old `changedOnly: !MOMENTARY_KEYS.has(def.key)`.
+   *
+   * @param mPrefix `<devicePrefix>.measurement`
+   * @param def     Measurement field definition
+   * @param value   Coerced value to write
+   */
+  private async setMeasurementField(mPrefix: string, def: MeasurementStateDef, value: number | string): Promise<void> {
+    const id = `${mPrefix}.${def.id}`;
+    if (!this.createdIds.has(id)) {
+      await this.createState({
+        id,
+        name: tName(def.nameKey),
+        type: def.type,
+        role: def.role,
+        unit: def.unit,
+        min: def.min,
+        max: def.max,
+        desc: def.descKey ? tName(def.descKey) : undefined,
+        states: def.key === "tariff" ? tariffStates() : undefined,
+      });
+    }
+    if (MOMENTARY_KEYS.has(def.key)) {
+      await this.adapter.setStateAsync(id, { val: value, ack: true });
+    } else {
+      await this.adapter.setStateChangedAsync(id, { val: value, ack: true });
     }
   }
 }

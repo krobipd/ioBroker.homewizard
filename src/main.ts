@@ -880,7 +880,7 @@ export class HomeWizard extends utils.Adapter {
     }
     conn.measurementBusy = true;
     this.stateManager
-      .updateMeasurement(conn.config, data)
+      .updateMeasurement(conn.config, data, () => conn.removed || this.unloading)
       .catch((err: unknown) => {
         this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${errText(err)}`);
       })
@@ -899,9 +899,11 @@ export class HomeWizard extends utils.Adapter {
     if (conn.removed || this.unloading) {
       return;
     }
-    this.stateManager.updateSystem(conn.config, data).catch((err: unknown) => {
-      this.log.debug(`updateSystem (ws) failed for ${conn.config.productName}: ${errText(err)}`);
-    });
+    this.stateManager
+      .updateSystem(conn.config, data, () => conn.removed || this.unloading)
+      .catch((err: unknown) => {
+        this.log.debug(`updateSystem (ws) failed for ${conn.config.productName}: ${errText(err)}`);
+      });
   }
 
   /**
@@ -1089,7 +1091,7 @@ export class HomeWizard extends utils.Adapter {
         if (conn.removed || this.unloading) {
           return;
         }
-        await this.stateManager.updateMeasurement(conn.config, data);
+        await this.stateManager.updateMeasurement(conn.config, data, () => conn.removed || this.unloading);
       } catch (err) {
         if (this.unloading) {
           return;
@@ -1141,7 +1143,7 @@ export class HomeWizard extends utils.Adapter {
       if (conn.removed || this.unloading) {
         return;
       }
-      await this.stateManager.updateSystem(conn.config, system);
+      await this.stateManager.updateSystem(conn.config, system, () => conn.removed || this.unloading);
 
       // Sync productName drift: if the user renamed the device in the
       // HomeWizard app (or a firmware update changed the product_name), pick

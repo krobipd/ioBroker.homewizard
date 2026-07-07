@@ -186,8 +186,8 @@ function setup(): {
 
   const stateMgr: FakeStateMgr = {
     // Same shape the real sanitize produces — pairing tests register new serials.
-    devicePrefix: vi.fn(
-      (cfg: { productType: string; serial: string }) => `${cfg.productType}_${cfg.serial}`.toLowerCase(),
+    devicePrefix: vi.fn((cfg: { productType: string; serial: string }) =>
+      `${cfg.productType}_${cfg.serial}`.toLowerCase(),
     ),
     removeDevice: vi.fn(async () => {}),
     setDeviceConnected: vi.fn(async () => {}),
@@ -269,7 +269,10 @@ describe("HomeWizard onStateChange routing", () => {
 
   it("ignores acked states", async () => {
     const { hw, client } = setup();
-    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.mode", { val: "zero", ack: true } as ioBroker.State);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.mode", {
+      val: "zero",
+      ack: true,
+    } as ioBroker.State);
     expect(client.setBatteries).not.toHaveBeenCalled();
   });
 });
@@ -417,7 +420,12 @@ function internalOf(hw: HomeWizard): {
   lastInfoAt: Map<string, number>;
   connections: Map<string, DeviceConnection>;
   config: Record<string, unknown>;
-  log: { debug: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+  log: {
+    debug: ReturnType<typeof vi.fn>;
+    info: ReturnType<typeof vi.fn>;
+    warn: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+  };
   setStateAsync: ReturnType<typeof vi.fn>;
   getStateAsync: ReturnType<typeof vi.fn>;
   setTimeout: ReturnType<typeof vi.fn>;
@@ -554,7 +562,9 @@ describe("HomeWizard pollPairing", () => {
     const i = internalOf(hw);
     // Manual-IP path enqueues a placeholder with serial "unknown"; the device
     // reports its real serial. Filtering by serial would never match → re-POST loop.
-    i.discoveredDuringPairing = [{ ip: "192.168.1.71", productType: "unknown", serial: "unknown", name: "192.168.1.71" }];
+    i.discoveredDuringPairing = [
+      { ip: "192.168.1.71", productType: "unknown", serial: "unknown", name: "192.168.1.71" },
+    ];
     client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "real99", product_name: "P1" });
     await i.pollPairing();
     await settle();
@@ -860,7 +870,7 @@ describe("HomeWizard onWsMeasurement", () => {
   it("forwards a push to updateMeasurement", () => {
     const { hw, conn, stateMgr } = setup();
     internalOf(hw).onWsMeasurement(conn, { power_w: 42 });
-    expect(stateMgr.updateMeasurement).toHaveBeenCalledWith(conn.config, { power_w: 42 });
+    expect(stateMgr.updateMeasurement).toHaveBeenCalledWith(conn.config, { power_w: 42 }, expect.any(Function));
   });
 
   it("drops a push for a removed device", () => {
@@ -934,7 +944,7 @@ describe("HomeWizard pollAllSystemInfo", () => {
     await i.pollAllSystemInfo();
 
     expect(stateMgr.updateSystem).toHaveBeenCalledTimes(1);
-    expect(stateMgr.updateSystem).toHaveBeenCalledWith(conn.config, expect.anything());
+    expect(stateMgr.updateSystem).toHaveBeenCalledWith(conn.config, expect.anything(), expect.any(Function));
   });
 });
 
@@ -1003,7 +1013,7 @@ describe("HomeWizard startRestFallback (poll body)", () => {
     const poll = startAndCapture(hw, conn);
     await poll();
     expect(client.getMeasurement).toHaveBeenCalled();
-    expect(stateMgr.updateMeasurement).toHaveBeenCalledWith(conn.config, { power_w: 1 });
+    expect(stateMgr.updateMeasurement).toHaveBeenCalledWith(conn.config, { power_w: 1 }, expect.any(Function));
   });
 
   it("stops polling on a network error for a stable device (WS reconnect owns recovery)", async () => {
@@ -1069,7 +1079,7 @@ describe("HomeWizard connectWebSocket wiring", () => {
     const { callbacks, timers } = wsArgs[0];
 
     callbacks.onMeasurement({ power_w: 7 });
-    expect(stateMgr.updateMeasurement).toHaveBeenCalledWith(conn.config, { power_w: 7 });
+    expect(stateMgr.updateMeasurement).toHaveBeenCalledWith(conn.config, { power_w: 7 }, expect.any(Function));
     callbacks.onSystem({ cloud_enabled: true });
     expect(stateMgr.updateSystem).toHaveBeenCalled();
     callbacks.onBattery({ mode: "zero", battery_count: 1 });

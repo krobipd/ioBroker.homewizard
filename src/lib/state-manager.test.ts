@@ -5,7 +5,7 @@ import { vi } from "vitest";
 vi.mock("@iobroker/adapter-core", () => {
   const i18nDir = join(__dirname, "../../admin/i18n");
   const i18nData: Record<string, Record<string, string>> = {};
-  for (const f of readdirSync(i18nDir).filter((f) => f.endsWith(".json"))) {
+  for (const f of readdirSync(i18nDir).filter(f => f.endsWith(".json"))) {
     i18nData[f.replace(".json", "")] = JSON.parse(readFileSync(join(i18nDir, f), "utf8"));
   }
   return {
@@ -38,6 +38,8 @@ interface ObjectDef {
 
 interface MockAdapterMetrics {
   setObjectNotExistsCalls: number;
+  /** Count of extendObjectAsync calls — the DP-retrofit create path for states (createState). */
+  extendObjectCalls: number;
   /** Count of actual state writes (setStateAsync always; setStateChangedAsync only on change). */
   stateWrites: number;
 }
@@ -70,7 +72,7 @@ interface MockAdapter {
 function createMockAdapter(): MockAdapter {
   const objects = new Map<string, ObjectDef>();
   const states = new Map<string, StateValue>();
-  const metrics: MockAdapterMetrics = { setObjectNotExistsCalls: 0, stateWrites: 0 };
+  const metrics: MockAdapterMetrics = { setObjectNotExistsCalls: 0, extendObjectCalls: 0, stateWrites: 0 };
 
   return {
     namespace: "homewizard.0",
@@ -84,6 +86,7 @@ function createMockAdapter(): MockAdapter {
       obj: Partial<ObjectDef>,
       options?: { preserve?: { common?: string[] } },
     ): Promise<void> => {
+      metrics.extendObjectCalls++;
       const existing = objects.get(id) || { type: "", common: {}, native: {} };
       const newCommon: Record<string, unknown> = { ...existing.common, ...(obj.common || {}) };
       if (options?.preserve?.common && objects.has(id)) {
@@ -713,33 +716,33 @@ describe("StateManager", () => {
   });
 
   describe("createdIds cache (hot-path performance)", () => {
-    it("calls setObjectNotExistsAsync only once per state across repeated updateMeasurement calls", async () => {
-      // First call creates 4 states.
+    it("creates each measurement state only once across repeated updateMeasurement calls", async () => {
+      // First call creates 4 states (DP-retrofit path = extendObjectAsync).
       await manager.updateMeasurement(testDevice, {
         power_w: 100,
         voltage_l1_v: 230,
         current_l1_a: 0.5,
         frequency_hz: 50,
       });
-      const firstPass = adapter.metrics.setObjectNotExistsCalls;
-      // Second call with the same fields must NOT re-touch setObjectNotExistsAsync
-      // for those same IDs — they are cached after the first creation.
+      const firstPass = adapter.metrics.extendObjectCalls;
+      // Second call with the same fields must NOT re-touch the object create
+      // for those same IDs — they are cached (createdIds) after the first creation.
       await manager.updateMeasurement(testDevice, {
         power_w: 200,
         voltage_l1_v: 231,
         current_l1_a: 0.6,
         frequency_hz: 49.9,
       });
-      expect(adapter.metrics.setObjectNotExistsCalls).toBe(firstPass);
+      expect(adapter.metrics.extendObjectCalls).toBe(firstPass);
       // Values were updated.
       expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.power_w")?.val).toBe(200);
     });
 
     it("cache miss creates a state on next updateMeasurement when a new field shows up", async () => {
       await manager.updateMeasurement(testDevice, { power_w: 100 });
-      const firstPass = adapter.metrics.setObjectNotExistsCalls;
+      const firstPass = adapter.metrics.extendObjectCalls;
       await manager.updateMeasurement(testDevice, { power_w: 200, voltage_l1_v: 230 });
-      expect(adapter.metrics.setObjectNotExistsCalls).toBeGreaterThan(firstPass);
+      expect(adapter.metrics.extendObjectCalls).toBeGreaterThan(firstPass);
     });
 
     it("removeDevice clears the cache so re-pairing the same device re-creates states", async () => {
@@ -751,6 +754,57 @@ describe("StateManager", () => {
       await manager.createDeviceStates(testDevice);
       await manager.updateMeasurement(testDevice, { power_w: 50 });
       expect(adapter.metrics.setObjectNotExistsCalls).toBeGreaterThan(beforeRecreate);
+    });
+  });
+
+  describe("DP-retrofit: schema changes reach existing installs, name preserved", () => {
+    const batDevice: DeviceConfig = {
+      token: "t",
+      productType: "HWE-BAT",
+      serial: "bat123456789",
+      productName: "Plug-In Battery",
+    };
+
+    it("updates cloud_enabled role switch→indicator on an already-existing state while keeping a user-renamed name (M3)", async () => {
+      const id = "hwe-bat_bat123456789.system.cloud_enabled";
+      // Simulate an install from before the M3 fix: the object already exists
+      // with the old switch role and a name the user renamed in Admin.
+      adapter.objects.set(id, {
+        type: "state",
+        common: { name: "My Cloud Toggle", type: "boolean", role: "switch", read: true, write: false },
+        native: {},
+      });
+      await manager.updateSystem(batDevice, {
+        wifi_ssid: "net",
+        wifi_rssi_db: -50,
+        uptime_s: 1,
+        cloud_enabled: true,
+        status_led_brightness_pct: 50,
+      });
+      const obj = adapter.objects.get(id);
+      // extendObjectAsync retrofit reached the existing state...
+      expect(obj?.common.role).toBe("indicator");
+      // ...but the preserve:name option kept the user's rename.
+      expect(obj?.common.name).toBe("My Cloud Toggle");
+    });
+
+    it("retrofits min/max onto an already-existing status_led_brightness_pct state (L11)", async () => {
+      const id = "hwe-bat_bat123456789.system.status_led_brightness_pct";
+      adapter.objects.set(id, {
+        type: "state",
+        common: { name: "LED", type: "number", role: "level", read: true, write: true },
+        native: {},
+      });
+      await manager.updateSystem(batDevice, {
+        wifi_ssid: "net",
+        wifi_rssi_db: -50,
+        uptime_s: 1,
+        cloud_enabled: true,
+        status_led_brightness_pct: 50,
+      });
+      const obj = adapter.objects.get(id);
+      expect(obj?.common.min).toBe(0);
+      expect(obj?.common.max).toBe(100);
     });
   });
 
