@@ -985,7 +985,10 @@ export class HomeWizard extends utils.Adapter {
   private onWsDisconnected(conn: DeviceConnection, error?: Error): void {
     // Auth failures are not a connectivity-stability signal — they mean the token is bad,
     // not the WiFi. Counting them as short connections would flip the device into unstable mode.
-    const isAuthError = error instanceof HomeWizardApiError && error.errorCode === "user:unauthorized";
+    // L4: classify by errorCode OR HTTP 401 — a device whose 401 body doesn't match
+    // the exact {"error":{"code":"user:unauthorized"}} shape must still auth-stop.
+    const isAuthError =
+      error instanceof HomeWizardApiError && (error.errorCode === "user:unauthorized" || error.statusCode === 401);
 
     // Track connection stability — pure decision in main-helpers, side-effects here.
     if (conn.lastConnectedAt > 0 && !isAuthError) {
@@ -1094,7 +1097,7 @@ export class HomeWizard extends utils.Adapter {
         this.logDeviceError(conn, "rest", err);
 
         // Auth failures: stop everything — token is bad, re-pair required.
-        if (err instanceof HomeWizardApiError && err.errorCode === "user:unauthorized") {
+        if (err instanceof HomeWizardApiError && (err.errorCode === "user:unauthorized" || err.statusCode === 401)) {
           this.handleAuthFailure(conn, err, /* cleanupTimers */ true);
           return;
         }
@@ -1142,18 +1145,23 @@ export class HomeWizard extends utils.Adapter {
 
       // Sync productName drift: if the user renamed the device in the
       // HomeWizard app (or a firmware update changed the product_name), pick
-      // up the new value once per system-poll instead of staying stale until
-      // re-pair. Cheap — only writes on actual change.
-      try {
-        const info = await client.getDeviceInfo();
-        if (!conn.removed && !this.unloading && info.product_name && info.product_name !== conn.config.productName) {
-          this.log.info(`${conn.config.productName}: name changed to '${info.product_name}' — updating object`);
-          conn.config.productName = info.product_name;
-          await this.saveDeviceToObject(conn.config);
+      // up the new value instead of staying stale until re-pair. I7: check on
+      // the first poll (so a rename during downtime is picked up right after
+      // restart), then only every 10th — a rename is rare, so an extra
+      // getDeviceInfo HTTP round-trip every 60 s is wasteful; ~10 min is plenty.
+      conn.systemPollCount = (conn.systemPollCount ?? 0) + 1;
+      if (conn.systemPollCount % 10 === 1) {
+        try {
+          const info = await client.getDeviceInfo();
+          if (!conn.removed && !this.unloading && info.product_name && info.product_name !== conn.config.productName) {
+            this.log.info(`${conn.config.productName}: name changed to '${info.product_name}' — updating object`);
+            conn.config.productName = info.product_name;
+            await this.saveDeviceToObject(conn.config);
+          }
+        } catch {
+          // device-info is best-effort here; the system-poll log already
+          // surfaces real connectivity issues.
         }
-      } catch {
-        // device-info is best-effort here; the system-poll log already
-        // surfaces real connectivity issues.
       }
 
       // Also poll battery if device supports it. 404 = no battery — silent.
@@ -1168,8 +1176,10 @@ export class HomeWizard extends utils.Adapter {
         if (conn.removed || this.unloading) {
           return;
         }
-        // Only create battery states if batteries are actually connected
-        if (battery.battery_count && battery.battery_count > 0) {
+        // L5: a device returning 200 + empty body yields `undefined` from request();
+        // guard the deref (the catch below would swallow the TypeError anyway, but
+        // this avoids a misleading debug line). Only create states if batteries exist.
+        if (battery && battery.battery_count && battery.battery_count > 0) {
           await this.stateManager.updateBattery(conn.config, battery);
         }
       } catch (err) {

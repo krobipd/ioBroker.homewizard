@@ -293,4 +293,6 @@ export interface DeviceConnection {
   measurementBusy?: boolean;
   /** L2: true while a REST-fallback poll is in flight — skips the next tick if it overlaps. */
   restPollBusy?: boolean;
+  /** I7: system-poll counter — the productName-rename getDeviceInfo runs only every Nth poll. */
+  systemPollCount?: number;
 }
