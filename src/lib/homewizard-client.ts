@@ -34,6 +34,10 @@ export class HomeWizardClient {
   private readonly agent: https.Agent;
   /** Override target port — only used by tests against a local stub-server. */
   private readonly port: number;
+  /** Response-body hard cap (bytes); overridable so a test can exercise the guard without streaming 16 MB. */
+  private readonly maxResponseBytes: number;
+  /** Per-request socket timeout (ms); overridable so a test can exercise the timeout without waiting 10 s. */
+  private readonly requestTimeoutMs: number;
   /** Optional logger for per-call debug-trace (request entry + response success/fail). */
   private readonly log: HomeWizardClientLogger | null;
   /** CN of the most recent server certificate — captured so the pairing flow can pin the device's TLS identity. */
@@ -46,16 +50,26 @@ export class HomeWizardClient {
    * @param options.agent HTTPS agent to use; defaults to {@link HW_AGENT} (with HomeWizard CA pinning).
    * @param options.port  Target port; defaults to 443.
    * @param options.log   Optional logger for per-call debug-trace (request/success/fail).
+   * @param options.maxResponseBytes Response-body cap in bytes; defaults to 16 MiB (test seam).
+   * @param options.requestTimeoutMs Per-request socket timeout in ms; defaults to 10000 (test seam).
    */
   constructor(
     ip: string,
     token: string = "",
-    options: { agent?: https.Agent; port?: number; log?: HomeWizardClientLogger } = {},
+    options: {
+      agent?: https.Agent;
+      port?: number;
+      log?: HomeWizardClientLogger;
+      maxResponseBytes?: number;
+      requestTimeoutMs?: number;
+    } = {},
   ) {
     this.ip = ip;
     this.token = token;
     this.agent = options.agent ?? HW_AGENT;
     this.port = options.port ?? 443;
+    this.maxResponseBytes = options.maxResponseBytes ?? MAX_RESPONSE_BYTES;
+    this.requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
     this.log = options.log ?? null;
   }
 
@@ -184,7 +198,7 @@ export class HomeWizardClient {
           method,
           headers,
           agent: this.agent,
-          timeout: 10_000,
+          timeout: this.requestTimeoutMs,
         },
         res => {
           // Capture the server cert CN (leaf) so the pairing flow can pin the
@@ -197,17 +211,27 @@ export class HomeWizardClient {
 
           const chunks: Buffer[] = [];
           let size = 0;
+          let aborted = false;
           res.on("error", reject);
           res.on("data", (chunk: Buffer) => {
+            if (aborted) {
+              return;
+            }
             size += chunk.length;
-            if (size > MAX_RESPONSE_BYTES) {
-              // Abort an oversized/streaming body before it OOMs the process.
-              req.destroy(new Error(`Response body too large (>${MAX_RESPONSE_BYTES} bytes): ${method} ${path}`));
+            if (size > this.maxResponseBytes) {
+              // Abort an oversized/streaming body before it OOMs the process. Flag it
+              // so a same-tick `end` (small-but-over-cap body in one chunk) can't fall
+              // through to resolve — the destroy's error event rejects the promise.
+              aborted = true;
+              req.destroy(new Error(`Response body too large (>${this.maxResponseBytes} bytes): ${method} ${path}`));
               return;
             }
             chunks.push(chunk);
           });
           res.on("end", () => {
+            if (aborted) {
+              return;
+            }
             const data = Buffer.concat(chunks).toString();
             const elapsedMs = Date.now() - startMs;
             const statusCode = res.statusCode ?? 0;

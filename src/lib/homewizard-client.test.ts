@@ -68,6 +68,8 @@ interface StubResponse {
   statusCode: number;
   body?: unknown;
   bodyText?: string;
+  /** Accept the request but never respond — exercises the client's socket timeout (L18). */
+  hang?: boolean;
 }
 
 interface StubServer {
@@ -100,6 +102,10 @@ async function startStubServer(): Promise<StubServer> {
       if (!next) {
         res.statusCode = 599;
         res.end("no canned response queued");
+        return;
+      }
+      if (next.hang) {
+        // Never respond — the client's socket timeout must fire.
         return;
       }
       res.statusCode = next.statusCode;
@@ -389,6 +395,28 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
       }
       // Replace the closed server so afterEach() can stop a live one.
       stub = await startStubServer();
+    });
+  });
+
+  describe("response guards (L18)", () => {
+    it("aborts a response body that exceeds the size cap (OOM guard)", async () => {
+      const capped = new HomeWizardClient("127.0.0.1", "test-token", {
+        agent: TEST_AGENT,
+        port: stub.port,
+        maxResponseBytes: 100,
+      });
+      stub.queue.push({ statusCode: 200, bodyText: "x".repeat(500) });
+      await expect(capped.getSystem()).rejects.toThrow(/too large/i);
+    });
+
+    it("times out a request when the device accepts but never responds", async () => {
+      const impatient = new HomeWizardClient("127.0.0.1", "test-token", {
+        agent: TEST_AGENT,
+        port: stub.port,
+        requestTimeoutMs: 120,
+      });
+      stub.queue.push({ statusCode: 200, hang: true });
+      await expect(impatient.getSystem()).rejects.toThrow(/timeout/i);
     });
   });
 });

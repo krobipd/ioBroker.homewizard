@@ -1,7 +1,15 @@
+import { X509Certificate } from "node:crypto";
 import * as https from "node:https";
 import type { PeerCertificate } from "node:tls";
 import { describe, expect, it } from "vitest";
-import { CA_NOT_AFTER, createDeviceAgent, HW_AGENT } from "./cacert";
+import {
+  CA_NOT_AFTER,
+  caDaysUntilExpiry,
+  createDeviceAgent,
+  dropDeviceAgent,
+  HOMEWIZARD_CA_CERT,
+  HW_AGENT,
+} from "./cacert";
 
 /** Build a minimal PeerCertificate stub with the given CN. */
 function certWithCn(cn: string | undefined): PeerCertificate {
@@ -42,6 +50,19 @@ describe("createDeviceAgent — TLS CN pinning (D6-1)", () => {
   });
 });
 
+describe("dropDeviceAgent (I8)", () => {
+  it("evicts the memoized agent so the next createDeviceAgent builds a fresh one", () => {
+    const cn = "appliance/x/drop-me";
+    const first = createDeviceAgent(cn);
+    dropDeviceAgent(cn);
+    expect(createDeviceAgent(cn)).not.toBe(first);
+  });
+
+  it("is a no-op for a CN that was never created", () => {
+    expect(() => dropDeviceAgent("appliance/x/never-created")).not.toThrow();
+  });
+});
+
 describe("HW_AGENT — pairing blanket agent", () => {
   it("skips the hostname check (identity unknown pre-pairing) but keeps CA validation", () => {
     expect(checkOf(HW_AGENT)("any-host", certWithCn("whatever"))).toBeUndefined();
@@ -50,8 +71,27 @@ describe("HW_AGENT — pairing blanket agent", () => {
   });
 });
 
-describe("CA_NOT_AFTER", () => {
-  it("matches the bundled certificate's documented notAfter (2031-12-16)", () => {
-    expect(CA_NOT_AFTER.toISOString().slice(0, 10)).toBe("2031-12-16");
+describe("CA_NOT_AFTER (L20)", () => {
+  it("equals the bundled certificate's actual notAfter (parsed, not a hand-copied literal)", () => {
+    // The old test mirrored the literal against itself. Parse the real cert so a
+    // future CA swap that forgets to update CA_NOT_AFTER (or vice versa) fails here.
+    const cert = new X509Certificate(HOMEWIZARD_CA_CERT);
+    expect(CA_NOT_AFTER.getTime()).toBe(cert.validToDate.getTime());
+  });
+});
+
+describe("caDaysUntilExpiry (L18)", () => {
+  it("returns a large positive number well before expiry", () => {
+    expect(caDaysUntilExpiry(Date.UTC(2026, 0, 1))).toBeGreaterThan(2000); // ~5.9 years left
+  });
+
+  it("drops below the 90-day warn threshold shortly before expiry, still non-negative", () => {
+    const near = CA_NOT_AFTER.getTime() - 80 * 86_400_000;
+    expect(caDaysUntilExpiry(near)).toBeLessThan(90);
+    expect(caDaysUntilExpiry(near)).toBeGreaterThanOrEqual(0);
+  });
+
+  it("goes negative once the CA has expired", () => {
+    expect(caDaysUntilExpiry(CA_NOT_AFTER.getTime() + 86_400_000)).toBeLessThan(0);
   });
 });

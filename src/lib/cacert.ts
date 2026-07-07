@@ -37,6 +37,17 @@ CGdyYj/Gghrusw0hM4rYXQSERWGF0mpEnuJ+7bHDolHu0rzgTQ==
 export const CA_NOT_AFTER = new Date("2031-12-16T19:12:12Z");
 
 /**
+ * Whole days from `now` until the bundled CA expires (negative once expired).
+ * Pure seam so the startup expiry-warn threshold is unit-testable without mocking
+ * Date.now(). (L18)
+ *
+ * @param now Current time in ms (the call site passes Date.now()).
+ */
+export function caDaysUntilExpiry(now: number): number {
+  return Math.floor((CA_NOT_AFTER.getTime() - now) / 86_400_000);
+}
+
+/**
  * Blanket HTTPS agent — validates the cert chain against the HomeWizard CA but
  * does NOT verify the hostname/CN. Used ONLY during initial pairing, where the
  * device's identity (cert CN = `appliance/<product_type>/<serial>`) is not yet

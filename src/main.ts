@@ -12,7 +12,7 @@ import {
 } from "./lib/coerce";
 import { classifyError, createDeviceConnection, UNSTABLE_DISCONNECT_THRESHOLD } from "./lib/connection-utils";
 import { HomeWizardDiscovery } from "./lib/discovery";
-import { CA_NOT_AFTER, createDeviceAgent, dropDeviceAgent } from "./lib/cacert";
+import { CA_NOT_AFTER, caDaysUntilExpiry, createDeviceAgent, dropDeviceAgent } from "./lib/cacert";
 import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
 import {
   computeReconnectDelay,
@@ -162,7 +162,7 @@ export class HomeWizard extends utils.Adapter {
 
       // Warn if the bundled HomeWizard CA is close to expiry — after notAfter,
       // rejectUnauthorized:true rejects every device cert and all connections fail.
-      const caDaysLeft = Math.floor((CA_NOT_AFTER.getTime() - Date.now()) / 86_400_000);
+      const caDaysLeft = caDaysUntilExpiry(Date.now());
       if (caDaysLeft < 90) {
         this.log.warn(
           `Bundled HomeWizard CA certificate expires in ${caDaysLeft} days ` +
