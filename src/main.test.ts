@@ -384,6 +384,25 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
     expect(stateMgr.updateSystem).toHaveBeenCalled();
   });
 
+  it("onWsSystem drops a push while a previous system write is in flight (L8 backpressure)", () => {
+    const { hw, conn, stateMgr } = setup();
+    conn.systemBusy = true;
+    (hw as unknown as { onWsSystem: (c: DeviceConnection, d: unknown) => void }).onWsSystem(conn, {
+      cloud_enabled: true,
+    });
+    expect(stateMgr.updateSystem).not.toHaveBeenCalled();
+  });
+
+  it("onWsBattery drops a push while a previous battery write is in flight (L8 backpressure)", () => {
+    const { hw, conn, stateMgr } = setup();
+    conn.batteryBusy = true;
+    (hw as unknown as { onWsBattery: (c: DeviceConnection, d: unknown) => void }).onWsBattery(conn, {
+      mode: "zero",
+      battery_count: 2,
+    });
+    expect(stateMgr.updateBattery).not.toHaveBeenCalled();
+  });
+
   it("onWsDisconnected clamps the reconnect delay tighter for an unstable device", () => {
     // Unstable device (recentDisconnects already past threshold) → 60s cap.
     const u = setup();

@@ -929,10 +929,20 @@ export class HomeWizard extends utils.Adapter {
     if (conn.removed || this.unloading) {
       return;
     }
+    // L8: backpressure like the measurement path — drop a system push while the
+    // previous write is still in flight (system frames normally push only on a
+    // control-state change, but a misbehaving device could still flood them).
+    if (conn.systemBusy) {
+      return;
+    }
+    conn.systemBusy = true;
     this.stateManager
       .updateSystem(conn.config, data, () => conn.removed || this.unloading)
       .catch((err: unknown) => {
         this.log.debug(`updateSystem (ws) failed for ${conn.config.productName}: ${errText(err)}`);
+      })
+      .finally(() => {
+        conn.systemBusy = false;
       });
   }
 
@@ -950,9 +960,19 @@ export class HomeWizard extends utils.Adapter {
     if (!data.battery_count || data.battery_count <= 0) {
       return;
     }
-    this.stateManager.updateBattery(conn.config, data).catch((err: unknown) => {
-      this.log.debug(`updateBattery (ws) failed for ${conn.config.productName}: ${errText(err)}`);
-    });
+    // L8: backpressure like the measurement/system paths.
+    if (conn.batteryBusy) {
+      return;
+    }
+    conn.batteryBusy = true;
+    this.stateManager
+      .updateBattery(conn.config, data)
+      .catch((err: unknown) => {
+        this.log.debug(`updateBattery (ws) failed for ${conn.config.productName}: ${errText(err)}`);
+      })
+      .finally(() => {
+        conn.batteryBusy = false;
+      });
   }
 
   /**

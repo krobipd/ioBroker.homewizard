@@ -401,6 +401,22 @@ describe("HomeWizardWebSocket", () => {
       ws.close();
     });
 
+    it("dedups consecutive identical error frames but logs a changed detail (L8)", () => {
+      const { callbacks, tracker } = createCallbackTracker();
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
+
+      // Post-auth (default) so there's no forceDisconnect — pure logging path.
+      callHandleMessage(ws, { type: "error", data: { message: "subscription rejected" } });
+      callHandleMessage(ws, { type: "error", data: { message: "subscription rejected" } });
+      const same = tracker.logs.filter(l => l.level === "warn" && l.msg.includes("subscription rejected"));
+      expect(same).toHaveLength(1); // second identical frame is deduped
+
+      callHandleMessage(ws, { type: "error", data: { message: "different error" } });
+      const changed = tracker.logs.filter(l => l.level === "warn" && l.msg.includes("different error"));
+      expect(changed).toHaveLength(1); // a changed detail logs again
+      ws.close();
+    });
+
     it("ignores data frames received before the handshake completes (S3-5)", () => {
       const { callbacks, tracker } = createCallbackTracker();
       const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());

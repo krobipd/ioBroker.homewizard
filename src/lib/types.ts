@@ -291,6 +291,10 @@ export interface DeviceConnection {
   removed: boolean;
   /** True while a measurement write is in flight — drops flooded pushes (latest-wins backpressure). */
   measurementBusy?: boolean;
+  /** L8: true while a system write is in flight — drops flooded system pushes (like measurementBusy). */
+  systemBusy?: boolean;
+  /** L8: true while a battery write is in flight — drops flooded battery pushes (like measurementBusy). */
+  batteryBusy?: boolean;
   /** L2: true while a REST-fallback poll is in flight — skips the next tick if it overlaps. */
   restPollBusy?: boolean;
   /** I7: system-poll counter — the productName-rename getDeviceInfo runs only every Nth poll. */

@@ -70,6 +70,8 @@ export class HomeWizardWebSocket {
   private authorized = false;
   /** Set when the device rejected the handshake (bad token) — passed to onDisconnected. */
   private authError: Error | null = null;
+  /** L8: last error-frame detail logged — dedups consecutive identical error frames. */
+  private lastErrorDetail: string | null = null;
 
   /**
    * @param ip Device IP address
@@ -264,11 +266,16 @@ export class HomeWizardWebSocket {
         break;
 
       case "error": {
-        const detail =
-          isPlainObject(parsed.data) && typeof parsed.data.message === "string"
-            ? parsed.data.message
-            : text.substring(0, 200);
-        this.callbacks.log.warn(`WS error: ${sanitizeForLog(detail)}`);
+        const detail = sanitizeForLog(
+          isPlainObject(parsed.data) && typeof parsed.data.message === "string" ? parsed.data.message : text,
+        );
+        // L8: dedup consecutive identical error frames so a device that repeats the
+        // same post-auth error can't flood the log. Pre-auth errors additionally
+        // force a disconnect below, so they can't repeat within one session.
+        if (detail !== this.lastErrorDetail) {
+          this.callbacks.log.warn(`WS error: ${detail}`);
+          this.lastErrorDetail = detail;
+        }
         // An error frame during the auth handshake (before "authorized") means the
         // device rejected us — almost always a bad/revoked token. Surface it as a
         // typed auth error so the reconnect loop applies the auth-stop instead of
