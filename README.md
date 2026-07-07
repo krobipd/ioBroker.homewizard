@@ -141,7 +141,7 @@ homewizard.0.
     │   └── max_production_w     — Max production (number, W)
     ├── remove                   — Remove device (button)
     └── system/                  — System settings
-        ├── cloud_enabled        — Cloud communication (bool, R/W)
+        ├── cloud_enabled        — Cloud communication (bool; R/W on meters, read-only on the Plug-In Battery)
         ├── status_led_brightness_pct — LED brightness 0-100 (number, R/W)
         ├── api_v1_enabled       — Toggle the device's deprecated v1 API (bool, R/W — leave off)
         ├── reboot               — Reboot device (button)
