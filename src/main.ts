@@ -1070,6 +1070,13 @@ export class HomeWizard extends utils.Adapter {
       if (conn.removed || this.unloading) {
         return;
       }
+      // L2: skip this tick if the previous poll is still in flight — the 10 s HTTP
+      // timeout equals the poll interval, so a slow request could otherwise overlap
+      // the next tick (two concurrent getMeasurement/updateMeasurement writes).
+      if (conn.restPollBusy) {
+        return;
+      }
+      conn.restPollBusy = true;
       try {
         const data = await client.getMeasurement();
         if (conn.removed || this.unloading) {
@@ -1094,6 +1101,8 @@ export class HomeWizard extends utils.Adapter {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = undefined;
         }
+      } finally {
+        conn.restPollBusy = false;
       }
     }, interval);
   }

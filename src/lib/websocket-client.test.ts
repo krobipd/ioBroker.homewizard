@@ -69,9 +69,9 @@ const TEST_AGENT = new https.Agent({ rejectUnauthorized: false });
 function createNativeTimerDeps(): TimerDeps {
   return {
     schedule: (cb, ms) => setTimeout(cb, ms),
-    cancel: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+    cancel: h => clearTimeout(h as ReturnType<typeof setTimeout>),
     scheduleRepeating: (cb, ms) => setInterval(cb, ms),
-    cancelRepeating: (h) => clearInterval(h as ReturnType<typeof setInterval>),
+    cancelRepeating: h => clearInterval(h as ReturnType<typeof setInterval>),
   };
 }
 
@@ -173,11 +173,7 @@ describe("HomeWizardWebSocket", () => {
   });
 
   describe("handleMessage (via internal access)", () => {
-    function callHandleMessage(
-      ws: HomeWizardWebSocket,
-      msg: unknown,
-      opts: { authorized?: boolean } = {},
-    ): void {
+    function callHandleMessage(ws: HomeWizardWebSocket, msg: unknown, opts: { authorized?: boolean } = {}): void {
       // Data frames (measurement/system/batteries) are only processed after the
       // handshake completes; preset the flag so these unit tests exercise the
       // post-auth path (pass { authorized: false } to test pre-auth dropping).
@@ -204,7 +200,19 @@ describe("HomeWizardWebSocket", () => {
       const { callbacks, tracker } = createCallbackTracker();
       const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
 
-      callHandleMessage(ws, { type: "authorized" });
+      // Exercise the real first-authorized path (pre-handshake state).
+      callHandleMessage(ws, { type: "authorized" }, { authorized: false });
+
+      expect(tracker.connected).toBe(1);
+      ws.close();
+    });
+
+    it("L3: a duplicate authorized frame does not fire onConnected twice", () => {
+      const { callbacks, tracker } = createCallbackTracker();
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
+
+      callHandleMessage(ws, { type: "authorized" }, { authorized: false }); // first → connects
+      callHandleMessage(ws, { type: "authorized" }); // duplicate (authorized already true) → ignored
 
       expect(tracker.connected).toBe(1);
       ws.close();
@@ -692,7 +700,9 @@ describe("HomeWizardWebSocket against a real wss stub-server (T4)", () => {
     stub.send({ type: "system", data: { cloud_enabled: true } });
     stub.send({ type: "batteries", data: { mode: "zero" } });
 
-    await waitUntil(() => tracker.measurements.length > 0 && tracker.systems.length > 0 && tracker.batteries.length > 0);
+    await waitUntil(
+      () => tracker.measurements.length > 0 && tracker.systems.length > 0 && tracker.batteries.length > 0,
+    );
     expect((tracker.measurements[0] as { power_w: number }).power_w).toBe(42);
     expect((tracker.systems[0] as { cloud_enabled: boolean }).cloud_enabled).toBe(true);
     expect((tracker.batteries[0] as { mode: string }).mode).toBe("zero");

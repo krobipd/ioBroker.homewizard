@@ -202,6 +202,11 @@ export class HomeWizardWebSocket {
         break;
 
       case "authorized":
+        // L3: ignore a duplicate "authorized" frame — a second one would start a
+        // second heartbeat interval (leaking the first) and fire onConnected twice.
+        if (this.authorized) {
+          break;
+        }
         this.authorized = true;
         // Subscribe to the three real-time topics this adapter consumes (explicit, not "*",
         // to avoid device/user-topic noise). system/batteries push control-state changes;
@@ -295,6 +300,10 @@ export class HomeWizardWebSocket {
    * device has stopped responding (the documented "API-Lockup" mode).
    */
   private startHeartbeat(): void {
+    // L3: defensive — never leak a previous interval if this is ever re-entered.
+    if (this.pingInterval != null) {
+      this.timers.cancelRepeating(this.pingInterval);
+    }
     this.pingInterval = this.timers.scheduleRepeating(() => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         return;

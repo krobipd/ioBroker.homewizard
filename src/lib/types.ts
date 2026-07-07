@@ -299,4 +299,6 @@ export interface DeviceConnection {
   removed: boolean;
   /** True while a measurement write is in flight — drops flooded pushes (latest-wins backpressure). */
   measurementBusy?: boolean;
+  /** L2: true while a REST-fallback poll is in flight — skips the next tick if it overlaps. */
+  restPollBusy?: boolean;
 }
