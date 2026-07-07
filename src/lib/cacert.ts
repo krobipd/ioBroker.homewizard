@@ -81,3 +81,19 @@ export function createDeviceAgent(expectedCn: string): https.Agent {
   }
   return agent;
 }
+
+/**
+ * Evict the memoized per-device agent for a CN and close its pooled sockets.
+ * Called from removeDevice so a removed/re-paired device leaves no agent behind.
+ * The map is already bounded (one entry per paired device), but this keeps it
+ * symmetric with device lifecycle instead of growing until adapter restart.
+ *
+ * @param expectedCn The device's certificate CN to evict.
+ */
+export function dropDeviceAgent(expectedCn: string): void {
+  const agent = deviceAgents.get(expectedCn);
+  if (agent) {
+    agent.destroy();
+    deviceAgents.delete(expectedCn);
+  }
+}

@@ -11,7 +11,7 @@ import {
 } from "./lib/coerce";
 import { classifyError, createDeviceConnection, UNSTABLE_DISCONNECT_THRESHOLD } from "./lib/connection-utils";
 import { HomeWizardDiscovery } from "./lib/discovery";
-import { CA_NOT_AFTER, createDeviceAgent } from "./lib/cacert";
+import { CA_NOT_AFTER, createDeviceAgent, dropDeviceAgent } from "./lib/cacert";
 import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
 import {
   computeReconnectDelay,
@@ -231,14 +231,24 @@ export class HomeWizard extends utils.Adapter {
     const oldDevices: DeviceConfig[] = Array.isArray(rawOldDevices) ? (rawOldDevices as DeviceConfig[]) : [];
     if (oldDevices.length > 0) {
       this.log.debug(`Migrating ${oldDevices.length} device(s) from adapter config to device objects`);
+      const migrated: DeviceConfig[] = [];
       for (const device of oldDevices) {
-        await this.saveDeviceToObject(device);
+        try {
+          await this.saveDeviceToObject(device);
+          migrated.push(device);
+        } catch (err) {
+          // I13: isolate a single malformed legacy entry (a missing serial /
+          // productType / token makes devicePrefix.sanitize or encrypt throw) so
+          // it can't abort the whole migration — mirrors the per-entry isolation
+          // of the modern object-load path below.
+          this.log.warn(`Skipping a corrupt legacy device entry during migration: ${errText(err)}`);
+        }
       }
       // Clear old config (this triggers one restart, but only during migration)
       await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
         native: { devices: [] },
       });
-      return oldDevices;
+      return migrated;
     }
 
     // Read device objects from our namespace. A corrupted encryptedToken
@@ -1239,6 +1249,11 @@ export class HomeWizard extends utils.Adapter {
     // Disconnect
     this.teardownConnection(conn);
     this.connections.delete(key);
+    // I8: evict the pinned per-device TLS agent (and close its pooled sockets)
+    // so it doesn't linger in the module-level map after the device is gone.
+    if (conn.config.certCn) {
+      dropDeviceAgent(conn.config.certCn);
+    }
     // Drop the per-device cooldown stamps — otherwise a re-pair of the same
     // serial within the cooldown window inherits the old device's stamp and
     // its first warn/info is silently suppressed (and the maps grow forever
@@ -1298,15 +1313,8 @@ export class HomeWizard extends utils.Adapter {
     }
     this.log.warn(`${conn.config.productName}: token invalid — re-pair device to fix`);
     if (cleanupTimers) {
-      if (conn.pollTimer) {
-        this.clearInterval(conn.pollTimer);
-        conn.pollTimer = undefined;
-      }
-      if (conn.reconnectTimer) {
-        this.clearTimeout(conn.reconnectTimer);
-        conn.reconnectTimer = undefined;
-      }
-      conn.wsClient?.close();
+      // L13: same close-WS + clear-poll/reconnect-timer sequence as teardownConnection.
+      this.teardownConnection(conn);
     }
     return false;
   }
