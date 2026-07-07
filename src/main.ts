@@ -7,6 +7,7 @@ import {
   isAssignableDeviceIpv4,
   isValidIpv4,
   parseBatteryPermissions,
+  sanitizeForLog,
   validateBatteryMode,
 } from "./lib/coerce";
 import { classifyError, createDeviceConnection, UNSTABLE_DISCONNECT_THRESHOLD } from "./lib/connection-utils";
@@ -279,7 +280,9 @@ export class HomeWizard extends utils.Adapter {
         token,
         productType: native.productType || "unknown",
         serial: native.serial,
-        productName: native.productName || native.productType || "unknown",
+        // L9: clean a possibly-dirty stored name on load too (pre-fix install or
+        // a manual DB edit) — keeps the object name and every log line newline-free.
+        productName: sanitizeForLog(native.productName || native.productType || "unknown"),
         ...(native.ip && isValidIpv4(native.ip) ? { ip: native.ip } : {}),
         ...(native.certCn ? { certCn: native.certCn } : {}),
       });
@@ -583,11 +586,28 @@ export class HomeWizard extends utils.Adapter {
         const info = await authedClient.getDeviceInfo();
         const certCn = authedClient.getServerCertCn();
 
+        // I10: cross-check the pinned CN (`appliance/<type>/<serial>`) against the
+        // serial the device reports over the authenticated channel. A mismatch means
+        // the identity we are about to pin and the device's self-report disagree —
+        // warn (not block: CN formats vary across firmware and a hard reject could
+        // break a legitimate pairing), then pin the CN as captured.
+        if (certCn && !certCn.includes(info.serial)) {
+          this.log.warn(
+            `${sanitizeForLog(info.product_name)}: paired certificate CN "${sanitizeForLog(certCn)}" does not ` +
+              `contain the reported serial "${sanitizeForLog(info.serial)}" — verify this is the intended device.`,
+          );
+        }
+
         const deviceConfig: DeviceConfig = {
           token: result.token,
           productType: info.product_type,
           serial: info.serial,
-          productName: info.product_name,
+          // L9: productName is device-supplied and becomes the object's common.name
+          // AND prefixes almost every device log line — strip CR/LF so a hostile
+          // device can't inject newlines into the object tree or forge log lines.
+          // (serial/productType stay raw: they feed the sanitized object ID and the
+          // HWE-BAT comparison, never a raw log except the one wrapped call site.)
+          productName: sanitizeForLog(info.product_name),
           ip: device.ip,
           ...(certCn ? { certCn } : {}),
         };
@@ -1165,9 +1185,10 @@ export class HomeWizard extends utils.Adapter {
       if (conn.systemPollCount % 10 === 1) {
         try {
           const info = await client.getDeviceInfo();
-          if (!conn.removed && !this.unloading && info.product_name && info.product_name !== conn.config.productName) {
-            this.log.info(`${conn.config.productName}: name changed to '${info.product_name}' — updating object`);
-            conn.config.productName = info.product_name;
+          const newName = sanitizeForLog(info.product_name);
+          if (!conn.removed && !this.unloading && info.product_name && newName !== conn.config.productName) {
+            this.log.info(`${conn.config.productName}: name changed to '${newName}' — updating object`);
+            conn.config.productName = newName;
             await this.saveDeviceToObject(conn.config);
           }
         } catch {
@@ -1230,7 +1251,7 @@ export class HomeWizard extends utils.Adapter {
     }
 
     const key = this.stateManager.devicePrefix(conn.config);
-    this.log.info(`Removing device ${conn.config.productName} (${conn.config.serial})`);
+    this.log.info(`Removing device ${conn.config.productName} (${sanitizeForLog(conn.config.serial)})`);
 
     // Mark as removed FIRST — async tasks (in-flight WS frames, REST polls,
     // outstanding pollSystemInfo) check this flag after each await and bail

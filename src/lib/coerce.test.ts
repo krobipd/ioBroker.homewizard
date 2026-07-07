@@ -8,6 +8,7 @@ import {
   isPlainObject,
   isValidIpv4,
   parseBatteryPermissions,
+  sanitizeForLog,
   validateBatteryMode,
 } from "./coerce";
 
@@ -133,6 +134,32 @@ describe("errText", () => {
       }
     }
     expect(errText(new MyErr())).toBe("custom");
+  });
+});
+
+describe("sanitizeForLog", () => {
+  it("collapses CR/LF/tab to spaces so a device string cannot forge log lines", () => {
+    expect(sanitizeForLog("P1\nMeter")).toBe("P1 Meter");
+    expect(sanitizeForLog("a\r\n[error] fake")).toBe("a [error] fake");
+    expect(sanitizeForLog("x\ty")).toBe("x y");
+  });
+
+  it("leaves a clean name (spaces, unicode) untouched", () => {
+    expect(sanitizeForLog("P1 Meter")).toBe("P1 Meter");
+    expect(sanitizeForLog("Zähler #2")).toBe("Zähler #2");
+  });
+
+  it("truncates past the cap with an ellipsis", () => {
+    const long = "a".repeat(250);
+    const out = sanitizeForLog(long);
+    expect(out.length).toBe(201); // 200 chars + ellipsis
+    expect(out.endsWith("…")).toBe(true);
+    expect(sanitizeForLog("short", 3)).toBe("sho…");
+  });
+
+  it("String()-coerces non-string input", () => {
+    expect(sanitizeForLog(42)).toBe("42");
+    expect(sanitizeForLog(undefined)).toBe("undefined");
   });
 });
 

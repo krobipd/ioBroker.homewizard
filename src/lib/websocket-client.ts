@@ -1,7 +1,7 @@
 import type * as https from "node:https";
 import WebSocket from "ws";
 import { HW_AGENT } from "./cacert";
-import { isPlainObject } from "./coerce";
+import { isPlainObject, sanitizeForLog } from "./coerce";
 import { HomeWizardApiError } from "./homewizard-client";
 import type { BatteryControl, Measurement, SystemInfo } from "./types";
 
@@ -147,7 +147,7 @@ export class HomeWizardWebSocket {
     });
 
     this.ws.on("close", (code: number, reason: Buffer) => {
-      this.callbacks.log.debug(`WS closed: ${code} ${reason.toString()}`);
+      this.callbacks.log.debug(`WS closed: ${code} ${sanitizeForLog(reason.toString())}`);
       this.clearTimers();
       this.ws = null;
       if (!this.destroyed) {
@@ -186,12 +186,12 @@ export class HomeWizardWebSocket {
     try {
       parsed = JSON.parse(text);
     } catch {
-      this.callbacks.log.warn(`WS invalid JSON: ${text.substring(0, 200)}`);
+      this.callbacks.log.warn(`WS invalid JSON: ${sanitizeForLog(text)}`);
       return;
     }
 
     if (!isPlainObject(parsed)) {
-      this.callbacks.log.warn(`WS non-object message: ${text.substring(0, 200)}`);
+      this.callbacks.log.warn(`WS non-object message: ${sanitizeForLog(text)}`);
       return;
     }
 
@@ -268,7 +268,7 @@ export class HomeWizardWebSocket {
           isPlainObject(parsed.data) && typeof parsed.data.message === "string"
             ? parsed.data.message
             : text.substring(0, 200);
-        this.callbacks.log.warn(`WS error: ${detail}`);
+        this.callbacks.log.warn(`WS error: ${sanitizeForLog(detail)}`);
         // An error frame during the auth handshake (before "authorized") means the
         // device rejected us — almost always a bad/revoked token. Surface it as a
         // typed auth error so the reconnect loop applies the auth-stop instead of
@@ -281,7 +281,7 @@ export class HomeWizardWebSocket {
       }
 
       default:
-        this.callbacks.log.debug(`WS message type: ${type}`);
+        this.callbacks.log.debug(`WS message type: ${sanitizeForLog(type)}`);
         break;
     }
   }

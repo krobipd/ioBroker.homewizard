@@ -207,3 +207,18 @@ export function errText(err: unknown): string {
     return Object.prototype.toString.call(err);
   }
 }
+
+/**
+ * Sanitize a device-supplied string before logging it. Device/mDNS fields
+ * (product_name, serial, meter type, discovery name) are attacker-influencable
+ * on a hostile LAN; a value with embedded newlines could forge extra log lines.
+ * Collapse CR/LF/tab to spaces and cap the length. Fleet helper (beszel SEC-8).
+ *
+ * @param value     Raw value (string or anything String()-able).
+ * @param maxLength Max characters kept before truncating with an ellipsis (default 200).
+ */
+export function sanitizeForLog(value: unknown, maxLength = 200): string {
+  const s = typeof value === "string" ? value : String(value);
+  const oneLine = s.replace(/[\r\n\t]+/g, " ");
+  return oneLine.length > maxLength ? `${oneLine.slice(0, maxLength)}…` : oneLine;
+}

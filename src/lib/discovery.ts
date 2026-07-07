@@ -1,5 +1,5 @@
 import Bonjour from "bonjour-service";
-import { isAssignableDeviceIpv4 } from "./coerce";
+import { isAssignableDeviceIpv4, sanitizeForLog } from "./coerce";
 import type { DiscoveredDevice } from "./types";
 
 type BonjourService = ReturnType<InstanceType<typeof Bonjour>["publish"]>;
@@ -63,7 +63,9 @@ export class HomeWizardDiscovery {
     this.browser = this.bonjour.find({ type: "homewizard", protocol: "tcp" }, (service: BonjourService) => {
       const device = this.parseService(service);
       if (device) {
-        this.log.debug(`mDNS: found ${device.name} (${device.productType}) at ${device.ip}`);
+        this.log.debug(
+          `mDNS: found ${sanitizeForLog(device.name)} (${sanitizeForLog(device.productType)}) at ${device.ip}`,
+        );
         callback(device);
       }
     });
@@ -94,7 +96,7 @@ export class HomeWizardDiscovery {
     // a metadata IP, or any off-LAN host.
     const ip = service.addresses?.find((addr: string) => isAssignableDeviceIpv4(addr));
     if (!ip) {
-      this.log.debug(`mDNS: no IPv4 address for ${service.name}`);
+      this.log.debug(`mDNS: no IPv4 address for ${sanitizeForLog(service.name)}`);
       return null;
     }
 
@@ -107,7 +109,7 @@ export class HomeWizardDiscovery {
     const apiVersion = coerceTxtValue(txt.api_version);
 
     if (apiVersion) {
-      this.log.debug(`mDNS: TXT api_version=${apiVersion} serial=${serial}`);
+      this.log.debug(`mDNS: TXT api_version=${sanitizeForLog(apiVersion)} serial=${sanitizeForLog(serial)}`);
     }
 
     return { ip, productType, serial, name };
