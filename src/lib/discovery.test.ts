@@ -1,3 +1,18 @@
+import { vi } from "vitest";
+
+// I5: mock bonjour-service so the start/stop lifecycle tests exercise
+// HomeWizardDiscovery's own logic (stop-before-start, null handling) without
+// binding real mDNS multicast sockets (slow, flaky, leaks handles in CI).
+vi.mock("bonjour-service", () => {
+  class FakeBonjour {
+    find(_opts: unknown, _cb: unknown): { stop: () => void } {
+      return { stop: (): void => {} };
+    }
+    destroy(): void {}
+  }
+  return { default: FakeBonjour, Bonjour: FakeBonjour };
+});
+
 import { coerceTxtValue, HomeWizardDiscovery } from "./discovery";
 import type { DiscoveredDevice } from "./types";
 

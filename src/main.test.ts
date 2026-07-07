@@ -236,10 +236,13 @@ describe("HomeWizard onStateChange routing", () => {
     expect(client.setBatteries).not.toHaveBeenCalled();
   });
 
-  it("system.reboot: calls reboot", async () => {
+  it("system.reboot: calls reboot and resets the button to false/ack (v0.12.2, L19)", async () => {
     const { hw, client } = setup();
+    const i = internalOf(hw);
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.reboot", active(true));
     expect(client.reboot).toHaveBeenCalled();
+    // Button must not stay stuck `true, ack=false` — it resets so it stays clickable.
+    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", { val: false, ack: true });
   });
 
   it("system.cloud_enabled: forwards the boolean to setSystem", async () => {
@@ -261,10 +264,21 @@ describe("HomeWizard onStateChange routing", () => {
     expect(client.setSystem).not.toHaveBeenCalled();
   });
 
-  it("system.api_v1_enabled: forwards the toggle (and warns when enabling) (S5-1b)", async () => {
+  it("system.api_v1_enabled: forwards the toggle and warns when enabling (S5-1b, L19)", async () => {
     const { hw, client } = setup();
+    const i = internalOf(hw);
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.api_v1_enabled", active(true));
     expect(client.setSystem).toHaveBeenCalledWith({ api_v1_enabled: true });
+    // Enabling the insecure legacy API must surface a security warning.
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("legacy v1 API"));
+  });
+
+  it("system.api_v1_enabled: does NOT warn when disabling", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.api_v1_enabled", active(false));
+    expect(client.setSystem).toHaveBeenCalledWith({ api_v1_enabled: false });
+    expect(i.log.warn).not.toHaveBeenCalled();
   });
 
   it("ignores acked states", async () => {

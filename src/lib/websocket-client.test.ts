@@ -578,6 +578,64 @@ describe("HomeWizardWebSocket", () => {
       ws.close();
       expect(internal.pingInterval).toBeNull();
     });
+
+    it("pings + arms a pong-timer each tick, and terminates when the pong-timer fires (L17)", () => {
+      const { callbacks } = createCallbackTracker();
+      let pingTick: (() => void) | undefined;
+      let pongTimeoutCb: (() => void) | undefined;
+      const captureTimers = {
+        schedule: (cb: () => void, ms: number) => {
+          if (ms === PONG_TIMEOUT_MS) {
+            pongTimeoutCb = cb;
+          }
+          return Symbol("pong");
+        },
+        cancel: () => {},
+        scheduleRepeating: (cb: () => void) => {
+          pingTick = cb;
+          return Symbol("ping");
+        },
+        cancelRepeating: () => {},
+      };
+      const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks, captureTimers);
+      const internal = ws as unknown as { startHeartbeat: () => void; ws: unknown; pongTimer: unknown };
+      internal.startHeartbeat();
+      // Fake OPEN socket (readyState 1) so the tick pings instead of bailing.
+      const fakeWs = { ping: vi.fn(), terminate: vi.fn(), removeAllListeners: vi.fn(), on: vi.fn(), readyState: 1 };
+      internal.ws = fakeWs;
+
+      expect(pingTick).toBeDefined();
+      pingTick!(); // heartbeat tick
+      expect(fakeWs.ping).toHaveBeenCalledTimes(1); // sent a ping
+      expect(internal.pongTimer).not.toBeNull(); // pong-timer armed
+      expect(pongTimeoutCb).toBeDefined();
+
+      pongTimeoutCb!(); // pong never arrived → half-dead link
+      expect(fakeWs.terminate).toHaveBeenCalled(); // terminate → reconnect
+      ws.close();
+    });
+
+    it("clears the pong-timer when a pong arrives in time (L17)", () => {
+      const { callbacks } = createCallbackTracker();
+      let pongCancelled = false;
+      const captureTimers = {
+        schedule: () => Symbol("t"),
+        cancel: () => {
+          pongCancelled = true;
+        },
+        scheduleRepeating: () => Symbol("i"),
+        cancelRepeating: () => {},
+      };
+      const ws = new HomeWizardWebSocket("192.168.1.1", "tok", callbacks, captureTimers);
+      ws.connect(); // wires ws.on("pong", …) on the internal socket
+      const internal = ws as unknown as { ws: { emit: (e: string) => void }; pongTimer: unknown };
+      internal.pongTimer = Symbol("armed"); // simulate a pending pong-timer
+      internal.ws.emit("pong"); // device answered the ping
+
+      expect(pongCancelled).toBe(true);
+      expect(internal.pongTimer).toBeNull();
+      ws.close();
+    });
   });
 });
 
