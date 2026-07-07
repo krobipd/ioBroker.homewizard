@@ -633,6 +633,16 @@ export class StateManager {
     // is in the cache, ensureAndSet only does one setStateAsync per field — those
     // are independent and run in parallel via Promise.all instead of sequentially.
     const record = data;
+    // M2: the power-quality states live under measurement.quality — ensure the
+    // parent channel exists before them (like the external-meter path below),
+    // otherwise they are orphaned (E3009 "missing intermediate object" on a P1
+    // object dump, and an unnamed folder in Admin).
+    const hasQuality = MEASUREMENT_STATE_DEFS.some(
+      d => d.id.startsWith("quality.") && coerceFiniteNumber(record[d.key]) !== null,
+    );
+    if (hasQuality) {
+      await this.ensureChannel(`${mPrefix}.quality`, tName("powerQuality"));
+    }
     const writes: Promise<void>[] = [];
     for (const def of MEASUREMENT_STATE_DEFS) {
       const raw = record[def.key];
@@ -792,7 +802,9 @@ export class StateManager {
         id: `${prefix}.system.cloud_enabled`,
         name: tName("cloudEnabled"),
         type: "boolean",
-        role: "switch",
+        // M3: switch requires write:true (repochecker E1011). On HWE-BAT the field
+        // is read-only (always true) → indicator, not switch.
+        role: isBattery ? "indicator" : "switch",
         value: cloudEnabled,
         write: !isBattery,
         changedOnly: true,

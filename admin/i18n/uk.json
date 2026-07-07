@@ -122,5 +122,6 @@
   "modeStandby": "Standby",
   "wifiSsid": "Мережа Wi-Fi (SSID)",
   "modePredictive": "Прогнозований (на основі прогнозу)",
-  "batteryChargeToFull": "Зарядити повністю"
+  "batteryChargeToFull": "Зарядити повністю",
+  "powerQuality": "Якість мережі"
 }

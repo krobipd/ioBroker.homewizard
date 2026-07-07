@@ -122,5 +122,6 @@
   "modeStandby": "Standby",
   "wifiSsid": "Sieć Wi-Fi (SSID)",
   "modePredictive": "Predykcyjny (na podstawie prognozy)",
-  "batteryChargeToFull": "Naładuj do pełna"
+  "batteryChargeToFull": "Naładuj do pełna",
+  "powerQuality": "Jakość sieci"
 }
