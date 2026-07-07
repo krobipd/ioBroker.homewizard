@@ -58,6 +58,8 @@ class HomeWizardWebSocket {
   authorized = false;
   /** Set when the device rejected the handshake (bad token) — passed to onDisconnected. */
   authError = null;
+  /** L8: last error-frame detail logged — dedups consecutive identical error frames. */
+  lastErrorDetail = null;
   /**
    * @param ip Device IP address
    * @param token Bearer token
@@ -102,7 +104,11 @@ class HomeWizardWebSocket {
       this.callbacks.log.debug(`WS open to ${this.ip}`);
     });
     this.ws.on("message", (raw) => {
-      this.handleMessage(raw);
+      try {
+        this.handleMessage(raw);
+      } catch (err) {
+        this.callbacks.log.warn(`WS message handler error: ${err instanceof Error ? err.message : String(err)}`);
+      }
     });
     this.ws.on("pong", () => {
       if (this.pongTimer != null) {
@@ -112,7 +118,7 @@ class HomeWizardWebSocket {
     });
     this.ws.on("close", (code, reason) => {
       var _a;
-      this.callbacks.log.debug(`WS closed: ${code} ${reason.toString()}`);
+      this.callbacks.log.debug(`WS closed: ${code} ${(0, import_coerce.sanitizeForLog)(reason.toString())}`);
       this.clearTimers();
       this.ws = null;
       if (!this.destroyed) {
@@ -140,11 +146,11 @@ class HomeWizardWebSocket {
     try {
       parsed = JSON.parse(text);
     } catch {
-      this.callbacks.log.warn(`WS invalid JSON: ${text.substring(0, 200)}`);
+      this.callbacks.log.warn(`WS invalid JSON: ${(0, import_coerce.sanitizeForLog)(text)}`);
       return;
     }
     if (!(0, import_coerce.isPlainObject)(parsed)) {
-      this.callbacks.log.warn(`WS non-object message: ${text.substring(0, 200)}`);
+      this.callbacks.log.warn(`WS non-object message: ${(0, import_coerce.sanitizeForLog)(text)}`);
       return;
     }
     const type = parsed.type;
@@ -158,6 +164,9 @@ class HomeWizardWebSocket {
         this.sendRaw({ type: "authorization", data: this.token });
         break;
       case "authorized":
+        if (this.authorized) {
+          break;
+        }
         this.authorized = true;
         this.callbacks.log.debug("WS authorized, subscribing to measurement + system + batteries");
         this.sendRaw({ type: "subscribe", data: "measurement" });
@@ -197,8 +206,13 @@ class HomeWizardWebSocket {
         }
         break;
       case "error": {
-        const detail = (0, import_coerce.isPlainObject)(parsed.data) && typeof parsed.data.message === "string" ? parsed.data.message : text.substring(0, 200);
-        this.callbacks.log.warn(`WS error: ${detail}`);
+        const detail = (0, import_coerce.sanitizeForLog)(
+          (0, import_coerce.isPlainObject)(parsed.data) && typeof parsed.data.message === "string" ? parsed.data.message : text
+        );
+        if (detail !== this.lastErrorDetail) {
+          this.callbacks.log.warn(`WS error: ${detail}`);
+          this.lastErrorDetail = detail;
+        }
         if (!this.authorized) {
           this.authError = new import_homewizard_client.HomeWizardApiError(401, '{"error":{"code":"user:unauthorized"}}', "ws auth");
           this.forceDisconnect();
@@ -206,7 +220,7 @@ class HomeWizardWebSocket {
         break;
       }
       default:
-        this.callbacks.log.debug(`WS message type: ${type}`);
+        this.callbacks.log.debug(`WS message type: ${(0, import_coerce.sanitizeForLog)(type)}`);
         break;
     }
   }
@@ -230,6 +244,9 @@ class HomeWizardWebSocket {
    * device has stopped responding (the documented "API-Lockup" mode).
    */
   startHeartbeat() {
+    if (this.pingInterval != null) {
+      this.timers.cancelRepeating(this.pingInterval);
+    }
     this.pingInterval = this.timers.scheduleRepeating(() => {
       if (!this.ws || this.ws.readyState !== import_ws.default.OPEN) {
         return;

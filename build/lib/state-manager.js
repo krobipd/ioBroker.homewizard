@@ -45,7 +45,14 @@ const MEASUREMENT_STATE_DEFS = [
   { key: "current_l2_a", id: "current_l2_a", nameKey: "currentL2", type: "number", role: "value.current", unit: "A" },
   { key: "current_l3_a", id: "current_l3_a", nameKey: "currentL3", type: "number", role: "value.current", unit: "A" },
   // Frequency
-  { key: "frequency_hz", id: "frequency_hz", nameKey: "frequency", type: "number", role: "value", unit: "Hz" },
+  {
+    key: "frequency_hz",
+    id: "frequency_hz",
+    nameKey: "frequency",
+    type: "number",
+    role: "value.frequency",
+    unit: "Hz"
+  },
   // Energy import
   {
     key: "energy_import_kwh",
@@ -324,7 +331,7 @@ const MEASUREMENT_STATE_DEFS = [
     id: "reactive_power_var",
     nameKey: "reactivePower",
     type: "number",
-    role: "value.power",
+    role: "value.power.reactive",
     unit: "var"
   },
   {
@@ -332,7 +339,7 @@ const MEASUREMENT_STATE_DEFS = [
     id: "reactive_power_l1_var",
     nameKey: "reactivePowerL1",
     type: "number",
-    role: "value.power",
+    role: "value.power.reactive",
     unit: "var"
   },
   {
@@ -340,7 +347,7 @@ const MEASUREMENT_STATE_DEFS = [
     id: "reactive_power_l2_var",
     nameKey: "reactivePowerL2",
     type: "number",
-    role: "value.power",
+    role: "value.power.reactive",
     unit: "var"
   },
   {
@@ -348,7 +355,7 @@ const MEASUREMENT_STATE_DEFS = [
     id: "reactive_power_l3_var",
     nameKey: "reactivePowerL3",
     type: "number",
-    role: "value.power",
+    role: "value.power.reactive",
     unit: "var"
   },
   {
@@ -390,6 +397,8 @@ const MEASUREMENT_STATE_DEFS = [
     nameKey: "stateOfCharge",
     type: "number",
     role: "value.battery",
+    min: 0,
+    max: 100,
     unit: "%"
   },
   { key: "cycles", id: "cycles", nameKey: "cycles", type: "number", role: "value" },
@@ -462,6 +471,14 @@ class StateManager {
    * exist". On `removeDevice(prefix)` all `prefix.*` IDs are dropped.
    */
   createdIds = /* @__PURE__ */ new Set();
+  /**
+   * L15: memoized device-ID prefix per config object. `devicePrefix` runs two
+   * `sanitize()` regex passes; on the ~1/s measurement hot path that repeats for
+   * an unchanging (productType, serial). Keyed by the config object identity
+   * (stable per connection, immutable fields) → auto-dropped when the connection
+   * is replaced on re-pair.
+   */
+  prefixCache = /* @__PURE__ */ new WeakMap();
   /** @param adapter The ioBroker adapter instance */
   constructor(adapter) {
     this.adapter = adapter;
@@ -544,17 +561,31 @@ class StateManager {
   /**
    * Update measurement states — only creates states that have values
    *
-   * @param config Device configuration
-   * @param data Measurement data
+   * @param config  Device configuration
+   * @param data    Measurement data
+   * @param isStale L1: optional guard `() => conn.removed || this.unloading`.
+   *   The caller checks it before invoking, but a push carries many awaits;
+   *   if the device is removed (or the adapter unloads) mid-write, re-creating
+   *   objects after `delObjectAsync` would leave orphans. Re-checked after each
+   *   channel-create await so a concurrent removal aborts before the next write.
    */
-  async updateMeasurement(config, data) {
+  async updateMeasurement(config, data, isStale) {
     if (!(0, import_coerce.isPlainObject)(data)) {
       return;
     }
     const prefix = this.devicePrefix(config);
     const mPrefix = `${prefix}.measurement`;
     await this.ensureChannel(mPrefix, (0, import_i18n.tName)("measurement"));
+    if (isStale == null ? void 0 : isStale()) {
+      return;
+    }
     const record = data;
+    const hasQuality = MEASUREMENT_STATE_DEFS.some(
+      (d) => d.id.startsWith("quality.") && (0, import_coerce.coerceFiniteNumber)(record[d.key]) !== null
+    );
+    if (hasQuality) {
+      await this.ensureChannel(`${mPrefix}.quality`, (0, import_i18n.tName)("powerQuality"));
+    }
     const writes = [];
     for (const def of MEASUREMENT_STATE_DEFS) {
       const raw = record[def.key];
@@ -565,25 +596,16 @@ class StateManager {
         coerced = (0, import_coerce.coerceString)(raw);
       }
       if (coerced !== null) {
-        writes.push(
-          this.ensureAndSet({
-            id: `${mPrefix}.${def.id}`,
-            name: (0, import_i18n.tName)(def.nameKey),
-            type: def.type,
-            role: def.role,
-            value: coerced,
-            unit: def.unit,
-            desc: def.descKey ? (0, import_i18n.tName)(def.descKey) : void 0,
-            states: def.key === "tariff" ? tariffStates() : void 0,
-            changedOnly: !MOMENTARY_KEYS.has(def.key)
-          })
-        );
+        writes.push(this.setMeasurementField(mPrefix, def, coerced));
       }
     }
     await Promise.all(writes);
     const external = record.external;
     if (Array.isArray(external) && external.length > 0) {
-      for (const rawExt of external) {
+      for (const rawExt of external.slice(0, 50)) {
+        if (isStale == null ? void 0 : isStale()) {
+          return;
+        }
         if (!(0, import_coerce.isPlainObject)(rawExt)) {
           continue;
         }
@@ -643,10 +665,13 @@ class StateManager {
   /**
    * Update system states
    *
-   * @param config Device configuration
-   * @param system System info data
+   * @param config  Device configuration
+   * @param system  System info data
+   * @param isStale L1: optional guard `() => conn.removed || this.unloading` —
+   *   re-checked after the system-channel create so a device removed mid-poll
+   *   doesn't get its `system.*` control states re-created as orphans.
    */
-  async updateSystem(config, system) {
+  async updateSystem(config, system, isStale) {
     if (!(0, import_coerce.isPlainObject)(system)) {
       return;
     }
@@ -688,6 +713,9 @@ class StateManager {
       });
     }
     await this.ensureChannel(`${prefix}.system`, (0, import_i18n.tName)("systemSettings"));
+    if (isStale == null ? void 0 : isStale()) {
+      return;
+    }
     const isBattery = config.productType === "HWE-BAT";
     const cloudEnabled = (0, import_coerce.coerceBoolean)(record.cloud_enabled);
     if (cloudEnabled !== null) {
@@ -695,7 +723,9 @@ class StateManager {
         id: `${prefix}.system.cloud_enabled`,
         name: (0, import_i18n.tName)("cloudEnabled"),
         type: "boolean",
-        role: "switch",
+        // M3: switch requires write:true (repochecker E1011). On HWE-BAT the field
+        // is read-only (always true) → indicator, not switch.
+        role: isBattery ? "indicator" : "switch",
         value: cloudEnabled,
         write: !isBattery,
         changedOnly: true
@@ -710,6 +740,8 @@ class StateManager {
         role: "level",
         value: ledPct,
         unit: "%",
+        min: 0,
+        max: 100,
         write: true,
         changedOnly: true
       });
@@ -874,12 +906,38 @@ class StateManager {
     }
   }
   /**
+   * I6: mark the pre-v0.4.0/v0.11.0 legacy-state cleanup as complete so later
+   * restarts skip the per-device scan. A write-once indicator state at the adapter
+   * root (fleet pattern, beszel L6). Idempotent — the object create is a no-op once
+   * it exists and the value only ever flips false→true.
+   */
+  async markLegacyCleanupDone() {
+    await this.adapter.setObjectNotExistsAsync("info.legacyMigrated", {
+      type: "state",
+      common: {
+        name: "Legacy state cleanup completed",
+        type: "boolean",
+        role: "indicator",
+        read: true,
+        write: false,
+        def: false
+      },
+      native: {}
+    });
+    await this.adapter.setStateAsync("info.legacyMigrated", { val: true, ack: true });
+  }
+  /**
    * Get device object ID prefix
    *
    * @param config Device configuration
    */
   devicePrefix(config) {
-    return `${sanitize(config.productType)}_${sanitize(config.serial)}`;
+    let prefix = this.prefixCache.get(config);
+    if (prefix === void 0) {
+      prefix = `${sanitize(config.productType)}_${sanitize(config.serial)}`;
+      this.prefixCache.set(config, prefix);
+    }
+    return prefix;
   }
   /**
    * Ensure a channel object exists. Skips the DB lookup once `id` is in the
@@ -919,17 +977,27 @@ class StateManager {
     if (def.unit) {
       common.unit = def.unit;
     }
+    if (def.min !== void 0) {
+      common.min = def.min;
+    }
+    if (def.max !== void 0) {
+      common.max = def.max;
+    }
     if (def.desc) {
       common.desc = def.desc;
     }
     if (def.states) {
       common.states = def.states;
     }
-    await this.adapter.setObjectNotExistsAsync(def.id, {
-      type: "state",
-      common,
-      native: {}
-    });
+    await this.adapter.extendObjectAsync(
+      def.id,
+      {
+        type: "state",
+        common,
+        native: {}
+      },
+      { preserve: { common: ["name"] } }
+    );
     if (def.states) {
       await this.repairCommonStatesIfBuggy(def.id, def.states);
     }
@@ -1010,6 +1078,43 @@ class StateManager {
       await this.adapter.setStateChangedAsync(def.id, { val: def.value, ack: true });
     } else {
       await this.adapter.setStateAsync(def.id, { val: def.value, ack: true });
+    }
+  }
+  /**
+   * Measurement hot-path writer (~1/s per P1, up to ~30 fields). L14: the
+   * translated `common.name`/`desc` and the tariff `states` map are built ONLY
+   * when the object is first created (cold path, `createdIds`-gated). Once the
+   * state is cached this does a single value write with no `tName()` /
+   * `tariffStates()` allocation — the eager per-field `tName()` in the old
+   * `ensureAndSet` loop was thrown away on every push after the first.
+   *
+   * Momentary 1 Hz fields (power/voltage/current/…) use `setStateAsync`;
+   * slow fields (energy totals) use `setStateChangedAsync` — same routing as
+   * the old `changedOnly: !MOMENTARY_KEYS.has(def.key)`.
+   *
+   * @param mPrefix `<devicePrefix>.measurement`
+   * @param def     Measurement field definition
+   * @param value   Coerced value to write
+   */
+  async setMeasurementField(mPrefix, def, value) {
+    const id = `${mPrefix}.${def.id}`;
+    if (!this.createdIds.has(id)) {
+      await this.createState({
+        id,
+        name: (0, import_i18n.tName)(def.nameKey),
+        type: def.type,
+        role: def.role,
+        unit: def.unit,
+        min: def.min,
+        max: def.max,
+        desc: def.descKey ? (0, import_i18n.tName)(def.descKey) : void 0,
+        states: def.key === "tariff" ? tariffStates() : void 0
+      });
+    }
+    if (MOMENTARY_KEYS.has(def.key)) {
+      await this.adapter.setStateAsync(id, { val: value, ack: true });
+    } else {
+      await this.adapter.setStateChangedAsync(id, { val: value, ack: true });
     }
   }
 }

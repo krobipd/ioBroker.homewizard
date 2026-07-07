@@ -41,6 +41,10 @@ class HomeWizardClient {
   agent;
   /** Override target port — only used by tests against a local stub-server. */
   port;
+  /** Response-body hard cap (bytes); overridable so a test can exercise the guard without streaming 16 MB. */
+  maxResponseBytes;
+  /** Per-request socket timeout (ms); overridable so a test can exercise the timeout without waiting 10 s. */
+  requestTimeoutMs;
   /** Optional logger for per-call debug-trace (request entry + response success/fail). */
   log;
   /** CN of the most recent server certificate — captured so the pairing flow can pin the device's TLS identity. */
@@ -52,14 +56,18 @@ class HomeWizardClient {
    * @param options.agent HTTPS agent to use; defaults to {@link HW_AGENT} (with HomeWizard CA pinning).
    * @param options.port  Target port; defaults to 443.
    * @param options.log   Optional logger for per-call debug-trace (request/success/fail).
+   * @param options.maxResponseBytes Response-body cap in bytes; defaults to 16 MiB (test seam).
+   * @param options.requestTimeoutMs Per-request socket timeout in ms; defaults to 10000 (test seam).
    */
   constructor(ip, token = "", options = {}) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e;
     this.ip = ip;
     this.token = token;
     this.agent = (_a = options.agent) != null ? _a : import_cacert.HW_AGENT;
     this.port = (_b = options.port) != null ? _b : 443;
-    this.log = (_c = options.log) != null ? _c : null;
+    this.maxResponseBytes = (_c = options.maxResponseBytes) != null ? _c : MAX_RESPONSE_BYTES;
+    this.requestTimeoutMs = (_d = options.requestTimeoutMs) != null ? _d : 1e4;
+    this.log = (_e = options.log) != null ? _e : null;
   }
   /** Get device info (GET /api) */
   async getDeviceInfo() {
@@ -159,7 +167,7 @@ class HomeWizardClient {
           method,
           headers,
           agent: this.agent,
-          timeout: 1e4
+          timeout: this.requestTimeoutMs
         },
         (res) => {
           var _a2, _b, _c;
@@ -170,17 +178,25 @@ class HomeWizardClient {
           }
           const chunks = [];
           let size = 0;
+          let aborted = false;
           res.on("error", reject);
           res.on("data", (chunk) => {
+            if (aborted) {
+              return;
+            }
             size += chunk.length;
-            if (size > MAX_RESPONSE_BYTES) {
-              req.destroy(new Error(`Response body too large (>${MAX_RESPONSE_BYTES} bytes): ${method} ${path}`));
+            if (size > this.maxResponseBytes) {
+              aborted = true;
+              req.destroy(new Error(`Response body too large (>${this.maxResponseBytes} bytes): ${method} ${path}`));
               return;
             }
             chunks.push(chunk);
           });
           res.on("end", () => {
             var _a3, _b2, _c2;
+            if (aborted) {
+              return;
+            }
             const data = Buffer.concat(chunks).toString();
             const elapsedMs = Date.now() - startMs;
             const statusCode = (_a3 = res.statusCode) != null ? _a3 : 0;

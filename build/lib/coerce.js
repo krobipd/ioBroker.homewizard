@@ -27,6 +27,7 @@ __export(coerce_exports, {
   isPlainObject: () => isPlainObject,
   isValidIpv4: () => isValidIpv4,
   parseBatteryPermissions: () => parseBatteryPermissions,
+  sanitizeForLog: () => sanitizeForLog,
   validateBatteryMode: () => validateBatteryMode
 });
 module.exports = __toCommonJS(coerce_exports);
@@ -147,6 +148,11 @@ function errText(err) {
     return Object.prototype.toString.call(err);
   }
 }
+function sanitizeForLog(value, maxLength = 200) {
+  const s = typeof value === "string" ? value : String(value);
+  const oneLine = s.replace(/[\r\n\t]+/g, " ");
+  return oneLine.length > maxLength ? `${oneLine.slice(0, maxLength)}\u2026` : oneLine;
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   BATTERY_MODES,
@@ -158,6 +164,7 @@ function errText(err) {
   isPlainObject,
   isValidIpv4,
   parseBatteryPermissions,
+  sanitizeForLog,
   validateBatteryMode
 });
 //# sourceMappingURL=coerce.js.map

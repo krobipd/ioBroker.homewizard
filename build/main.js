@@ -125,10 +125,11 @@ class HomeWizard extends utils.Adapter {
     this.on("unload", this.onUnload.bind(this));
   }
   async onReady() {
+    var _a;
     try {
       await import_adapter_core.I18n.init((0, import_node_path.join)(this.adapterDir, "admin"), this);
       this.stateManager = new import_state_manager.StateManager(this);
-      const caDaysLeft = Math.floor((import_cacert.CA_NOT_AFTER.getTime() - Date.now()) / 864e5);
+      const caDaysLeft = (0, import_cacert.caDaysUntilExpiry)(Date.now());
       if (caDaysLeft < 90) {
         this.log.warn(
           `Bundled HomeWizard CA certificate expires in ${caDaysLeft} days (${import_cacert.CA_NOT_AFTER.toISOString().slice(0, 10)}) \u2014 an adapter update will be needed to keep connecting.`
@@ -151,9 +152,12 @@ class HomeWizard extends utils.Adapter {
         this.log.info(`No devices configured \u2014 set 'startPairing' to true to add a device`);
         await this.setStateChangedAsync("info.connection", { val: false, ack: true });
       }
+      const legacyCleanupDone = ((_a = await this.getStateAsync("info.legacyMigrated")) == null ? void 0 : _a.val) === true;
       for (const device of devices) {
         const key = this.stateManager.devicePrefix(device);
-        await this.stateManager.cleanupMovedStates(device);
+        if (!legacyCleanupDone) {
+          await this.stateManager.cleanupMovedStates(device);
+        }
         await this.stateManager.createDeviceStates(device);
         const conn = (0, import_connection_utils.createDeviceConnection)(device, device.ip || "");
         this.connections.set(key, conn);
@@ -163,6 +167,9 @@ class HomeWizard extends utils.Adapter {
             (err) => this.log.error(`initDevice failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`)
           );
         }
+      }
+      if (!legacyCleanupDone) {
+        await this.stateManager.markLegacyCleanupDone();
       }
       this.systemPollTimer = this.setInterval(() => {
         void this.pollAllSystemInfo();
@@ -182,13 +189,19 @@ class HomeWizard extends utils.Adapter {
     const oldDevices = Array.isArray(rawOldDevices) ? rawOldDevices : [];
     if (oldDevices.length > 0) {
       this.log.debug(`Migrating ${oldDevices.length} device(s) from adapter config to device objects`);
+      const migrated = [];
       for (const device of oldDevices) {
-        await this.saveDeviceToObject(device);
+        try {
+          await this.saveDeviceToObject(device);
+          migrated.push(device);
+        } catch (err) {
+          this.log.warn(`Skipping a corrupt legacy device entry during migration: ${(0, import_coerce.errText)(err)}`);
+        }
       }
       await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
         native: { devices: [] }
       });
-      return oldDevices;
+      return migrated;
     }
     const objects = await this.getAdapterObjectsAsync();
     for (const [id, obj] of Object.entries(objects)) {
@@ -214,7 +227,9 @@ class HomeWizard extends utils.Adapter {
         token,
         productType: native.productType || "unknown",
         serial: native.serial,
-        productName: native.productName || native.productType || "unknown",
+        // L9: clean a possibly-dirty stored name on load too (pre-fix install or
+        // a manual DB edit) — keeps the object name and every log line newline-free.
+        productName: (0, import_coerce.sanitizeForLog)(native.productName || native.productType || "unknown"),
         ...native.ip && (0, import_coerce.isValidIpv4)(native.ip) ? { ip: native.ip } : {},
         ...native.certCn ? { certCn: native.certCn } : {}
       });
@@ -392,9 +407,9 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     await this.setStateAsync("startPairing", { val: false, ack: true });
+    this.stopIpRecovery();
     this.isPairing = true;
     this.discoveredDuringPairing = [];
-    this.stopIpRecovery();
     const ipState = await this.getStateAsync("pairingIp");
     this.pairingManualIp = (ipState == null ? void 0 : ipState.val) ? String(ipState.val).trim() : "";
     await this.setStateAsync("pairingIp", { val: "", ack: true });
@@ -461,11 +476,21 @@ class HomeWizard extends utils.Adapter {
         const authedClient = this.makeClient(device.ip, result.token);
         const info = await authedClient.getDeviceInfo();
         const certCn = authedClient.getServerCertCn();
+        if (certCn && !certCn.includes(info.serial)) {
+          this.log.warn(
+            `${(0, import_coerce.sanitizeForLog)(info.product_name)}: paired certificate CN "${(0, import_coerce.sanitizeForLog)(certCn)}" does not contain the reported serial "${(0, import_coerce.sanitizeForLog)(info.serial)}" \u2014 verify this is the intended device.`
+          );
+        }
         const deviceConfig = {
           token: result.token,
           productType: info.product_type,
           serial: info.serial,
-          productName: info.product_name,
+          // L9: productName is device-supplied and becomes the object's common.name
+          // AND prefixes almost every device log line — strip CR/LF so a hostile
+          // device can't inject newlines into the object tree or forge log lines.
+          // (serial/productType stay raw: they feed the sanitized object ID and the
+          // HWE-BAT comparison, never a raw log except the one wrapped call site.)
+          productName: (0, import_coerce.sanitizeForLog)(info.product_name),
           ip: device.ip,
           ...certCn ? { certCn } : {}
         };
@@ -623,7 +648,7 @@ class HomeWizard extends utils.Adapter {
    * @param conn Device connection
    */
   connectWebSocket(conn) {
-    if (!conn.ip) {
+    if (this.unloading || !conn.ip) {
       return;
     }
     if (conn.authFailCount >= MAX_AUTH_FAILURES) {
@@ -683,7 +708,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     conn.measurementBusy = true;
-    this.stateManager.updateMeasurement(conn.config, data).catch((err) => {
+    this.stateManager.updateMeasurement(conn.config, data, () => conn.removed || this.unloading).catch((err) => {
       this.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`);
     }).finally(() => {
       conn.measurementBusy = false;
@@ -699,8 +724,14 @@ class HomeWizard extends utils.Adapter {
     if (conn.removed || this.unloading) {
       return;
     }
-    this.stateManager.updateSystem(conn.config, data).catch((err) => {
+    if (conn.systemBusy) {
+      return;
+    }
+    conn.systemBusy = true;
+    this.stateManager.updateSystem(conn.config, data, () => conn.removed || this.unloading).catch((err) => {
       this.log.debug(`updateSystem (ws) failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`);
+    }).finally(() => {
+      conn.systemBusy = false;
     });
   }
   /**
@@ -716,8 +747,14 @@ class HomeWizard extends utils.Adapter {
     if (!data.battery_count || data.battery_count <= 0) {
       return;
     }
+    if (conn.batteryBusy) {
+      return;
+    }
+    conn.batteryBusy = true;
     this.stateManager.updateBattery(conn.config, data).catch((err) => {
       this.log.debug(`updateBattery (ws) failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`);
+    }).finally(() => {
+      conn.batteryBusy = false;
     });
   }
   /**
@@ -768,7 +805,7 @@ class HomeWizard extends utils.Adapter {
    * @param error Disconnect error, if any
    */
   onWsDisconnected(conn, error) {
-    const isAuthError = error instanceof import_homewizard_client.HomeWizardApiError && error.errorCode === "user:unauthorized";
+    const isAuthError = error instanceof import_homewizard_client.HomeWizardApiError && (error.errorCode === "user:unauthorized" || error.statusCode === 401);
     if (conn.lastConnectedAt > 0 && !isAuthError) {
       const duration = Date.now() - conn.lastConnectedAt;
       const transition = (0, import_main_helpers.decideUnstableTransition)(
@@ -791,6 +828,7 @@ class HomeWizard extends utils.Adapter {
     conn.wsAuthenticated = false;
     conn.wsClient = null;
     conn.recovering = false;
+    conn.lastConnectedAt = 0;
     this.stateManager.setDeviceConnected(conn.config, false).catch(
       (err) => this.log.debug(`setDeviceConnected(false) failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`)
     );
@@ -835,18 +873,22 @@ class HomeWizard extends utils.Adapter {
       if (conn.removed || this.unloading) {
         return;
       }
+      if (conn.restPollBusy) {
+        return;
+      }
+      conn.restPollBusy = true;
       try {
         const data = await client.getMeasurement();
         if (conn.removed || this.unloading) {
           return;
         }
-        await this.stateManager.updateMeasurement(conn.config, data);
+        await this.stateManager.updateMeasurement(conn.config, data, () => conn.removed || this.unloading);
       } catch (err) {
         if (this.unloading) {
           return;
         }
         this.logDeviceError(conn, "rest", err);
-        if (err instanceof import_homewizard_client.HomeWizardApiError && err.errorCode === "user:unauthorized") {
+        if (err instanceof import_homewizard_client.HomeWizardApiError && (err.errorCode === "user:unauthorized" || err.statusCode === 401)) {
           this.handleAuthFailure(
             conn,
             err,
@@ -859,6 +901,8 @@ class HomeWizard extends utils.Adapter {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = void 0;
         }
+      } finally {
+        conn.restPollBusy = false;
       }
     }, interval);
   }
@@ -876,6 +920,7 @@ class HomeWizard extends utils.Adapter {
    * @param conn Device connection
    */
   async pollSystemInfo(conn) {
+    var _a;
     if (!conn.ip || conn.removed || this.unloading) {
       return;
     }
@@ -885,15 +930,19 @@ class HomeWizard extends utils.Adapter {
       if (conn.removed || this.unloading) {
         return;
       }
-      await this.stateManager.updateSystem(conn.config, system);
-      try {
-        const info = await client.getDeviceInfo();
-        if (!conn.removed && !this.unloading && info.product_name && info.product_name !== conn.config.productName) {
-          this.log.info(`${conn.config.productName}: name changed to '${info.product_name}' \u2014 updating object`);
-          conn.config.productName = info.product_name;
-          await this.saveDeviceToObject(conn.config);
+      await this.stateManager.updateSystem(conn.config, system, () => conn.removed || this.unloading);
+      conn.systemPollCount = ((_a = conn.systemPollCount) != null ? _a : 0) + 1;
+      if (conn.systemPollCount % 10 === 1) {
+        try {
+          const info = await client.getDeviceInfo();
+          const newName = (0, import_coerce.sanitizeForLog)(info.product_name);
+          if (!conn.removed && !this.unloading && info.product_name && newName !== conn.config.productName) {
+            this.log.info(`${conn.config.productName}: name changed to '${newName}' \u2014 updating object`);
+            conn.config.productName = newName;
+            await this.saveDeviceToObject(conn.config);
+          }
+        } catch {
         }
-      } catch {
       }
       if (conn.removed || this.unloading) {
         return;
@@ -903,7 +952,7 @@ class HomeWizard extends utils.Adapter {
         if (conn.removed || this.unloading) {
           return;
         }
-        if (battery.battery_count && battery.battery_count > 0) {
+        if (battery && battery.battery_count && battery.battery_count > 0) {
           await this.stateManager.updateBattery(conn.config, battery);
         }
       } catch (err) {
@@ -938,13 +987,16 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     const key = this.stateManager.devicePrefix(conn.config);
-    this.log.info(`Removing device ${conn.config.productName} (${conn.config.serial})`);
+    this.log.info(`Removing device ${conn.config.productName} (${(0, import_coerce.sanitizeForLog)(conn.config.serial)})`);
     conn.removed = true;
     if (conn.ip && conn.config.token) {
       void this.makeClient(conn.ip, conn.config.token, conn.config.certCn).deleteUser().catch((err) => this.log.debug(`Token revoke failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`));
     }
     this.teardownConnection(conn);
     this.connections.delete(key);
+    if (conn.config.certCn) {
+      (0, import_cacert.dropDeviceAgent)(conn.config.certCn);
+    }
     this.lastWarnAt.delete(conn.config.serial);
     this.lastInfoAt.delete(conn.config.serial);
     await this.stateManager.removeDevice(conn.config);
@@ -985,7 +1037,6 @@ class HomeWizard extends utils.Adapter {
    *          `false` if the auth-stop fired and the caller should bail out.
    */
   handleAuthFailure(conn, error, cleanupTimers) {
-    var _a;
     if (!(error instanceof import_homewizard_client.HomeWizardApiError) || error.errorCode !== "user:unauthorized") {
       return true;
     }
@@ -995,15 +1046,7 @@ class HomeWizard extends utils.Adapter {
     }
     this.log.warn(`${conn.config.productName}: token invalid \u2014 re-pair device to fix`);
     if (cleanupTimers) {
-      if (conn.pollTimer) {
-        this.clearInterval(conn.pollTimer);
-        conn.pollTimer = void 0;
-      }
-      if (conn.reconnectTimer) {
-        this.clearTimeout(conn.reconnectTimer);
-        conn.reconnectTimer = void 0;
-      }
-      (_a = conn.wsClient) == null ? void 0 : _a.close();
+      this.teardownConnection(conn);
     }
     return false;
   }

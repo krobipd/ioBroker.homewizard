@@ -68,7 +68,9 @@ class HomeWizardDiscovery {
     this.browser = this.bonjour.find({ type: "homewizard", protocol: "tcp" }, (service) => {
       const device = this.parseService(service);
       if (device) {
-        this.log.debug(`mDNS: found ${device.name} (${device.productType}) at ${device.ip}`);
+        this.log.debug(
+          `mDNS: found ${(0, import_coerce.sanitizeForLog)(device.name)} (${(0, import_coerce.sanitizeForLog)(device.productType)}) at ${device.ip}`
+        );
         callback(device);
       }
     });
@@ -91,9 +93,9 @@ class HomeWizardDiscovery {
    */
   parseService(service) {
     var _a, _b, _c, _d, _e, _f, _g;
-    const ip = (_a = service.addresses) == null ? void 0 : _a.find((addr) => (0, import_coerce.isValidIpv4)(addr));
+    const ip = (_a = service.addresses) == null ? void 0 : _a.find((addr) => (0, import_coerce.isAssignableDeviceIpv4)(addr));
     if (!ip) {
-      this.log.debug(`mDNS: no IPv4 address for ${service.name}`);
+      this.log.debug(`mDNS: no IPv4 address for ${(0, import_coerce.sanitizeForLog)(service.name)}`);
       return null;
     }
     const txt = (_b = service.txt) != null ? _b : {};
@@ -102,7 +104,7 @@ class HomeWizardDiscovery {
     const name = (_g = (_f = coerceTxtValue(txt.product_name)) != null ? _f : service.name) != null ? _g : productType;
     const apiVersion = coerceTxtValue(txt.api_version);
     if (apiVersion) {
-      this.log.debug(`mDNS: TXT api_version=${apiVersion} serial=${serial}`);
+      this.log.debug(`mDNS: TXT api_version=${(0, import_coerce.sanitizeForLog)(apiVersion)} serial=${(0, import_coerce.sanitizeForLog)(serial)}`);
     }
     return { ip, productType, serial, name };
   }

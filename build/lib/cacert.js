@@ -31,7 +31,9 @@ __export(cacert_exports, {
   CA_NOT_AFTER: () => CA_NOT_AFTER,
   HOMEWIZARD_CA_CERT: () => HOMEWIZARD_CA_CERT,
   HW_AGENT: () => HW_AGENT,
-  createDeviceAgent: () => createDeviceAgent
+  caDaysUntilExpiry: () => caDaysUntilExpiry,
+  createDeviceAgent: () => createDeviceAgent,
+  dropDeviceAgent: () => dropDeviceAgent
 });
 module.exports = __toCommonJS(cacert_exports);
 var https = __toESM(require("node:https"));
@@ -55,6 +57,9 @@ FweVDlT2C/MdDyOxiAD/H1EP/eaySnU0zsxyD0yNFRKsQfQ+UJEPd2GS1AGA1lTy
 CGdyYj/Gghrusw0hM4rYXQSERWGF0mpEnuJ+7bHDolHu0rzgTQ==
 -----END CERTIFICATE-----`;
 const CA_NOT_AFTER = /* @__PURE__ */ new Date("2031-12-16T19:12:12Z");
+function caDaysUntilExpiry(now) {
+  return Math.floor((CA_NOT_AFTER.getTime() - now) / 864e5);
+}
 const HW_AGENT = new https.Agent({
   ca: HOMEWIZARD_CA_CERT,
   rejectUnauthorized: true,
@@ -83,11 +88,20 @@ function createDeviceAgent(expectedCn) {
   }
   return agent;
 }
+function dropDeviceAgent(expectedCn) {
+  const agent = deviceAgents.get(expectedCn);
+  if (agent) {
+    agent.destroy();
+    deviceAgents.delete(expectedCn);
+  }
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   CA_NOT_AFTER,
   HOMEWIZARD_CA_CERT,
   HW_AGENT,
-  createDeviceAgent
+  caDaysUntilExpiry,
+  createDeviceAgent,
+  dropDeviceAgent
 });
 //# sourceMappingURL=cacert.js.map
