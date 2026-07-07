@@ -20,6 +20,9 @@ interface MeasurementStateDef {
   role: string;
   /** Unit string */
   unit?: string;
+  /** Optional numeric min/max (I2: percentages 0–100). */
+  min?: number;
+  max?: number;
 }
 
 /** Options for {@link StateManager.createState} (avoids long positional argument lists). */
@@ -40,6 +43,10 @@ interface StateDef {
   desc?: ioBroker.StringOrTranslated;
   /** Optional `common.states` map (plain-string values) */
   states?: Record<string, string>;
+  /** Optional numeric min (L11/I2: bounds for level/percent states → Admin slider). */
+  min?: number;
+  /** Optional numeric max. */
+  max?: number;
 }
 
 /** Options for {@link StateManager.ensureAndSet} — a {@link StateDef} plus the value to write. */
@@ -424,6 +431,8 @@ export const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
     nameKey: "stateOfCharge",
     type: "number",
     role: "value.battery",
+    min: 0,
+    max: 100,
     unit: "%",
   },
   { key: "cycles", id: "cycles", nameKey: "cycles", type: "number", role: "value" },
@@ -661,6 +670,8 @@ export class StateManager {
             role: def.role,
             value: coerced,
             unit: def.unit,
+            min: def.min,
+            max: def.max,
             desc: def.descKey ? tName(def.descKey) : undefined,
             states: def.key === "tariff" ? tariffStates() : undefined,
             changedOnly: !MOMENTARY_KEYS.has(def.key),
@@ -676,7 +687,11 @@ export class StateManager {
     // value/unit/timestamp writes are independent and run in parallel.
     const external = record.external;
     if (Array.isArray(external) && external.length > 0) {
-      for (const rawExt of external) {
+      // L7: cap the meter count — a rogue/compromised (but paired) device could
+      // otherwise send a huge external[] (bounded only by the 16 MB body cap) →
+      // object-store bloat. Real devices report 1–3 meters; matches the mDNS
+      // discovery-list cap of 50.
+      for (const rawExt of external.slice(0, 50)) {
         if (!isPlainObject(rawExt)) {
           continue;
         }
@@ -819,6 +834,8 @@ export class StateManager {
         role: "level",
         value: ledPct,
         unit: "%",
+        min: 0,
+        max: 100,
         write: true,
         changedOnly: true,
       });
@@ -1053,6 +1070,12 @@ export class StateManager {
     };
     if (def.unit) {
       common.unit = def.unit;
+    }
+    if (def.min !== undefined) {
+      common.min = def.min;
+    }
+    if (def.max !== undefined) {
+      common.max = def.max;
     }
     if (def.desc) {
       common.desc = def.desc;

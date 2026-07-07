@@ -249,14 +249,6 @@ export interface BatteryControl {
   max_production_w?: number;
 }
 
-/** WebSocket message envelope */
-export interface WsMessage {
-  /** Message type */
-  type: string;
-  /** Message data payload (string for auth/subscribe, object for measurement) */
-  data?: unknown;
-}
-
 /** Device discovered via mDNS */
 export interface DiscoveredDevice {
   /** Device IP address */
