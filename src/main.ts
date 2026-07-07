@@ -1008,6 +1008,13 @@ export class HomeWizard extends utils.Adapter {
     conn.wsAuthenticated = false;
     conn.wsClient = null;
     conn.recovering = false;
+    // M1: reset the connect-timestamp AFTER the stability block above has read it.
+    // A FAILED reconnect never re-authenticates (onWsConnected is not called), so
+    // lastConnectedAt would otherwise still hold the FIRST connect's time and every
+    // failed retry gets miscounted as a short "connection" → one outage + a few
+    // failed reconnects flips the device to unstable after a single drop. With the
+    // reset, only a real connect (which sets lastConnectedAt again) counts.
+    conn.lastConnectedAt = 0;
     this.stateManager
       .setDeviceConnected(conn.config, false)
       .catch((err: unknown) =>

@@ -314,6 +314,24 @@ describe("HomeWizard onWsDisconnected", () => {
     (hw as unknown as { onWsDisconnected: (c: DeviceConnection, e?: Error) => void }).onWsDisconnected(conn, authErr);
     expect(setTimeoutSpy).not.toHaveBeenCalled(); // auth-stop → no reconnect scheduled
   });
+
+  it("M1: a single outage with failed reconnects does not flip the device to unstable", () => {
+    const { hw, conn } = setup();
+    const api = hw as unknown as {
+      onWsConnected: (c: DeviceConnection) => void;
+      onWsDisconnected: (c: DeviceConnection, e?: Error) => void;
+      isUnstable: (c: DeviceConnection) => boolean;
+    };
+    api.onWsConnected(conn); // real connect → lastConnectedAt set, counters reset
+    api.onWsDisconnected(conn); // real disconnect → recentDisconnects = 1, lastConnectedAt reset (M1)
+    api.onWsDisconnected(conn); // failed reconnect — onWsConnected NOT called, never re-authenticated
+    api.onWsDisconnected(conn); // failed reconnect
+    api.onWsDisconnected(conn); // failed reconnect
+    // Failed reconnects must NOT be miscounted as short connections (that would need
+    // lastConnectedAt to persist across the drop). Device stays normal after one outage.
+    expect(conn.recentDisconnects).toBe(1);
+    expect(api.isUnstable(conn)).toBe(false);
+  });
 });
 
 describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
