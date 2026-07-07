@@ -86,7 +86,14 @@ export const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
   { key: "current_l2_a", id: "current_l2_a", nameKey: "currentL2", type: "number", role: "value.current", unit: "A" },
   { key: "current_l3_a", id: "current_l3_a", nameKey: "currentL3", type: "number", role: "value.current", unit: "A" },
   // Frequency
-  { key: "frequency_hz", id: "frequency_hz", nameKey: "frequency", type: "number", role: "value", unit: "Hz" },
+  {
+    key: "frequency_hz",
+    id: "frequency_hz",
+    nameKey: "frequency",
+    type: "number",
+    role: "value.frequency",
+    unit: "Hz",
+  },
   // Energy import
   {
     key: "energy_import_kwh",
@@ -365,7 +372,7 @@ export const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
     id: "reactive_power_var",
     nameKey: "reactivePower",
     type: "number",
-    role: "value.power",
+    role: "value.power.reactive",
     unit: "var",
   },
   {
@@ -373,7 +380,7 @@ export const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
     id: "reactive_power_l1_var",
     nameKey: "reactivePowerL1",
     type: "number",
-    role: "value.power",
+    role: "value.power.reactive",
     unit: "var",
   },
   {
@@ -381,7 +388,7 @@ export const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
     id: "reactive_power_l2_var",
     nameKey: "reactivePowerL2",
     type: "number",
-    role: "value.power",
+    role: "value.power.reactive",
     unit: "var",
   },
   {
@@ -389,7 +396,7 @@ export const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
     id: "reactive_power_l3_var",
     nameKey: "reactivePowerL3",
     type: "number",
-    role: "value.power",
+    role: "value.power.reactive",
     unit: "var",
   },
   {
