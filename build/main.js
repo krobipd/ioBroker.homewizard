@@ -57,6 +57,15 @@ const WS_RECONNECT_MAX_UNSTABLE_MS = 6e4;
 const REST_POLL_UNSTABLE_MS = 3e4;
 const WARN_COOLDOWN_MS = 60 * 60 * 1e3;
 const INFO_COOLDOWN_MS = 60 * 60 * 1e3;
+function pinnedAgent(certCn, serial) {
+  if (certCn) {
+    return (0, import_cacert.createDeviceAgent)(certCn);
+  }
+  if (serial) {
+    return (0, import_cacert.createDeviceAgentForSerial)(serial);
+  }
+  return void 0;
+}
 class HomeWizard extends utils.Adapter {
   stateManager;
   discovery = null;
@@ -96,9 +105,13 @@ class HomeWizard extends utils.Adapter {
    * @param ip Device IP address
    * @param token Bearer token (empty string for pairing requests)
    * @param certCn Stored cert CN for per-device TLS pinning (undefined during pairing/migration)
+   * @param serial Device serial — pins by CN-suffix from connect #1 when no CN is stored yet (M4)
    */
-  makeClient = (ip, token, certCn) => new import_homewizard_client.HomeWizardClient(ip, token, { log: this.log, agent: certCn ? (0, import_cacert.createDeviceAgent)(certCn) : void 0 });
-  makeWebSocket = (ip, token, callbacks, timers, certCn) => new import_websocket_client.HomeWizardWebSocket(ip, token, callbacks, timers, certCn ? { agent: (0, import_cacert.createDeviceAgent)(certCn) } : void 0);
+  makeClient = (ip, token, certCn, serial) => new import_homewizard_client.HomeWizardClient(ip, token, { log: this.log, agent: pinnedAgent(certCn, serial) });
+  makeWebSocket = (ip, token, callbacks, timers, certCn, serial) => {
+    const agent = pinnedAgent(certCn, serial);
+    return new import_websocket_client.HomeWizardWebSocket(ip, token, callbacks, timers, agent ? { agent } : void 0);
+  };
   makeDiscovery = () => new import_discovery.HomeWizardDiscovery(this.log);
   /**
    * Close a connection's WebSocket and clear its poll + reconnect timers.
@@ -341,7 +354,7 @@ class HomeWizard extends utils.Adapter {
         this.log.debug(`stateChange ${id}: no matching connected device \u2014 ignored`);
         return;
       }
-      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
+      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
       try {
         if (id.endsWith(".system.reboot")) {
           this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
@@ -611,7 +624,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     try {
-      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
+      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
       const info = await client.getDeviceInfo();
       if (this.unloading || conn.removed) {
         return;
@@ -683,7 +696,8 @@ class HomeWizard extends utils.Adapter {
           this.clearInterval(h);
         }
       },
-      conn.config.certCn
+      conn.config.certCn,
+      conn.config.serial
     );
     conn.wsClient = wsClient;
     try {
@@ -868,7 +882,7 @@ class HomeWizard extends utils.Adapter {
     }
     const unstable = this.isUnstable(conn);
     const interval = (0, import_main_helpers.pickRestPollInterval)(unstable, REST_POLL_MS, REST_POLL_UNSTABLE_MS);
-    const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
+    const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
     conn.pollTimer = this.setInterval(async () => {
       if (conn.removed || this.unloading) {
         return;
@@ -925,7 +939,7 @@ class HomeWizard extends utils.Adapter {
       return;
     }
     try {
-      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
+      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
       const system = await client.getSystem();
       if (conn.removed || this.unloading) {
         return;
@@ -990,13 +1004,11 @@ class HomeWizard extends utils.Adapter {
     this.log.info(`Removing device ${conn.config.productName} (${(0, import_coerce.sanitizeForLog)(conn.config.serial)})`);
     conn.removed = true;
     if (conn.ip && conn.config.token) {
-      void this.makeClient(conn.ip, conn.config.token, conn.config.certCn).deleteUser().catch((err) => this.log.debug(`Token revoke failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`));
+      void this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial).deleteUser().catch((err) => this.log.debug(`Token revoke failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`));
     }
     this.teardownConnection(conn);
     this.connections.delete(key);
-    if (conn.config.certCn) {
-      (0, import_cacert.dropDeviceAgent)(conn.config.certCn);
-    }
+    (0, import_cacert.dropDeviceAgent)(conn.config.certCn, conn.config.serial);
     this.lastWarnAt.delete(conn.config.serial);
     this.lastInfoAt.delete(conn.config.serial);
     await this.stateManager.removeDevice(conn.config);

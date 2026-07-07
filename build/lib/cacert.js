@@ -33,6 +33,7 @@ __export(cacert_exports, {
   HW_AGENT: () => HW_AGENT,
   caDaysUntilExpiry: () => caDaysUntilExpiry,
   createDeviceAgent: () => createDeviceAgent,
+  createDeviceAgentForSerial: () => createDeviceAgentForSerial,
   dropDeviceAgent: () => dropDeviceAgent
 });
 module.exports = __toCommonJS(cacert_exports);
@@ -88,11 +89,42 @@ function createDeviceAgent(expectedCn) {
   }
   return agent;
 }
-function dropDeviceAgent(expectedCn) {
-  const agent = deviceAgents.get(expectedCn);
-  if (agent) {
-    agent.destroy();
-    deviceAgents.delete(expectedCn);
+const serialDeviceAgents = /* @__PURE__ */ new Map();
+function createDeviceAgentForSerial(serial) {
+  let agent = serialDeviceAgents.get(serial);
+  if (!agent) {
+    const expectedSuffix = `/${serial.toLowerCase()}`;
+    agent = new https.Agent({
+      ca: HOMEWIZARD_CA_CERT,
+      rejectUnauthorized: true,
+      minVersion: "TLSv1.2",
+      checkServerIdentity: (_hostname, cert) => {
+        var _a;
+        const cn = typeof ((_a = cert == null ? void 0 : cert.subject) == null ? void 0 : _a.CN) === "string" ? cert.subject.CN.toLowerCase() : void 0;
+        if (cn && cn.endsWith(expectedSuffix)) {
+          return void 0;
+        }
+        return new Error(`HomeWizard certificate CN "${cn != null ? cn : "?"}" does not match device serial "${serial}"`);
+      }
+    });
+    serialDeviceAgents.set(serial, agent);
+  }
+  return agent;
+}
+function dropDeviceAgent(expectedCn, serial) {
+  if (expectedCn) {
+    const agent = deviceAgents.get(expectedCn);
+    if (agent) {
+      agent.destroy();
+      deviceAgents.delete(expectedCn);
+    }
+  }
+  if (serial) {
+    const agent = serialDeviceAgents.get(serial);
+    if (agent) {
+      agent.destroy();
+      serialDeviceAgents.delete(serial);
+    }
   }
 }
 // Annotate the CommonJS export names for ESM import in node:
@@ -102,6 +134,7 @@ function dropDeviceAgent(expectedCn) {
   HW_AGENT,
   caDaysUntilExpiry,
   createDeviceAgent,
+  createDeviceAgentForSerial,
   dropDeviceAgent
 });
 //# sourceMappingURL=cacert.js.map
