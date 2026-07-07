@@ -110,7 +110,7 @@
   "longPowerFailCountDesc": "Número de cortes longos de energia (tipicamente > 3 minutos)",
   "belgiumCapacityTariff": "Tarifa de capacidade belga: média de 15 min e pico mensal (faturação por demanda)",
   "powerFactorDesc": "Razão entre potência ativa e aparente (-1.0 a +1.0; 1.0 = carga puramente resistiva)",
-  "batteryModeDesc": "Modo de operação: zero (sem injeção na rede), to_full (carregar ao máximo), standby",
+  "batteryModeDesc": "Modo de operação: zero (sem injeção na rede), to_full (carregar ao máximo), standby, predictive (baseado em previsão)",
   "startPairingDesc": "Defina como true para iniciar a deteção mDNS e emparelhar um novo dispositivo HomeWizard (janela de 60 segundos)",
   "removeDeviceDesc": "Defina como true para desconectar, eliminar e remover permanentemente este dispositivo",
   "tariff1": "Tarifa 1 (T1)",

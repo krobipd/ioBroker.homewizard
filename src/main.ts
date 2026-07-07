@@ -480,11 +480,13 @@ export class HomeWizard extends utils.Adapter {
     // Reset startPairing immediately so it doesn't survive a restart
     await this.setStateAsync("startPairing", { val: false, ack: true });
 
+    // I9: stop IP recovery BEFORE setting isPairing — stopIpRecovery only tears
+    // down the discovery browser when !isPairing, so doing it after the flag would
+    // leave the recovery browser running alongside the pairing one.
+    this.stopIpRecovery();
+
     this.isPairing = true;
     this.discoveredDuringPairing = [];
-
-    // Stop IP recovery if running — pairing takes priority
-    this.stopIpRecovery();
 
     // Check if manual IP is set, then clear pairingIp immediately
     const ipState = await this.getStateAsync("pairingIp");
@@ -792,8 +794,10 @@ export class HomeWizard extends utils.Adapter {
    * @param conn Device connection
    */
   private connectWebSocket(conn: DeviceConnection): void {
-    if (!conn.ip) {
-      return; // No IP yet — wait for mDNS
+    // I16: bail during shutdown (defensive — callers + teardownConnection already
+    // clear the reconnect timer, but a new caller must not spawn a socket on unload).
+    if (this.unloading || !conn.ip) {
+      return; // shutting down, or no IP yet — wait for mDNS
     }
 
     // Stop reconnecting if auth keeps failing

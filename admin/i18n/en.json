@@ -110,7 +110,7 @@
   "longPowerFailCountDesc": "Number of long power outages (typically > 3 minutes)",
   "belgiumCapacityTariff": "Belgian capacity tariff: 15-minute average and monthly peak (drives demand-based billing)",
   "powerFactorDesc": "Ratio of active to apparent power (range -1.0 to +1.0; 1.0 = purely resistive load)",
-  "batteryModeDesc": "Operating mode: zero (no grid feed-in), to_full (charge to maximum), standby",
+  "batteryModeDesc": "Operating mode: zero (no grid feed-in), to_full (charge to maximum), standby, predictive (forecast-based)",
   "startPairingDesc": "Set to true to start mDNS discovery and pair a new HomeWizard device (60-second window)",
   "removeDeviceDesc": "Set to true to disconnect, delete and remove this device permanently",
   "tariff1": "Tariff 1 (T1)",

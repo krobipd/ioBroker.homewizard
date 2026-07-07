@@ -129,7 +129,13 @@ export class HomeWizardWebSocket {
     });
 
     this.ws.on("message", (raw: WebSocket.RawData) => {
-      this.handleMessage(raw);
+      // I14: defense-in-depth — a throw from a handler must not escape the ws
+      // "message" emit (there is no process-level uncaught-handler backstop).
+      try {
+        this.handleMessage(raw);
+      } catch (err) {
+        this.callbacks.log.warn(`WS message handler error: ${err instanceof Error ? err.message : String(err)}`);
+      }
     });
 
     this.ws.on("pong", () => {

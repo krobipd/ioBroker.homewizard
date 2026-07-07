@@ -110,7 +110,7 @@
   "longPowerFailCountDesc": "长时间断电次数（通常超过 3 分钟）",
   "belgiumCapacityTariff": "比利时容量电价：15 分钟平均与月度峰值（按需求计费）",
   "powerFactorDesc": "有功功率与视在功率之比（-1.0 至 +1.0；1.0 = 纯阻性负载）",
-  "batteryModeDesc": "运行模式：zero（不向电网馈送）、to_full（充满）、standby（待机）",
+  "batteryModeDesc": "运行模式：zero（不向电网馈送）、to_full（充满）、standby（待机）, predictive (基于预测)",
   "startPairingDesc": "设置为 true 以启动 mDNS 发现并配对新的 HomeWizard 设备（60 秒窗口）",
   "removeDeviceDesc": "设置为 true 以断开、删除并永久移除此设备",
   "tariff1": "电价 1（T1）",

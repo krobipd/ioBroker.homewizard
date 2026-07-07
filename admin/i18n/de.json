@@ -110,7 +110,7 @@
   "longPowerFailCountDesc": "Anzahl langer Stromausfälle (in der Regel > 3 Minuten)",
   "belgiumCapacityTariff": "Belgischer Kapazitätstarif: 15-Minuten-Mittel und Monatsspitze (Grundlage für leistungsabhängige Abrechnung)",
   "powerFactorDesc": "Verhältnis Wirkleistung zu Scheinleistung (-1.0 bis +1.0; 1.0 = rein ohmsche Last)",
-  "batteryModeDesc": "Betriebsmodus: zero (keine Netzeinspeisung), to_full (auf Maximum laden), standby",
+  "batteryModeDesc": "Betriebsmodus: zero (keine Netzeinspeisung), to_full (auf Maximum laden), standby, predictive (prognosebasiert)",
   "startPairingDesc": "Auf true setzen, um die mDNS-Suche zu starten und ein neues HomeWizard-Gerät zu koppeln (60 Sekunden Zeitfenster)",
   "removeDeviceDesc": "Auf true setzen, um dieses Gerät zu trennen, alle Daten zu löschen und dauerhaft zu entfernen",
   "tariff1": "Tarif 1 (T1)",

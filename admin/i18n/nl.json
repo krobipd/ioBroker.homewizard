@@ -110,7 +110,7 @@
   "longPowerFailCountDesc": "Aantal lange stroomuitvallen (doorgaans > 3 minuten)",
   "belgiumCapacityTariff": "Belgisch capaciteitstarief: 15-minuten-gemiddelde en maandpiek (vraaggebaseerde facturering)",
   "powerFactorDesc": "Verhouding actief tot schijnbaar vermogen (-1,0 tot +1,0; 1,0 = puur resistieve belasting)",
-  "batteryModeDesc": "Bedrijfsmodus: zero (geen netinvoeding), to_full (volledig laden), standby",
+  "batteryModeDesc": "Bedrijfsmodus: zero (geen netinvoeding), to_full (volledig laden), standby, predictive (op prognose gebaseerd)",
   "startPairingDesc": "Zet op true om mDNS-detectie te starten en een nieuw HomeWizard-apparaat te koppelen (60 seconden venster)",
   "removeDeviceDesc": "Zet op true om dit apparaat te ontkoppelen, te verwijderen en permanent te wissen",
   "tariff1": "Tarief 1 (T1)",
