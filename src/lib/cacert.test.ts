@@ -6,6 +6,7 @@ import {
   CA_NOT_AFTER,
   caDaysUntilExpiry,
   createDeviceAgent,
+  createDeviceAgentForSerial,
   dropDeviceAgent,
   HOMEWIZARD_CA_CERT,
   HW_AGENT,
@@ -60,6 +61,46 @@ describe("dropDeviceAgent (I8)", () => {
 
   it("is a no-op for a CN that was never created", () => {
     expect(() => dropDeviceAgent("appliance/x/never-created")).not.toThrow();
+  });
+
+  it("also evicts the serial-suffix agent (M4)", () => {
+    const first = createDeviceAgentForSerial("dropserial01");
+    dropDeviceAgent(undefined, "dropserial01");
+    expect(createDeviceAgentForSerial("dropserial01")).not.toBe(first);
+  });
+});
+
+describe("createDeviceAgentForSerial — first-connect serial-suffix pinning (M4)", () => {
+  // Official HW v2 doc: cert CN = `appliance/<type>/<serial>`, serial = lowercase-hex MAC.
+  const SERIAL = "5c2faf19b76e";
+
+  it("accepts a cert whose CN ends with the device serial", () => {
+    const check = checkOf(createDeviceAgentForSerial(SERIAL));
+    expect(check("192.168.1.42", certWithCn(`appliance/p1dongle/${SERIAL}`))).toBeUndefined();
+  });
+
+  it("rejects a cert carrying a different serial (foreign HomeWizard device)", () => {
+    const check = checkOf(createDeviceAgentForSerial(SERIAL));
+    expect(check("192.168.1.42", certWithCn("appliance/p1dongle/deadbeef0000"))).toBeInstanceOf(Error);
+  });
+
+  it("matches case-insensitively (hex serial)", () => {
+    const check = checkOf(createDeviceAgentForSerial(SERIAL.toUpperCase()));
+    expect(check("192.168.1.42", certWithCn(`appliance/p1dongle/${SERIAL}`))).toBeUndefined();
+  });
+
+  it("rejects a cert with no CN", () => {
+    expect(checkOf(createDeviceAgentForSerial(SERIAL))("192.168.1.42", certWithCn(undefined))).toBeInstanceOf(Error);
+  });
+
+  it("does not accept the serial appearing mid-CN without the `/` boundary", () => {
+    // A CN like `appliance/x/<serial>deadbeef` must not pass — endsWith("/"+serial) guards this.
+    const check = checkOf(createDeviceAgentForSerial(SERIAL));
+    expect(check("192.168.1.42", certWithCn(`appliance/p1dongle/${SERIAL}00`))).toBeInstanceOf(Error);
+  });
+
+  it("memoizes one agent per serial", () => {
+    expect(createDeviceAgentForSerial("aabbccddeeff")).toBe(createDeviceAgentForSerial("aabbccddeeff"));
   });
 });
 

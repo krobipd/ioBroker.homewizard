@@ -93,18 +93,66 @@ export function createDeviceAgent(expectedCn: string): https.Agent {
   return agent;
 }
 
+const serialDeviceAgents = new Map<string, https.Agent>();
+
+/**
+ * Per-device HTTPS agent that pins by the certificate's serial SUFFIX instead of a
+ * previously-captured full CN. The HomeWizard v2 cert CN is `appliance/<type>/<serial>`
+ * and the serial is the device MAC in lowercase hex without separators — **the
+ * official API doc** states this and explicitly recommends verifying the CN against
+ * the serial obtained from mDNS / the API. Verified byte-identical on real hardware
+ * (P1: CN `appliance/p1dongle/5c2faf19b76e`, serial `5c2faf19b76e`).
+ *
+ * Used from the very FIRST connect of a device that has no stored CN yet (a
+ * pre-v0.13.0 device on upgrade) — so the bearer token is never sent under a
+ * CN-unchecked blanket agent, closing the legacy-migration token-exposure window.
+ * The match is case-insensitive on the hex serial to be format-robust.
+ *
+ * @param serial The device serial (from config / mDNS).
+ */
+export function createDeviceAgentForSerial(serial: string): https.Agent {
+  let agent = serialDeviceAgents.get(serial);
+  if (!agent) {
+    const expectedSuffix = `/${serial.toLowerCase()}`;
+    agent = new https.Agent({
+      ca: HOMEWIZARD_CA_CERT,
+      rejectUnauthorized: true,
+      minVersion: "TLSv1.2",
+      checkServerIdentity: (_hostname, cert) => {
+        const cn = typeof cert?.subject?.CN === "string" ? cert.subject.CN.toLowerCase() : undefined;
+        if (cn && cn.endsWith(expectedSuffix)) {
+          return undefined;
+        }
+        return new Error(`HomeWizard certificate CN "${cn ?? "?"}" does not match device serial "${serial}"`);
+      },
+    });
+    serialDeviceAgents.set(serial, agent);
+  }
+  return agent;
+}
+
 /**
  * Evict the memoized per-device agent for a CN and close its pooled sockets.
  * Called from removeDevice so a removed/re-paired device leaves no agent behind.
  * The map is already bounded (one entry per paired device), but this keeps it
  * symmetric with device lifecycle instead of growing until adapter restart.
  *
- * @param expectedCn The device's certificate CN to evict.
+ * @param expectedCn The device's captured certificate CN to evict (optional).
+ * @param serial     The device serial whose suffix-agent to evict (optional).
  */
-export function dropDeviceAgent(expectedCn: string): void {
-  const agent = deviceAgents.get(expectedCn);
-  if (agent) {
-    agent.destroy();
-    deviceAgents.delete(expectedCn);
+export function dropDeviceAgent(expectedCn?: string, serial?: string): void {
+  if (expectedCn) {
+    const agent = deviceAgents.get(expectedCn);
+    if (agent) {
+      agent.destroy();
+      deviceAgents.delete(expectedCn);
+    }
+  }
+  if (serial) {
+    const agent = serialDeviceAgents.get(serial);
+    if (agent) {
+      agent.destroy();
+      serialDeviceAgents.delete(serial);
+    }
   }
 }

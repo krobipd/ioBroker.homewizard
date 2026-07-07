@@ -1,5 +1,6 @@
 import * as utils from "@iobroker/adapter-core";
 import { I18n } from "@iobroker/adapter-core";
+import type * as https from "node:https";
 import { join } from "node:path";
 import {
   coerceFiniteNumber,
@@ -12,7 +13,13 @@ import {
 } from "./lib/coerce";
 import { classifyError, createDeviceConnection, UNSTABLE_DISCONNECT_THRESHOLD } from "./lib/connection-utils";
 import { HomeWizardDiscovery } from "./lib/discovery";
-import { CA_NOT_AFTER, caDaysUntilExpiry, createDeviceAgent, dropDeviceAgent } from "./lib/cacert";
+import {
+  CA_NOT_AFTER,
+  caDaysUntilExpiry,
+  createDeviceAgent,
+  createDeviceAgentForSerial,
+  dropDeviceAgent,
+} from "./lib/cacert";
 import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
 import {
   computeReconnectDelay,
@@ -71,6 +78,27 @@ const WARN_COOLDOWN_MS = 60 * 60 * 1000;
 const INFO_COOLDOWN_MS = 60 * 60 * 1000;
 
 /**
+ * Pick the TLS agent for a device client/WebSocket:
+ * - a stored full CN → exact-match pin ({@link createDeviceAgent});
+ * - else a known serial → CN-suffix pin from connect #1 ({@link createDeviceAgentForSerial},
+ *   M4 — closes the legacy-migration window where a pre-v0.13.0 device would send its
+ *   token once under a CN-unchecked blanket agent);
+ * - else (pairing, identity genuinely unknown) → undefined = blanket HW_AGENT.
+ *
+ * @param certCn Stored certificate CN, if captured.
+ * @param serial Device serial, if known.
+ */
+function pinnedAgent(certCn?: string, serial?: string): https.Agent | undefined {
+  if (certCn) {
+    return createDeviceAgent(certCn);
+  }
+  if (serial) {
+    return createDeviceAgentForSerial(serial);
+  }
+  return undefined;
+}
+
+/**
  * HomeWizard adapter — manages multiple devices over API v2 (HTTPS + WebSocket):
  * pairing, real-time push, REST fallback, reconnect/recovery and state mapping.
  * Exported so the orchestration unit tests can drive its handlers directly.
@@ -114,17 +142,25 @@ export class HomeWizard extends utils.Adapter {
    * @param ip Device IP address
    * @param token Bearer token (empty string for pairing requests)
    * @param certCn Stored cert CN for per-device TLS pinning (undefined during pairing/migration)
+   * @param serial Device serial — pins by CN-suffix from connect #1 when no CN is stored yet (M4)
    */
-  private makeClient: (ip: string, token: string, certCn?: string) => HomeWizardClient = (ip, token, certCn) =>
-    new HomeWizardClient(ip, token, { log: this.log, agent: certCn ? createDeviceAgent(certCn) : undefined });
+  private makeClient: (ip: string, token: string, certCn?: string, serial?: string) => HomeWizardClient = (
+    ip,
+    token,
+    certCn,
+    serial,
+  ) => new HomeWizardClient(ip, token, { log: this.log, agent: pinnedAgent(certCn, serial) });
   private makeWebSocket: (
     ip: string,
     token: string,
     callbacks: WsCallbacks,
     timers: TimerDeps,
     certCn?: string,
-  ) => HomeWizardWebSocket = (ip, token, callbacks, timers, certCn) =>
-    new HomeWizardWebSocket(ip, token, callbacks, timers, certCn ? { agent: createDeviceAgent(certCn) } : undefined);
+    serial?: string,
+  ) => HomeWizardWebSocket = (ip, token, callbacks, timers, certCn, serial) => {
+    const agent = pinnedAgent(certCn, serial);
+    return new HomeWizardWebSocket(ip, token, callbacks, timers, agent ? { agent } : undefined);
+  };
   private makeDiscovery: () => HomeWizardDiscovery = () => new HomeWizardDiscovery(this.log);
 
   /**
@@ -434,7 +470,7 @@ export class HomeWizard extends utils.Adapter {
         return;
       }
 
-      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
+      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
 
       try {
         if (id.endsWith(".system.reboot")) {
@@ -797,14 +833,16 @@ export class HomeWizard extends utils.Adapter {
       return;
     }
     try {
-      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
+      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
       const info = await client.getDeviceInfo();
       if (this.unloading || conn.removed) {
         return;
       }
       // Lazy migration: devices paired before v0.13.0 have no stored cert CN.
-      // Capture it on the first successful connect + persist, so subsequent
-      // connections pin the CN (createDeviceAgent) instead of blanket-accepting.
+      // M4: this first connect already ran under the serial-suffix pin (makeClient
+      // with conn.config.serial), so the token was never exposed under a blanket
+      // agent. Capture the full CN here + persist so later connects use the exact
+      // CN pin (createDeviceAgent).
       if (!conn.config.certCn) {
         const certCn = client.getServerCertCn();
         if (certCn) {
@@ -890,6 +928,7 @@ export class HomeWizard extends utils.Adapter {
         },
       },
       conn.config.certCn,
+      conn.config.serial,
     );
 
     conn.wsClient = wsClient;
@@ -1135,7 +1174,7 @@ export class HomeWizard extends utils.Adapter {
 
     const unstable = this.isUnstable(conn);
     const interval = pickRestPollInterval(unstable, REST_POLL_MS, REST_POLL_UNSTABLE_MS);
-    const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
+    const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
 
     conn.pollTimer = this.setInterval(async () => {
       // Bail out if device was removed or adapter is shutting down — the
@@ -1203,7 +1242,7 @@ export class HomeWizard extends utils.Adapter {
     }
 
     try {
-      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn);
+      const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
       const system = await client.getSystem();
       if (conn.removed || this.unloading) {
         return;
@@ -1297,7 +1336,7 @@ export class HomeWizard extends utils.Adapter {
     // doesn't linger across pair/unpair cycles. Fire-and-forget — never block removal on a
     // (possibly offline) device's 10s timeout.
     if (conn.ip && conn.config.token) {
-      void this.makeClient(conn.ip, conn.config.token, conn.config.certCn)
+      void this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial)
         .deleteUser()
         .catch((err: unknown) => this.log.debug(`Token revoke failed for ${conn.config.productName}: ${errText(err)}`));
     }
@@ -1305,11 +1344,9 @@ export class HomeWizard extends utils.Adapter {
     // Disconnect
     this.teardownConnection(conn);
     this.connections.delete(key);
-    // I8: evict the pinned per-device TLS agent (and close its pooled sockets)
-    // so it doesn't linger in the module-level map after the device is gone.
-    if (conn.config.certCn) {
-      dropDeviceAgent(conn.config.certCn);
-    }
+    // I8: evict the pinned per-device TLS agents (CN + serial) and close their
+    // pooled sockets so nothing lingers in the module maps after the device is gone.
+    dropDeviceAgent(conn.config.certCn, conn.config.serial);
     // Drop the per-device cooldown stamps — otherwise a re-pair of the same
     // serial within the cooldown window inherits the old device's stamp and
     // its first warn/info is silently suppressed (and the maps grow forever
