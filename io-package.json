@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.14.0",
     "news": {
+      "NEXT": {
+        "en": "A device that rejects the adapter's token now stops retrying and prompts you to re-pair it, and pairing no longer keeps requesting logins from a device it cannot read.",
+        "de": "Ein Gerät, das den Token des Adapters ablehnt, hört jetzt auf, es weiter zu versuchen, und fordert zum erneuten Koppeln auf; außerdem fragt das Pairing keine Anmeldungen mehr bei einem Gerät an, das nicht gelesen werden kann.",
+        "ru": "Устройство, отклонившее токен адаптера, теперь прекращает повторные попытки и предлагает выполнить сопряжение заново; кроме того, при сопряжении больше не запрашиваются входы у устройства, которое не удаётся прочитать.",
+        "pt": "Um dispositivo que rejeita o token do adaptador agora deixa de tentar novamente e pede para emparelhar de novo; além disso, o emparelhamento deixa de solicitar logins a um dispositivo que não consegue ler.",
+        "nl": "Een apparaat dat het token van de adapter weigert, stopt nu met opnieuw proberen en vraagt om het opnieuw te koppelen; bovendien vraagt het koppelen niet langer aanmeldingen aan bij een apparaat dat niet kan worden gelezen.",
+        "fr": "Un appareil qui refuse le jeton de l'adaptateur cesse désormais de réessayer et invite à le réappairer ; de plus, l'appairage ne demande plus d'identifiants à un appareil qui ne peut pas être lu.",
+        "it": "Un dispositivo che rifiuta il token dell'adattatore ora smette di riprovare e invita a eseguire di nuovo l'associazione; inoltre l'associazione non richiede più accessi a un dispositivo che non può essere letto.",
+        "es": "Un dispositivo que rechaza el token del adaptador ahora deja de reintentar y pide volver a emparejarlo; además, el emparejamiento ya no sigue solicitando inicios de sesión a un dispositivo que no se puede leer.",
+        "pl": "Urządzenie, które odrzuca token adaptera, przestaje teraz ponawiać próby i prosi o ponowne sparowanie; ponadto parowanie nie żąda już logowań od urządzenia, którego nie można odczytać.",
+        "uk": "Пристрій, який відхиляє токен адаптера, тепер припиняє повторні спроби й пропонує виконати сполучення заново; крім того, під час сполучення більше не надсилаються запити входу до пристрою, який не вдається прочитати.",
+        "zh-cn": "当设备拒绝适配器的令牌时，适配器现在会停止重试并提示您重新配对；此外，配对不再向无法读取的设备反复请求登录。"
+      },
       "0.14.0": {
         "en": "Reconnect fix for brief WiFi dropouts, a new measurement.quality folder, and corrected state roles and 0–100 bounds that existing devices adopt automatically on the next start.",
         "de": "Reconnect-Fix bei kurzen WLAN-Ausfällen, neuer measurement.quality-Ordner sowie korrigierte Rollen und 0–100-Grenzen, die Bestandsgeräte beim nächsten Start automatisch übernehmen.",
