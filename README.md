@@ -181,8 +181,8 @@ homewizard.0.
 -->
 ### **WORK IN PROGRESS**
 
-- A device that rejects the adapter's token now reliably stops retrying and warns you to re-pair it, even when it returns an unusual error response instead of the standard one
-- Pairing no longer keeps requesting and discarding logins from a device that connects but cannot be read — it is reported once so you can simply try again
+- A device that rejects the adapter's token now stops retrying and warns you to re-pair it, instead of quietly retrying in the background
+- When pairing a device that connects but cannot be added, the adapter now tells you once so you can try again, instead of silently retrying
 
 ### 0.14.0 (2026-07-07)
 
