@@ -11,7 +11,12 @@ import {
   sanitizeForLog,
   validateBatteryMode,
 } from "./lib/coerce";
-import { classifyError, createDeviceConnection, UNSTABLE_DISCONNECT_THRESHOLD } from "./lib/connection-utils";
+import {
+  classifyError,
+  createDeviceConnection,
+  isAuthError,
+  UNSTABLE_DISCONNECT_THRESHOLD,
+} from "./lib/connection-utils";
 import { HomeWizardDiscovery } from "./lib/discovery";
 import {
   CA_NOT_AFTER,
@@ -699,15 +704,24 @@ export class HomeWizard extends utils.Adapter {
         if (err instanceof HomeWizardApiError && err.statusCode === 403) {
           continue;
         }
-        // A token was issued this round but device-info/setup failed (e.g. a
-        // malformed GET /api): revoke it so a zombie/non-conformant device does
-        // not leave an orphaned local/iobroker token behind.
+        // A token WAS issued this round (button was pressed) but device-info/setup
+        // failed (e.g. a malformed GET /api). Revoke the orphaned token AND drop this
+        // device from the pairing queue: a persistently-malformed device would otherwise
+        // re-mint + revoke a token every 2 s for the rest of the 60 s window (F4). The
+        // 403 path above still keeps polling — only an issued-but-failed pairing gives up.
+        // Surfaced as warn since the user pressed the button and expects a result.
         if (issuedToken) {
           this.makeClient(device.ip, issuedToken)
             .deleteUser()
             .catch(() => {
               /* best-effort revoke */
             });
+          this.discoveredDuringPairing = this.discoveredDuringPairing.filter(d => d !== device);
+          this.log.warn(
+            `${sanitizeForLog(device.name)}: paired but could not read device info — token revoked, ` +
+              `please retry pairing. (${errText(err)})`,
+          );
+          continue;
         }
         this.log.debug(`Pairing poll error for ${device.ip}: ${errText(err)}`);
       }
@@ -838,19 +852,33 @@ export class HomeWizard extends utils.Adapter {
       if (this.unloading || conn.removed) {
         return;
       }
-      // Lazy migration: devices paired before v0.13.0 have no stored cert CN.
-      // M4: this first connect already ran under the serial-suffix pin (makeClient
-      // with conn.config.serial), so the token was never exposed under a blanket
-      // agent. Capture the full CN here + persist so later connects use the exact
-      // CN pin (createDeviceAgent).
+      // Lazy migration + startup drift-sync, both from the `info` we just fetched
+      // (one persist instead of two round-trips):
+      //   • certCn — devices paired before v0.13.0 have none. M4: this first connect
+      //     already ran under the serial-suffix pin (makeClient with conn.config.serial),
+      //     so the token was never exposed under a blanket agent. Capture the full CN
+      //     now for the exact-CN pin (createDeviceAgent) on later connects.
+      //   • productName — pick up a rename that happened while the adapter was down.
+      //     Doing it here means the first pollSystemInfo needs no redundant getDeviceInfo
+      //     just to catch a downtime-rename (F3).
+      let configChanged = false;
       if (!conn.config.certCn) {
         const certCn = client.getServerCertCn();
         if (certCn) {
           conn.config.certCn = certCn;
-          this.saveDeviceToObject(conn.config).catch((err: unknown) =>
-            this.log.debug(`Failed to persist cert CN for ${conn.config.productName}: ${errText(err)}`),
-          );
+          configChanged = true;
         }
+      }
+      const newName = sanitizeForLog(info.product_name);
+      if (info.product_name && newName !== conn.config.productName) {
+        this.log.info(`${conn.config.productName}: name changed to '${newName}' — updating object`);
+        conn.config.productName = newName;
+        configChanged = true;
+      }
+      if (configChanged) {
+        this.saveDeviceToObject(conn.config).catch((err: unknown) =>
+          this.log.debug(`Failed to persist device config for ${conn.config.productName}: ${errText(err)}`),
+        );
       }
       const key = this.stateManager.devicePrefix(conn.config);
       await this.setStateAsync(`${key}.info.firmware`, {
@@ -1091,13 +1119,11 @@ export class HomeWizard extends utils.Adapter {
   private onWsDisconnected(conn: DeviceConnection, error?: Error): void {
     // Auth failures are not a connectivity-stability signal — they mean the token is bad,
     // not the WiFi. Counting them as short connections would flip the device into unstable mode.
-    // L4: classify by errorCode OR HTTP 401 — a device whose 401 body doesn't match
-    // the exact {"error":{"code":"user:unauthorized"}} shape must still auth-stop.
-    const isAuthError =
-      error instanceof HomeWizardApiError && (error.errorCode === "user:unauthorized" || error.statusCode === 401);
+    // L4/F1: isAuthError (connection-utils) covers the canonical `user:unauthorized` code AND a
+    // bare HTTP 401 — single source of truth shared with the REST path and handleAuthFailure.
 
     // Track connection stability — pure decision in main-helpers, side-effects here.
-    if (conn.lastConnectedAt > 0 && !isAuthError) {
+    if (conn.lastConnectedAt > 0 && !isAuthError(error)) {
       const duration = Date.now() - conn.lastConnectedAt;
       const transition = decideUnstableTransition(
         conn.recentDisconnects,
@@ -1203,7 +1229,7 @@ export class HomeWizard extends utils.Adapter {
         this.logDeviceError(conn, "rest", err);
 
         // Auth failures: stop everything — token is bad, re-pair required.
-        if (err instanceof HomeWizardApiError && (err.errorCode === "user:unauthorized" || err.statusCode === 401)) {
+        if (isAuthError(err)) {
           this.handleAuthFailure(conn, err, /* cleanupTimers */ true);
           return;
         }
@@ -1249,14 +1275,14 @@ export class HomeWizard extends utils.Adapter {
       }
       await this.stateManager.updateSystem(conn.config, system, () => conn.removed || this.unloading);
 
-      // Sync productName drift: if the user renamed the device in the
-      // HomeWizard app (or a firmware update changed the product_name), pick
-      // up the new value instead of staying stale until re-pair. I7: check on
-      // the first poll (so a rename during downtime is picked up right after
-      // restart), then only every 10th — a rename is rare, so an extra
-      // getDeviceInfo HTTP round-trip every 60 s is wasteful; ~10 min is plenty.
+      // Sync productName drift: if the user renamed the device in the HomeWizard app
+      // (or a firmware update changed product_name), pick up the new value instead of
+      // staying stale until re-pair. I7/F3: the downtime-rename is already caught in
+      // initDevice from its getDeviceInfo, so the poll only needs to catch renames that
+      // happen WHILE running — every 10th poll (~10 min) is plenty and avoids a
+      // redundant getDeviceInfo on the very first poll right after initDevice.
       conn.systemPollCount = (conn.systemPollCount ?? 0) + 1;
-      if (conn.systemPollCount % 10 === 1) {
+      if (conn.systemPollCount % 10 === 0) {
         try {
           const info = await client.getDeviceInfo();
           const newName = sanitizeForLog(info.product_name);
@@ -1397,7 +1423,10 @@ export class HomeWizard extends utils.Adapter {
    *          `false` if the auth-stop fired and the caller should bail out.
    */
   private handleAuthFailure(conn: DeviceConnection, error: unknown, cleanupTimers: boolean): boolean {
-    if (!(error instanceof HomeWizardApiError) || error.errorCode !== "user:unauthorized") {
+    // F1: isAuthError treats a bare HTTP 401 as an auth failure too (not only the
+    // canonical `user:unauthorized` code) — consistent with the WS-disconnect and
+    // REST-fallback call sites, so a non-canonical 401 body still triggers the auth-stop.
+    if (!isAuthError(error)) {
       return true;
     }
     conn.authFailCount++;

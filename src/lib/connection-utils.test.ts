@@ -1,4 +1,4 @@
-import { classifyError, createDeviceConnection } from "./connection-utils";
+import { classifyError, createDeviceConnection, isAuthError } from "./connection-utils";
 import { HomeWizardApiError } from "./homewizard-client";
 import type { DeviceConfig } from "./types";
 
@@ -73,6 +73,33 @@ describe("classifyError", () => {
       expect(classifyError(null)).toBe("UNKNOWN");
       expect(classifyError(undefined)).toBe("UNKNOWN");
     });
+  });
+});
+
+describe("isAuthError", () => {
+  it("is true for the canonical user:unauthorized code", () => {
+    const err = new HomeWizardApiError(401, JSON.stringify({ error: { code: "user:unauthorized" } }), "GET /api");
+    expect(isAuthError(err)).toBe(true);
+  });
+
+  it("is true for a bare HTTP 401 whose body is not the canonical shape (F1)", () => {
+    expect(isAuthError(new HomeWizardApiError(401, "not json", "GET /api"))).toBe(true); // errorCode → "unknown"
+    expect(isAuthError(new HomeWizardApiError(401, JSON.stringify({ error: "forbidden" }), "GET /api"))).toBe(true);
+  });
+
+  it("is false for non-401 API errors (403, 404, 500)", () => {
+    expect(isAuthError(new HomeWizardApiError(403, "{}", "POST /api/user"))).toBe(false);
+    expect(isAuthError(new HomeWizardApiError(404, "{}", "GET /api/batteries"))).toBe(false);
+    expect(isAuthError(new HomeWizardApiError(500, "{}", "GET /api"))).toBe(false);
+  });
+
+  it("is false for non-API errors and non-Error values", () => {
+    const netErr = new Error("connect ECONNREFUSED") as NodeJS.ErrnoException;
+    netErr.code = "ECONNREFUSED";
+    expect(isAuthError(netErr)).toBe(false);
+    expect(isAuthError(new Error("boom"))).toBe(false);
+    expect(isAuthError("string")).toBe(false);
+    expect(isAuthError(undefined)).toBe(false);
   });
 });
 

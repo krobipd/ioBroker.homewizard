@@ -60,3 +60,19 @@ export function classifyError(err: unknown): string {
   }
   return "UNKNOWN";
 }
+
+/**
+ * Whether an error is an authentication failure — a bad/revoked bearer token.
+ * True for the canonical `user:unauthorized` error code AND for a bare HTTP 401
+ * whose body does not parse to that exact shape (non-JSON body → errorCode
+ * `"unknown"`, `{"error":"forbidden"}` → `"forbidden"`, …). A 401 semantically IS
+ * "unauthorized" for this API, so it must trigger the auth-stop regardless of the
+ * body shape — single source of truth for every auth-stop decision (main.ts
+ * WS-disconnect, REST-fallback and `handleAuthFailure`), so the three sites can
+ * never drift apart.
+ *
+ * @param err The error to classify.
+ */
+export function isAuthError(err: unknown): boolean {
+  return err instanceof HomeWizardApiError && (err.errorCode === "user:unauthorized" || err.statusCode === 401);
+}

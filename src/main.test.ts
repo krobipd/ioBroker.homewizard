@@ -334,6 +334,19 @@ describe("HomeWizard onWsDisconnected", () => {
     expect(setTimeoutSpy).not.toHaveBeenCalled(); // auth-stop → no reconnect scheduled
   });
 
+  it("F1: a bare 401 with a non-canonical body also auth-stops after repeated failures", () => {
+    const { hw, conn } = setup();
+    conn.authFailCount = 2; // one more reaches MAX_AUTH_FAILURES (3)
+    // 401 whose body is not the canonical {"error":{"code":"user:unauthorized"}} → errorCode "unknown".
+    // Before F1 this slipped past handleAuthFailure and reconnected forever.
+    const bare401 = new HomeWizardApiError(401, "gateway error", "ws");
+    const setTimeoutSpy = (hw as unknown as { setTimeout: ReturnType<typeof vi.fn> }).setTimeout;
+    setTimeoutSpy.mockClear();
+    (hw as unknown as { onWsDisconnected: (c: DeviceConnection, e?: Error) => void }).onWsDisconnected(conn, bare401);
+    expect(conn.authFailCount).toBe(3);
+    expect(setTimeoutSpy).not.toHaveBeenCalled(); // 401 → auth-stop even without the canonical code
+  });
+
   it("M1: a single outage with failed reconnects does not flip the device to unstable", () => {
     const { hw, conn } = setup();
     const api = hw as unknown as {
@@ -607,15 +620,18 @@ describe("HomeWizard pollPairing", () => {
     expect(i.discoveredDuringPairing).toHaveLength(0); // removed by identity
   });
 
-  it("revokes the just-issued token if device setup fails (S1-1, no orphaned token)", async () => {
+  it("revokes the just-issued token AND drops the device if setup fails (S1-1/F4, no orphaned token, no mint-loop)", async () => {
     const { hw, client } = setup();
     const i = internalOf(hw);
     i.discoveredDuringPairing = [{ ip: "192.168.1.72", productType: "HWE-P1", serial: "x", name: "P1" }];
-    client.getDeviceInfo.mockRejectedValueOnce(new Error("malformed device info"));
+    client.getDeviceInfo.mockRejectedValue(new Error("malformed device info"));
     await i.pollPairing();
     await settle();
 
     expect(client.deleteUser).toHaveBeenCalled();
+    // F4: dropped from the queue so it isn't re-minted+revoked every 2 s for the rest of the window.
+    expect(i.discoveredDuringPairing).toHaveLength(0);
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("paired but could not read device info"));
   });
 
   it("re-pair of an existing serial tears down the previous connection (no zombie WS)", async () => {
@@ -774,6 +790,19 @@ describe("HomeWizard initDevice", () => {
       expect.objectContaining({ native: expect.objectContaining({ certCn: "appliance/p1dongle/aabb" }) }),
       expect.anything(),
     );
+  });
+
+  it("F3: syncs a downtime-rename from the initial getDeviceInfo without a second round-trip", async () => {
+    const { hw, client, conn } = setup();
+    const i = internalOf(hw);
+    conn.config.productName = "Old Name";
+    client.getDeviceInfo.mockResolvedValue({ product_name: "New Name", firmware_version: "6.4" });
+    await i.initDevice(conn);
+    await settle();
+
+    expect(conn.config.productName).toBe("New Name");
+    expect(client.getDeviceInfo).toHaveBeenCalledTimes(1); // initDevice's fetch only — no extra drift fetch
+    expect(i.extendObjectAsync).toHaveBeenCalled(); // persisted via saveDeviceToObject
   });
 
   it("does nothing for a device removed mid-flight", async () => {
@@ -982,14 +1011,27 @@ describe("HomeWizard pollSystemInfo", () => {
     expect(stateMgr.updateBattery).toHaveBeenCalledWith(conn.config, { mode: "zero", battery_count: 2 });
   });
 
-  it("syncs productName drift from the device into the stored object", async () => {
+  it("syncs productName drift on the periodic (every 10th) poll (I7/F3)", async () => {
     const { hw, client, conn } = setup();
     const i = internalOf(hw);
+    conn.systemPollCount = 9; // next poll is the 10th → drift check fires
     client.getDeviceInfo.mockResolvedValue({ product_name: "P1 Umbenannt" });
     await i.pollSystemInfo(conn);
 
+    expect(client.getDeviceInfo).toHaveBeenCalled();
     expect(conn.config.productName).toBe("P1 Umbenannt");
     expect(i.extendObjectAsync).toHaveBeenCalled(); // persisted
+  });
+
+  it("F3: the first poll does not re-fetch getDeviceInfo (initDevice already synced the name)", async () => {
+    const { hw, client, conn } = setup();
+    const i = internalOf(hw);
+    // systemPollCount undefined → the first poll increments to 1 (1 % 10 !== 0).
+    await i.pollSystemInfo(conn);
+
+    expect(conn.systemPollCount).toBe(1);
+    expect(client.getDeviceInfo).not.toHaveBeenCalled(); // no redundant round-trip
+    expect(client.getSystem).toHaveBeenCalled(); // but the system poll itself ran
   });
 
   it("routes a failing system poll through the dedup logger (first occurrence warns)", async () => {
