@@ -179,6 +179,11 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- A device that rejects the adapter's token now reliably stops retrying and warns you to re-pair it, even when it returns an unusual error response instead of the standard one
+- Pairing no longer keeps requesting and discarding logins from a device that connects but cannot be read — it is reported once so you can simply try again
+
 ### 0.14.0 (2026-07-07)
 
 - A brief WiFi dropout no longer makes the adapter wrongly treat a device as having a permanently unstable connection after a single outage
