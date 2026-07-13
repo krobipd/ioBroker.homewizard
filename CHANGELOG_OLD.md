@@ -1,4 +1,8 @@
 # Older Changes
+## 0.12.0 (2026-06-07)
+
+- Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.
+
 ## 0.11.0 (2026-06-03)
 
 - Removed the raw P1 telegram datapoint — its data is already available as parsed measurement states; the leftover state is cleaned up automatically on existing P1 meters.

@@ -179,7 +179,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.15.0 (2026-07-13)
 
 - A device that rejects the adapter's token now stops retrying and warns you to re-pair it, instead of quietly retrying in the background
 - When pairing a device that connects but cannot be added, the adapter now tells you once so you can try again, instead of silently retrying
@@ -209,10 +209,6 @@ homewizard.0.
 ### 0.12.1 (2026-06-09)
 
 - Internal refactoring. No user-facing changes.
-
-### 0.12.0 (2026-06-07)
-
-- Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

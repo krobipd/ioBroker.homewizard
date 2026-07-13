@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.14.0",
+    "version": "0.15.0",
     "news": {
-      "NEXT": {
+      "0.15.0": {
         "en": "A device that rejects the adapter's token now stops retrying and asks you to re-pair it, and pairing no longer repeatedly requests logins from a device it cannot read.",
         "de": "Ein Gerät, das den Token des Adapters ablehnt, versucht es nicht mehr endlos, sondern bittet um erneutes Koppeln; das Pairing fordert zudem keine Logins mehr von einem unlesbaren Gerät an.",
         "ru": "Устройство, отклонившее токен адаптера, перестаёт повторять попытки и предлагает сопряжение заново; при сопряжении больше не запрашиваются входы у нечитаемого устройства.",
@@ -93,19 +93,6 @@
         "pl": "Usunięto surowy punkt danych telegramu P1 — jego wartości są już dostępne jako przetworzone stany pomiarowe; pozostały stan jest automatycznie usuwany na istniejących licznikach P1.",
         "uk": "Видалено необроблений датапоінт телеграми P1 — його значення вже доступні як оброблені стани вимірювань; залишковий стан автоматично видаляється на наявних лічильниках P1.",
         "zh-cn": "移除了原始 P1 报文数据点——其数据已作为解析后的测量状态提供；现有 P1 电表上的残留状态会自动清理。"
-      },
-      "0.10.0": {
-        "en": "New predictive battery mode and charge-to-full switch, real-time system and battery updates, plus new WiFi-network and raw P1-telegram states.",
-        "de": "Neuer Predictive-Batteriemodus und Voll-laden-Schalter, Echtzeit-Updates für System und Batterie sowie neue Datenpunkte für WLAN-Netzwerk und rohes P1-Telegramm.",
-        "ru": "Новый режим predictive для батареи и переключатель полной зарядки, обновления системы и батареи в реальном времени, а также новые состояния для WiFi-сети и телеграммы P1.",
-        "pt": "Novo modo predictive da bateria e interruptor de carga total, atualizações de sistema e bateria em tempo real, e novos pontos de dados para a rede Wi-Fi e o telegrama P1.",
-        "nl": "Nieuwe predictive-accumodus en schakelaar volledig opladen, realtime systeem- en accu-updates, en nieuwe datapunten voor wifi-netwerk en ruw P1-telegram.",
-        "fr": "Nouveau mode predictive de batterie et interrupteur de charge complète, mises à jour système et batterie en temps réel, et nouveaux points de données Wi-Fi et télégramme P1.",
-        "it": "Nuova modalità predictive della batteria e interruttore di carica completa, aggiornamenti di sistema e batteria in tempo reale, e nuovi dati per rete Wi-Fi e telegramma P1.",
-        "es": "Nuevo modo predictive de batería e interruptor de carga completa, actualizaciones de sistema y batería en tiempo real, y nuevos datos para red Wi-Fi y telegrama P1.",
-        "pl": "Nowy tryb predictive baterii i przełącznik pełnego ładowania, aktualizacje systemu i baterii w czasie rzeczywistym oraz nowe punkty danych dla sieci Wi-Fi i telegramu P1.",
-        "uk": "Новий режим predictive для батареї та перемикач повного заряджання, оновлення системи й батареї в реальному часі, а також нові точки даних для мережі Wi-Fi і телеграми P1.",
-        "zh-cn": "新增电池 predictive 模式和充满开关，系统和电池数据实时更新，并新增 WiFi 网络和原始 P1 电报数据点。"
       }
     },
     "plugins": {
