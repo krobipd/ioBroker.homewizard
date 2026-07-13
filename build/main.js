@@ -70,14 +70,6 @@ class HomeWizard extends utils.Adapter {
   get connections() {
     return this.connectionManager.connections;
   }
-  /** Per-device warn cooldown stamps — owned by the connection manager. */
-  get lastWarnAt() {
-    return this.connectionManager.lastWarnAt;
-  }
-  /** Per-device info cooldown stamps — owned by the connection manager. */
-  get lastInfoAt() {
-    return this.connectionManager.lastInfoAt;
-  }
   pairingTimer = void 0;
   pairingPollTimer = void 0;
   systemPollTimer = void 0;
@@ -627,29 +619,8 @@ class HomeWizard extends utils.Adapter {
   connectWebSocket(conn) {
     this.connectionManager.connectWebSocket(conn);
   }
-  onWsMeasurement(conn, data) {
-    this.connectionManager.onWsMeasurement(conn, data);
-  }
-  onWsSystem(conn, data) {
-    this.connectionManager.onWsSystem(conn, data);
-  }
-  onWsBattery(conn, data) {
-    this.connectionManager.onWsBattery(conn, data);
-  }
-  onWsConnected(conn) {
-    this.connectionManager.onWsConnected(conn);
-  }
-  onWsDisconnected(conn, error) {
-    this.connectionManager.onWsDisconnected(conn, error);
-  }
-  startRestFallback(conn) {
-    this.connectionManager.startRestFallback(conn);
-  }
   pollAllSystemInfo() {
     return this.connectionManager.pollAllSystemInfo();
-  }
-  pollSystemInfo(conn) {
-    return this.connectionManager.pollSystemInfo(conn);
   }
   /**
    * Remove a device — disconnect, delete states and object
@@ -673,9 +644,6 @@ class HomeWizard extends utils.Adapter {
     this.connectionManager.dropCooldowns(conn.config.serial);
     await this.stateManager.removeDevice(conn.config);
     this.connectionManager.updateGlobalConnection();
-  }
-  isUnstable(conn) {
-    return this.connectionManager.isUnstable(conn);
   }
 }
 if (require.main !== module) {

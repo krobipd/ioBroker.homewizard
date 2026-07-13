@@ -306,7 +306,7 @@ describe("HomeWizard isUnstable", () => {
   it("becomes unstable at the disconnect threshold (T3 — real method, not a literal compare)", () => {
     const { hw, conn } = setup();
     const isUnstable = (c: DeviceConnection): boolean =>
-      (hw as unknown as { isUnstable: (c: DeviceConnection) => boolean }).isUnstable(c);
+      internalOf(hw).connectionManager.isUnstable(c);
     expect(isUnstable(conn)).toBe(false);
     conn.recentDisconnects = 2;
     expect(isUnstable(conn)).toBe(false);
@@ -319,7 +319,7 @@ describe("HomeWizard onWsDisconnected", () => {
   it("schedules a reconnect on a normal disconnect", () => {
     const { hw, conn } = setup();
     const setTimeoutSpy = (hw as unknown as { setTimeout: ReturnType<typeof vi.fn> }).setTimeout;
-    (hw as unknown as { onWsDisconnected: (c: DeviceConnection, e?: Error) => void }).onWsDisconnected(conn);
+    internalOf(hw).connectionManager.onWsDisconnected(conn);
     expect(conn.wsFailCount).toBe(1);
     expect(setTimeoutSpy).toHaveBeenCalled();
   });
@@ -330,7 +330,7 @@ describe("HomeWizard onWsDisconnected", () => {
     const authErr = new HomeWizardApiError(401, JSON.stringify({ error: { code: "user:unauthorized" } }), "ws");
     const setTimeoutSpy = (hw as unknown as { setTimeout: ReturnType<typeof vi.fn> }).setTimeout;
     setTimeoutSpy.mockClear();
-    (hw as unknown as { onWsDisconnected: (c: DeviceConnection, e?: Error) => void }).onWsDisconnected(conn, authErr);
+    internalOf(hw).connectionManager.onWsDisconnected(conn, authErr);
     expect(setTimeoutSpy).not.toHaveBeenCalled(); // auth-stop → no reconnect scheduled
   });
 
@@ -342,18 +342,14 @@ describe("HomeWizard onWsDisconnected", () => {
     const bare401 = new HomeWizardApiError(401, "gateway error", "ws");
     const setTimeoutSpy = (hw as unknown as { setTimeout: ReturnType<typeof vi.fn> }).setTimeout;
     setTimeoutSpy.mockClear();
-    (hw as unknown as { onWsDisconnected: (c: DeviceConnection, e?: Error) => void }).onWsDisconnected(conn, bare401);
+    internalOf(hw).connectionManager.onWsDisconnected(conn, bare401);
     expect(conn.authFailCount).toBe(3);
     expect(setTimeoutSpy).not.toHaveBeenCalled(); // 401 → auth-stop even without the canonical code
   });
 
   it("M1: a single outage with failed reconnects does not flip the device to unstable", () => {
     const { hw, conn } = setup();
-    const api = hw as unknown as {
-      onWsConnected: (c: DeviceConnection) => void;
-      onWsDisconnected: (c: DeviceConnection, e?: Error) => void;
-      isUnstable: (c: DeviceConnection) => boolean;
-    };
+    const api = internalOf(hw).connectionManager;
     api.onWsConnected(conn); // real connect → lastConnectedAt set, counters reset
     api.onWsDisconnected(conn); // real disconnect → recentDisconnects = 1, lastConnectedAt reset (M1)
     api.onWsDisconnected(conn); // failed reconnect — onWsConnected NOT called, never re-authenticated
@@ -372,7 +368,7 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
     conn.wsFailCount = 5;
     conn.authFailCount = 2;
     conn.lastErrorCode = "NETWORK";
-    (hw as unknown as { onWsConnected: (c: DeviceConnection) => void }).onWsConnected(conn);
+    internalOf(hw).connectionManager.onWsConnected(conn);
     expect(conn.wsAuthenticated).toBe(true);
     expect(conn.wsFailCount).toBe(0);
     expect(conn.authFailCount).toBe(0);
@@ -382,7 +378,7 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
 
   it("onWsBattery forwards a push when batteries are connected (battery_count > 0)", () => {
     const { hw, conn, stateMgr } = setup();
-    (hw as unknown as { onWsBattery: (c: DeviceConnection, d: unknown) => void }).onWsBattery(conn, {
+    internalOf(hw).connectionManager.onWsBattery(conn, {
       mode: "zero",
       battery_count: 2,
     });
@@ -391,14 +387,14 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
 
   it("onWsBattery drops a push without battery_count (gate, consistent with the REST poll)", () => {
     const { hw, conn, stateMgr } = setup();
-    (hw as unknown as { onWsBattery: (c: DeviceConnection, d: unknown) => void }).onWsBattery(conn, { mode: "zero" });
+    internalOf(hw).connectionManager.onWsBattery(conn, { mode: "zero" });
     expect(stateMgr.updateBattery).not.toHaveBeenCalled();
   });
 
   it("onWsBattery drops a push for a device removed mid-flight (race guard)", () => {
     const { hw, conn, stateMgr } = setup();
     conn.removed = true;
-    (hw as unknown as { onWsBattery: (c: DeviceConnection, d: unknown) => void }).onWsBattery(conn, {
+    internalOf(hw).connectionManager.onWsBattery(conn, {
       mode: "zero",
       battery_count: 2,
     });
@@ -407,7 +403,7 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
 
   it("onWsSystem forwards a push to updateSystem", () => {
     const { hw, conn, stateMgr } = setup();
-    (hw as unknown as { onWsSystem: (c: DeviceConnection, d: unknown) => void }).onWsSystem(conn, {
+    internalOf(hw).connectionManager.onWsSystem(conn, {
       cloud_enabled: true,
     });
     expect(stateMgr.updateSystem).toHaveBeenCalled();
@@ -416,7 +412,7 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
   it("onWsSystem drops a push while a previous system write is in flight (L8 backpressure)", () => {
     const { hw, conn, stateMgr } = setup();
     conn.systemBusy = true;
-    (hw as unknown as { onWsSystem: (c: DeviceConnection, d: unknown) => void }).onWsSystem(conn, {
+    internalOf(hw).connectionManager.onWsSystem(conn, {
       cloud_enabled: true,
     });
     expect(stateMgr.updateSystem).not.toHaveBeenCalled();
@@ -425,7 +421,7 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
   it("onWsBattery drops a push while a previous battery write is in flight (L8 backpressure)", () => {
     const { hw, conn, stateMgr } = setup();
     conn.batteryBusy = true;
-    (hw as unknown as { onWsBattery: (c: DeviceConnection, d: unknown) => void }).onWsBattery(conn, {
+    internalOf(hw).connectionManager.onWsBattery(conn, {
       mode: "zero",
       battery_count: 2,
     });
@@ -438,7 +434,7 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
     u.conn.recentDisconnects = 3; // isUnstable → true
     u.conn.wsFailCount = 10; // exponential backoff would far exceed any cap
     const uSetTimeout = (u.hw as unknown as { setTimeout: ReturnType<typeof vi.fn> }).setTimeout;
-    (u.hw as unknown as { onWsDisconnected: (c: DeviceConnection) => void }).onWsDisconnected(u.conn);
+    internalOf(u.hw).connectionManager.onWsDisconnected(u.conn);
     const unstableDelay = uSetTimeout.mock.calls[0][1] as number;
 
     // Stable device, same fail count → the normal 5-min cap.
@@ -446,7 +442,7 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
     s.conn.recentDisconnects = 0; // isUnstable → false
     s.conn.wsFailCount = 10;
     const sSetTimeout = (s.hw as unknown as { setTimeout: ReturnType<typeof vi.fn> }).setTimeout;
-    (s.hw as unknown as { onWsDisconnected: (c: DeviceConnection) => void }).onWsDisconnected(s.conn);
+    internalOf(s.hw).connectionManager.onWsDisconnected(s.conn);
     const stableDelay = sSetTimeout.mock.calls[0][1] as number;
 
     expect(unstableDelay).toBeLessThanOrEqual(60_000);
@@ -464,8 +460,6 @@ function internalOf(hw: HomeWizard): {
   pairingPollTimer: unknown;
   systemPollTimer: unknown;
   ipRecoveryTimer: unknown;
-  lastWarnAt: Map<string, number>;
-  lastInfoAt: Map<string, number>;
   connections: Map<string, DeviceConnection>;
   config: Record<string, unknown>;
   log: {
@@ -496,10 +490,21 @@ function internalOf(hw: HomeWizard): {
   onDeviceDiscovered: (d: DiscoveredDevice) => void;
   onReady: () => Promise<void>;
   onUnload: (cb: () => void) => void;
-  onWsMeasurement: (c: DeviceConnection, d: unknown) => void;
   pollAllSystemInfo: () => Promise<void>;
-  pollSystemInfo: (c: DeviceConnection) => Promise<void>;
   removeDevice: (id: string) => Promise<void>;
+  connectionManager: {
+    connections: Map<string, DeviceConnection>;
+    lastWarnAt: Map<string, number>;
+    lastInfoAt: Map<string, number>;
+    onWsMeasurement: (c: DeviceConnection, d: unknown) => void;
+    onWsSystem: (c: DeviceConnection, d: unknown) => void;
+    onWsBattery: (c: DeviceConnection, d: unknown) => void;
+    onWsConnected: (c: DeviceConnection) => void;
+    onWsDisconnected: (c: DeviceConnection, e?: Error) => void;
+    isUnstable: (c: DeviceConnection) => boolean;
+    startRestFallback: (c: DeviceConnection) => void;
+    pollSystemInfo: (c: DeviceConnection) => Promise<void>;
+  };
 } {
   return hw as unknown as ReturnType<typeof internalOf>;
 }
@@ -969,14 +974,14 @@ describe("HomeWizard onUnload", () => {
 describe("HomeWizard onWsMeasurement", () => {
   it("forwards a push to updateMeasurement", () => {
     const { hw, conn, stateMgr } = setup();
-    internalOf(hw).onWsMeasurement(conn, { power_w: 42 });
+    internalOf(hw).connectionManager.onWsMeasurement(conn, { power_w: 42 });
     expect(stateMgr.updateMeasurement).toHaveBeenCalledWith(conn.config, { power_w: 42 }, expect.any(Function));
   });
 
   it("drops a push for a removed device", () => {
     const { hw, conn, stateMgr } = setup();
     conn.removed = true;
-    internalOf(hw).onWsMeasurement(conn, { power_w: 42 });
+    internalOf(hw).connectionManager.onWsMeasurement(conn, { power_w: 42 });
     expect(stateMgr.updateMeasurement).not.toHaveBeenCalled();
   });
 
@@ -986,7 +991,7 @@ describe("HomeWizard onWsMeasurement", () => {
     stateMgr.updateMeasurement.mockImplementation(async () => {
       throw new Error("redis hiccup");
     });
-    i.onWsMeasurement(conn, { power_w: 42 });
+    i.connectionManager.onWsMeasurement(conn, { power_w: 42 });
     await settle();
     expect(i.log.debug).toHaveBeenCalledWith(expect.stringContaining("redis hiccup"));
   });
@@ -997,7 +1002,7 @@ describe("HomeWizard pollSystemInfo", () => {
     const { hw, client, conn, stateMgr } = setup();
     const i = internalOf(hw);
     client.getBatteries.mockRejectedValue(new HomeWizardApiError(404, "{}", "GET /api/batteries"));
-    await i.pollSystemInfo(conn);
+    await i.connectionManager.pollSystemInfo(conn);
 
     expect(stateMgr.updateSystem).toHaveBeenCalled();
     expect(stateMgr.updateBattery).not.toHaveBeenCalled();
@@ -1007,7 +1012,7 @@ describe("HomeWizard pollSystemInfo", () => {
   it("updates battery states when batteries are connected", async () => {
     const { hw, client, conn, stateMgr } = setup();
     client.getBatteries.mockResolvedValue({ mode: "zero", battery_count: 2 });
-    await internalOf(hw).pollSystemInfo(conn);
+    await internalOf(hw).connectionManager.pollSystemInfo(conn);
     expect(stateMgr.updateBattery).toHaveBeenCalledWith(conn.config, { mode: "zero", battery_count: 2 });
   });
 
@@ -1016,7 +1021,7 @@ describe("HomeWizard pollSystemInfo", () => {
     const i = internalOf(hw);
     conn.systemPollCount = 9; // next poll is the 10th → drift check fires
     client.getDeviceInfo.mockResolvedValue({ product_name: "P1 Umbenannt" });
-    await i.pollSystemInfo(conn);
+    await i.connectionManager.pollSystemInfo(conn);
 
     expect(client.getDeviceInfo).toHaveBeenCalled();
     expect(conn.config.productName).toBe("P1 Umbenannt");
@@ -1027,7 +1032,7 @@ describe("HomeWizard pollSystemInfo", () => {
     const { hw, client, conn } = setup();
     const i = internalOf(hw);
     // systemPollCount undefined → the first poll increments to 1 (1 % 10 !== 0).
-    await i.pollSystemInfo(conn);
+    await i.connectionManager.pollSystemInfo(conn);
 
     expect(conn.systemPollCount).toBe(1);
     expect(client.getDeviceInfo).not.toHaveBeenCalled(); // no redundant round-trip
@@ -1040,7 +1045,7 @@ describe("HomeWizard pollSystemInfo", () => {
     const err = new Error("connect EHOSTUNREACH") as NodeJS.ErrnoException;
     err.code = "EHOSTUNREACH";
     client.getSystem.mockRejectedValue(err);
-    await i.pollSystemInfo(conn);
+    await i.connectionManager.pollSystemInfo(conn);
     expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("unreachable"));
   });
 });
@@ -1096,12 +1101,12 @@ describe("v0.12.2 regressions", () => {
   it("removeDevice drops the per-device warn/info cooldown stamps", async () => {
     const { hw } = setup();
     const i = internalOf(hw);
-    i.lastWarnAt.set("aabb", 123);
-    i.lastInfoAt.set("aabb", 456);
+    i.connectionManager.lastWarnAt.set("aabb", 123);
+    i.connectionManager.lastInfoAt.set("aabb", 456);
     await i.removeDevice("homewizard.0.hwe-p1_aabb.remove");
 
-    expect(i.lastWarnAt.has("aabb")).toBe(false);
-    expect(i.lastInfoAt.has("aabb")).toBe(false);
+    expect(i.connectionManager.lastWarnAt.has("aabb")).toBe(false);
+    expect(i.connectionManager.lastInfoAt.has("aabb")).toBe(false);
   });
 
   it("a write to a state without matching device is surfaced at debug", async () => {
@@ -1116,7 +1121,7 @@ describe("HomeWizard startRestFallback (poll body)", () => {
   /** Start the fallback and return the captured interval callback. */
   function startAndCapture(hw: HomeWizard, conn: DeviceConnection): () => Promise<void> {
     const i = internalOf(hw);
-    (hw as unknown as { startRestFallback: (c: DeviceConnection) => void }).startRestFallback(conn);
+    internalOf(hw).connectionManager.startRestFallback(conn);
     const lastCall = i.setInterval.mock.calls.at(-1)!;
     return lastCall[0] as () => Promise<void>;
   }
@@ -1176,9 +1181,9 @@ describe("HomeWizard startRestFallback (poll body)", () => {
   it("does not start a second poll while one timer is active", () => {
     const { hw, conn } = setup();
     const i = internalOf(hw);
-    (hw as unknown as { startRestFallback: (c: DeviceConnection) => void }).startRestFallback(conn);
+    internalOf(hw).connectionManager.startRestFallback(conn);
     const after = i.setInterval.mock.calls.length;
-    (hw as unknown as { startRestFallback: (c: DeviceConnection) => void }).startRestFallback(conn);
+    internalOf(hw).connectionManager.startRestFallback(conn);
     expect(i.setInterval.mock.calls.length).toBe(after);
   });
 });
@@ -1234,7 +1239,7 @@ describe("HomeWizard onWsDisconnected reconnect timer", () => {
   it("the scheduled timer callback re-runs connectWebSocket", () => {
     const { hw, conn, wsInstances } = setup();
     const i = internalOf(hw);
-    (hw as unknown as { onWsDisconnected: (c: DeviceConnection) => void }).onWsDisconnected(conn);
+    internalOf(hw).connectionManager.onWsDisconnected(conn);
     const timerCb = i.setTimeout.mock.calls.at(-1)![0] as () => void;
     timerCb();
     expect(conn.reconnectTimer).toBeUndefined();

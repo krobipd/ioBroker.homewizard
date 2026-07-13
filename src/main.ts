@@ -23,14 +23,7 @@ import {
 } from "./lib/cacert";
 import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
 import { StateManager } from "./lib/state-manager";
-import type {
-  BatteryControl,
-  DeviceConfig,
-  DeviceConnection,
-  DiscoveredDevice,
-  Measurement,
-  SystemInfo,
-} from "./lib/types";
+import type { DeviceConfig, DeviceConnection, DiscoveredDevice } from "./lib/types";
 import { HomeWizardWebSocket, type TimerDeps, type WsCallbacks } from "./lib/websocket-client";
 
 /** Pairing timeout in milliseconds (60 seconds) */
@@ -82,14 +75,6 @@ export class HomeWizard extends utils.Adapter {
   /** Device connections — the registry lives in the connection manager. */
   private get connections(): Map<string, DeviceConnection> {
     return this.connectionManager.connections;
-  }
-  /** Per-device warn cooldown stamps — owned by the connection manager. */
-  private get lastWarnAt(): Map<string, number> {
-    return this.connectionManager.lastWarnAt;
-  }
-  /** Per-device info cooldown stamps — owned by the connection manager. */
-  private get lastInfoAt(): Map<string, number> {
-    return this.connectionManager.lastInfoAt;
   }
   private pairingTimer: ioBroker.Timeout | undefined = undefined;
   private pairingPollTimer: ioBroker.Interval | undefined = undefined;
@@ -827,36 +812,8 @@ export class HomeWizard extends utils.Adapter {
     this.connectionManager.connectWebSocket(conn);
   }
 
-  private onWsMeasurement(conn: DeviceConnection, data: Measurement): void {
-    this.connectionManager.onWsMeasurement(conn, data);
-  }
-
-  private onWsSystem(conn: DeviceConnection, data: SystemInfo): void {
-    this.connectionManager.onWsSystem(conn, data);
-  }
-
-  private onWsBattery(conn: DeviceConnection, data: BatteryControl): void {
-    this.connectionManager.onWsBattery(conn, data);
-  }
-
-  private onWsConnected(conn: DeviceConnection): void {
-    this.connectionManager.onWsConnected(conn);
-  }
-
-  private onWsDisconnected(conn: DeviceConnection, error?: Error): void {
-    this.connectionManager.onWsDisconnected(conn, error);
-  }
-
-  private startRestFallback(conn: DeviceConnection): void {
-    this.connectionManager.startRestFallback(conn);
-  }
-
   private pollAllSystemInfo(): Promise<void> {
     return this.connectionManager.pollAllSystemInfo();
-  }
-
-  private pollSystemInfo(conn: DeviceConnection): Promise<void> {
-    return this.connectionManager.pollSystemInfo(conn);
   }
 
   /**
@@ -903,10 +860,6 @@ export class HomeWizard extends utils.Adapter {
     await this.stateManager.removeDevice(conn.config);
 
     this.connectionManager.updateGlobalConnection();
-  }
-
-  private isUnstable(conn: DeviceConnection): boolean {
-    return this.connectionManager.isUnstable(conn);
   }
 }
 
