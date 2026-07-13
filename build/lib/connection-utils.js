@@ -20,7 +20,8 @@ var connection_utils_exports = {};
 __export(connection_utils_exports, {
   UNSTABLE_DISCONNECT_THRESHOLD: () => UNSTABLE_DISCONNECT_THRESHOLD,
   classifyError: () => classifyError,
-  createDeviceConnection: () => createDeviceConnection
+  createDeviceConnection: () => createDeviceConnection,
+  isAuthError: () => isAuthError
 });
 module.exports = __toCommonJS(connection_utils_exports);
 var import_homewizard_client = require("./homewizard-client");
@@ -61,10 +62,14 @@ function classifyError(err) {
   }
   return "UNKNOWN";
 }
+function isAuthError(err) {
+  return err instanceof import_homewizard_client.HomeWizardApiError && (err.errorCode === "user:unauthorized" || err.statusCode === 401);
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   UNSTABLE_DISCONNECT_THRESHOLD,
   classifyError,
-  createDeviceConnection
+  createDeviceConnection,
+  isAuthError
 });
 //# sourceMappingURL=connection-utils.js.map
