@@ -193,7 +193,7 @@ homewizard.0.
 - Security: after an update, an older device is verified by its serial from the very first connection — its access token no longer briefly crosses a not-fully-verified connection
 - Security: device and network-discovery names are cleaned before they reach the log, and pairing now cross-checks the device's serial against its certificate
 
-### 0.13.0 (2026-06-24)
+### 0.13.0 (2026-06-24) — stable
 
 - Security: the adapter now checks each device's certificate, so it only ever talks to your real device
 - Pairing a device by manual IP no longer leaves repeated pairing attempts and throwaway tokens behind on the device
