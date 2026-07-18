@@ -179,7 +179,7 @@ homewizard.0.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### 0.15.0 (2026-07-13)
+### 0.15.0 (2026-07-13) — stable
 
 - A device that rejects the adapter's token now stops retrying and warns you to re-pair it, instead of quietly retrying in the background
 - When pairing a device that connects but cannot be added, the adapter now tells you once so you can try again, instead of silently retrying
