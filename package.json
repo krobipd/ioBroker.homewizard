@@ -31,7 +31,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@iobroker/adapter-core": "^3.4.2",
+    "@iobroker/adapter-core": "^3.4.3",
     "bonjour-service": "^1.4.3",
     "ws": "^8.21.1"
   },
