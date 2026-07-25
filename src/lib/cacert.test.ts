@@ -72,7 +72,7 @@ describe("dropDeviceAgent (I8)", () => {
 
 describe("createDeviceAgentForSerial — first-connect serial-suffix pinning (M4)", () => {
   // Official HW v2 doc: cert CN = `appliance/<type>/<serial>`, serial = lowercase-hex MAC.
-  const SERIAL = "5c2faf19b76e";
+  const SERIAL = "aabbccddeeff";
 
   it("accepts a cert whose CN ends with the device serial", () => {
     const check = checkOf(createDeviceAgentForSerial(SERIAL));

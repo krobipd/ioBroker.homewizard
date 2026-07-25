@@ -101,7 +101,8 @@ const serialDeviceAgents = new Map<string, https.Agent>();
  * and the serial is the device MAC in lowercase hex without separators — **the
  * official API doc** states this and explicitly recommends verifying the CN against
  * the serial obtained from mDNS / the API. Verified byte-identical on real hardware
- * (P1: CN `appliance/p1dongle/5c2faf19b76e`, serial `5c2faf19b76e`).
+ * (P1: CN `appliance/p1dongle/<serial>`, where `<serial>` is exactly the value the
+ * API/mDNS reports — no separators, lowercase).
  *
  * Used from the very FIRST connect of a device that has no stored CN yet (a
  * pre-v0.13.0 device on upgrade) — so the bearer token is never sent under a
