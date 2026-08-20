@@ -33,7 +33,7 @@
   "dependencies": {
     "@iobroker/adapter-core": "^3.4.3",
     "bonjour-service": "^1.4.4",
-    "ws": "^8.21.2"
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@alcalzone/release-script": "^5.2.1",
