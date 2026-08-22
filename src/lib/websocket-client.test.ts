@@ -358,6 +358,8 @@ describe("HomeWizardWebSocket", () => {
       ws.close();
     });
 
+    // Covers S3-5 (the former measurement-only variant of this test) plus the
+    // system + batteries frames it left unguarded.
     it("drops data frames that arrive BEFORE the handshake completes", () => {
       const { callbacks, tracker } = createCallbackTracker();
       const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
@@ -431,16 +433,6 @@ describe("HomeWizardWebSocket", () => {
       callHandleMessage(ws, { type: "error", data: { message: "different error" } });
       const changed = tracker.logs.filter(l => l.level === "warn" && l.msg.includes("different error"));
       expect(changed).toHaveLength(1); // a changed detail logs again
-      ws.close();
-    });
-
-    it("ignores data frames received before the handshake completes (S3-5)", () => {
-      const { callbacks, tracker } = createCallbackTracker();
-      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
-
-      callHandleMessage(ws, { type: "measurement", data: { power_w: 99 } }, { authorized: false });
-
-      expect(tracker.measurements).toHaveLength(0);
       ws.close();
     });
 

@@ -303,6 +303,8 @@ describe("HomeWizard removeDevice (A2 token revoke)", () => {
 });
 
 describe("HomeWizard removeDevice / onUnload — in-flight work must stop", () => {
+  // Replaces the former "drops a push for a removed device", which set the flag
+  // by hand and therefore never checked that removeDevice actually sets it.
   it("a push arriving after removeDevice writes nothing", async () => {
     const { hw, conn, stateMgr } = setup();
     await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
@@ -1069,13 +1071,6 @@ describe("HomeWizard onWsMeasurement", () => {
     const { hw, conn, stateMgr } = setup();
     internalOf(hw).connectionManager.onWsMeasurement(conn, { power_w: 42 });
     expect(stateMgr.updateMeasurement).toHaveBeenCalledWith(conn.config, { power_w: 42 }, expect.any(Function));
-  });
-
-  it("drops a push for a removed device", () => {
-    const { hw, conn, stateMgr } = setup();
-    conn.removed = true;
-    internalOf(hw).connectionManager.onWsMeasurement(conn, { power_w: 42 });
-    expect(stateMgr.updateMeasurement).not.toHaveBeenCalled();
   });
 
   it("catches a rejected write (transient Redis hiccup) as debug instead of an unhandled rejection", async () => {
