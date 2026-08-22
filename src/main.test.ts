@@ -302,6 +302,35 @@ describe("HomeWizard removeDevice (A2 token revoke)", () => {
   });
 });
 
+describe("HomeWizard removeDevice / onUnload — in-flight work must stop", () => {
+  it("a push arriving after removeDevice writes nothing", async () => {
+    const { hw, conn, stateMgr } = setup();
+    await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
+    stateMgr.updateMeasurement.mockClear();
+
+    // The SAME connection object the in-flight WS frame / REST poll still holds
+    // must carry the removal mark — writing its data would re-create the objects
+    // that removeDevice just deleted.
+    expect(conn.removed, "removeDevice must mark the live connection").toBe(true);
+    internalOf(hw).connectionManager.onWsMeasurement(conn, { power_w: 100 });
+    expect(stateMgr.updateMeasurement).not.toHaveBeenCalled();
+  });
+
+  it("no new socket is opened once the adapter is unloading", () => {
+    const { hw, conn, wsInstances } = setup();
+    const i = internalOf(hw);
+    const before = wsInstances.length;
+
+    const callback = vi.fn();
+    i.onUnload(callback);
+
+    // A reconnect timer that fired just before teardown, or an mDNS broadcast
+    // arriving during unload, must not spawn a socket on a dying adapter.
+    i.connectionManager.connectWebSocket(conn);
+    expect(wsInstances.length, "no socket after unload").toBe(before);
+  });
+});
+
 describe("HomeWizard isUnstable", () => {
   it("becomes unstable at the disconnect threshold (T3 — real method, not a literal compare)", () => {
     const { hw, conn } = setup();
@@ -345,6 +374,43 @@ describe("HomeWizard onWsDisconnected", () => {
     internalOf(hw).connectionManager.onWsDisconnected(conn, bare401);
     expect(conn.authFailCount).toBe(3);
     expect(setTimeoutSpy).not.toHaveBeenCalled(); // 401 → auth-stop even without the canonical code
+  });
+
+  it("a network outage is NOT an auth failure — reconnects keep running", () => {
+    const { hw, conn } = setup();
+    const setTimeoutSpy = (hw as unknown as { setTimeout: ReturnType<typeof vi.fn> }).setTimeout;
+    const netErr = Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+
+    // Three network drops in a row. Counting them as auth failures would stop
+    // the adapter for good on a device that is simply offline — the exact
+    // opposite of "the adapter never gives up" for bad-WiFi devices.
+    for (let n = 0; n < 3; n++) {
+      setTimeoutSpy.mockClear();
+      internalOf(hw).connectionManager.onWsDisconnected(conn, netErr);
+      expect(setTimeoutSpy, `reconnect still scheduled after drop ${n + 1}`).toHaveBeenCalled();
+    }
+    expect(conn.authFailCount).toBe(0);
+  });
+
+  it("repeats of the same error stay on debug — one warn per outage", () => {
+    const { hw, conn } = setup();
+    const warn = (hw as unknown as { log: { warn: ReturnType<typeof vi.fn> } }).log.warn;
+    const netErr = Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+    warn.mockClear();
+
+    internalOf(hw).connectionManager.onWsDisconnected(conn, netErr);
+    internalOf(hw).connectionManager.onWsDisconnected(conn, netErr);
+    internalOf(hw).connectionManager.onWsDisconnected(conn, netErr);
+    // A device with bad WiFi drops all day — a warn per drop floods the log
+    // that a real problem would have to be found in.
+    expect(warn.mock.calls.length, "one warn for a repeating outage").toBe(1);
+
+    // The repeats must go down the plain repeat-path, NOT the cooldown path:
+    // "(cooldown)" means "a NEW error category, suppressed for now" and sends
+    // whoever reads the log looking for a second, different fault.
+    const debug = (hw as unknown as { log: { debug: ReturnType<typeof vi.fn> } }).log.debug;
+    const cooldownLines = debug.mock.calls.filter(c => String(c[0]).includes("(cooldown)"));
+    expect(cooldownLines, "a repeat is not a cooldown-suppressed new category").toHaveLength(0);
   });
 
   it("M1: a single outage with failed reconnects does not flip the device to unstable", () => {
@@ -502,6 +568,7 @@ function internalOf(hw: HomeWizard): {
     onWsConnected: (c: DeviceConnection) => void;
     onWsDisconnected: (c: DeviceConnection, e?: Error) => void;
     isUnstable: (c: DeviceConnection) => boolean;
+    connectWebSocket: (c: DeviceConnection) => void;
     startRestFallback: (c: DeviceConnection) => void;
     pollSystemInfo: (c: DeviceConnection) => Promise<void>;
   };
@@ -592,6 +659,11 @@ describe("HomeWizard pollPairing", () => {
 
     expect(stateMgr.createDeviceStates).not.toHaveBeenCalled();
     expect(i.discoveredDuringPairing).toHaveLength(1); // still waiting for the button
+    // 403 is the EXPECTED state during the whole pairing window (the user has
+    // not pressed the button yet). Logging it as an error would put one line
+    // every 2 s into the log and send whoever reads it hunting a fault.
+    const errorLines = i.log.debug.mock.calls.filter((c: unknown[]) => String(c[0]).includes("Pairing poll error"));
+    expect(errorLines, "403 is not a pairing error").toHaveLength(0);
   });
 
   it("success: saves the device, creates states, registers the connection and drops it from the queue", async () => {
@@ -705,6 +777,27 @@ describe("HomeWizard loadDevicesFromObjects", () => {
     expect(devices[0].serial).toBe("dev1");
     expect(devices[0].token).toBe("tok1"); // decrypt stub is identity
     expect(devices[0].ip).toBe("192.168.1.8");
+  });
+
+  it("skips a device object that carries no token", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      // A half-written object (interrupted pairing, manual DB edit): loading it
+      // would put a device into the connection list whose every request goes
+      // out without a bearer token → an endless 401 loop against the device.
+      "homewizard.0.hwe-p1_notoken": {
+        type: "device",
+        native: { serial: "notoken", productType: "HWE-P1", productName: "P1" },
+      },
+      "homewizard.0.hwe-p1_ok": {
+        type: "device",
+        native: { encryptedToken: "tok", serial: "ok", productType: "HWE-P1", productName: "P1" },
+      },
+    });
+
+    const devices = (await i.loadDevicesFromObjects()) as Array<{ serial: string }>;
+    expect(devices.map(d => d.serial)).toEqual(["ok"]);
   });
 
   it("isolates a corrupted token: warns, skips that device, keeps the rest", async () => {

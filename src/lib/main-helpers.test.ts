@@ -87,6 +87,15 @@ describe("shouldStartIpRecovery", () => {
     expect(shouldStartIpRecovery(10, BEFORE, RETRY_EVERY)).toBe(false);
   });
 
+  it("stays false below the threshold for ANY parameter combination", () => {
+    // The modulo alone is not the guard: with beforeMdns == retryEvery a
+    // fresh failCount of 0 gives (0-12) % 12 === -0, which is falsy-equal to 0
+    // and would start a device search on the very first failed connect.
+    expect(shouldStartIpRecovery(0, 12, 12)).toBe(false);
+    expect(shouldStartIpRecovery(3, 15, 12)).toBe(false);
+    expect(shouldStartIpRecovery(1, 2, 1)).toBe(false);
+  });
+
   it("true again after RETRY_EVERY more failures", () => {
     expect(shouldStartIpRecovery(15, BEFORE, RETRY_EVERY)).toBe(true); // 3 + 12
     expect(shouldStartIpRecovery(27, BEFORE, RETRY_EVERY)).toBe(true); // 3 + 24
@@ -199,6 +208,14 @@ describe("shouldEmitAfterCooldown", () => {
     const last = 1_700_000_000_000;
     expect(shouldEmitAfterCooldown(last, last + 500, 1_000)).toBe(false);
     expect(shouldEmitAfterCooldown(last, last + 1_000, 1_000)).toBe(true);
+  });
+
+  it("always emits the FIRST time, whatever the clock says", () => {
+    // lastMs === 0 means "never emitted". Falling through to the subtraction
+    // happens to work with a real epoch timestamp, but the never-emitted case
+    // is a separate decision and must not depend on how large `now` is.
+    expect(shouldEmitAfterCooldown(0, 500, 1_000)).toBe(true);
+    expect(shouldEmitAfterCooldown(0, 0, 60_000)).toBe(true);
   });
 
   it("handles zero-cooldown (every call emits)", () => {

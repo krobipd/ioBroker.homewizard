@@ -358,6 +358,23 @@ describe("HomeWizardWebSocket", () => {
       ws.close();
     });
 
+    it("drops data frames that arrive BEFORE the handshake completes", () => {
+      const { callbacks, tracker } = createCallbackTracker();
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
+
+      // A server that pushes data before "authorized" is misbehaving — or is
+      // not the device at all. Trusting those frames means writing values from
+      // an unauthenticated peer into the object tree.
+      callHandleMessage(ws, { type: "measurement", data: { power_w: 100 } }, { authorized: false });
+      callHandleMessage(ws, { type: "system", data: { cloud_enabled: true } }, { authorized: false });
+      callHandleMessage(ws, { type: "batteries", data: { mode: "zero" } }, { authorized: false });
+
+      expect(tracker.measurements).toHaveLength(0);
+      expect(tracker.systems).toHaveLength(0);
+      expect(tracker.batteries).toHaveLength(0);
+      ws.close();
+    });
+
     it("should ignore a system push with non-object data", () => {
       const { callbacks, tracker } = createCallbackTracker();
       const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
@@ -794,5 +811,37 @@ describe("HomeWizardWebSocket against a real wss stub-server (T4)", () => {
     stub.closeClientSocket();
     await disconnected;
     expect(tracker.disconnected).toBeGreaterThanOrEqual(1);
+  });
+
+  it("stays silent and detached after OUR OWN close()", async () => {
+    const { callbacks, tracker, connected } = trackerWithSignals();
+    ws = new HomeWizardWebSocket("127.0.0.1", "mytoken", callbacks, createNativeTimerDeps(), {
+      agent: TEST_AGENT,
+      port: stub.port,
+    });
+    ws.connect();
+    await connected;
+
+    // Grab the close-handler BEFORE the teardown detaches it, so we can replay
+    // the close event that a dying socket still has queued.
+    const socket = (ws as unknown as {
+      ws: { listeners: (e: string) => Array<(...a: unknown[]) => void>; listenerCount: (e: string) => number } | null;
+    }).ws;
+    const closeHandler = socket?.listeners("close")[0];
+
+    ws.close();
+    await new Promise(r => setTimeout(r, 100));
+    expect(tracker.disconnected, "own close must not fire onDisconnected").toBe(0);
+
+    // 1) The socket is detached — no listener of ours is left on it.
+    expect(socket?.listenerCount("close"), "close listener removed").toBe(0);
+    expect(socket?.listenerCount("error"), "error listener replaced by the silent one").toBeLessThanOrEqual(1);
+
+    // 2) And even a close event that was already in flight must stay silent:
+    // reporting it would restart the whole reconnect machinery for a device we
+    // just tore down.
+    closeHandler?.(1006, Buffer.from(""));
+    await new Promise(r => setTimeout(r, 50));
+    expect(tracker.disconnected, "queued close after teardown must stay silent").toBe(0);
   });
 });

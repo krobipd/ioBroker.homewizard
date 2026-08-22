@@ -190,6 +190,21 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
       }
     });
 
+    it("rejects a well-formed JSON answer that is missing an identity field", async () => {
+      // devicePrefix() → sanitize() needs product_type + serial as strings; a
+      // device (or a look-alike) answering 200 without them would either crash
+      // the setup or, at pairing time, leave an orphaned token behind.
+      for (const partial of [
+        { serial: "aabb", product_name: "P1" },
+        { product_type: "HWE-P1", product_name: "P1" },
+        { product_type: "HWE-P1", serial: "aabb" },
+        { product_type: 42, serial: "aabb", product_name: "P1" },
+      ]) {
+        stub.queue.push({ statusCode: 200, body: partial });
+        await expect(client.getDeviceInfo(), JSON.stringify(partial)).rejects.toThrow(/malformed device info/);
+      }
+    });
+
     it("throws on invalid JSON body (non-API error)", async () => {
       stub.queue.push({ statusCode: 200, bodyText: "<html>oops</html>" });
       try {

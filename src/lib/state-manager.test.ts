@@ -22,6 +22,7 @@ vi.mock("@iobroker/adapter-core", () => {
   };
 });
 
+import { I18n } from "@iobroker/adapter-core";
 import { MEASUREMENT_STATE_DEFS, MOMENTARY_KEYS, StateManager } from "./state-manager";
 import type { DeviceConfig, Measurement, SystemInfo, BatteryControl } from "./types";
 
@@ -315,6 +316,38 @@ describe("StateManager", () => {
       expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.power_l3_w")?.val).toBe(334);
     });
 
+    it("keeps writing momentary values even when they repeat, but skips slow ones", async () => {
+      const data: Measurement = { power_w: 1234, energy_import_kwh: 42.5 };
+      await manager.updateMeasurement(testDevice, data);
+      const afterFirst = adapter.metrics.stateWrites;
+
+      // Same numbers again — a 1 Hz meter reports an unchanged power reading all
+      // the time. Routing power through changed-only would freeze its timestamp
+      // and the value looks stale in every history/visualisation.
+      await manager.updateMeasurement(testDevice, data);
+      const momentaryWrites = adapter.metrics.stateWrites - afterFirst;
+      expect(momentaryWrites, "power_w rewritten, energy total skipped").toBe(1);
+    });
+
+    it("builds each measurement object — and its translations — once, not on every push", async () => {
+      const translate = I18n.getTranslatedObject as unknown as { mock: { calls: unknown[] } };
+      const data: Measurement = { power_w: 100, voltage_l1_v: 230.5, energy_import_kwh: 1 };
+      await manager.updateMeasurement(testDevice, data);
+      const objectCalls = adapter.metrics.setObjectNotExistsCalls;
+      const translations = translate.mock.calls.length;
+      expect(objectCalls).toBeGreaterThan(0);
+      expect(translations).toBeGreaterThan(0);
+
+      // A P1 meter pushes ~30 fields once per second. The object write is
+      // guarded twice over, but building the translated name/description for
+      // every field on every push is pure allocation that is thrown away — the
+      // exact waste the cold-path/hot-path split exists to remove.
+      await manager.updateMeasurement(testDevice, { power_w: 101, voltage_l1_v: 231, energy_import_kwh: 2 });
+      await manager.updateMeasurement(testDevice, { power_w: 102, voltage_l1_v: 232, energy_import_kwh: 3 });
+      expect(adapter.metrics.setObjectNotExistsCalls).toBe(objectCalls);
+      expect(translate.mock.calls.length, "no translation work on the hot path").toBe(translations);
+    });
+
     it("should create state objects with correct roles and units", async () => {
       const data: Measurement = { power_w: 100, voltage_l1_v: 230.5 };
       await manager.updateMeasurement(testDevice, data);
@@ -489,8 +522,14 @@ describe("StateManager", () => {
     it("skips redundant writes when an identical system poll repeats (changed-only, Design-Decision 11) — D4-3", async () => {
       await manager.updateSystem(testDevice, system);
       const writesAfterFirst = adapter.metrics.stateWrites;
+      const objectsAfterFirst = adapter.metrics.extendObjectCalls;
       await manager.updateSystem(testDevice, system); // identical → all changed-only system fields skip
       expect(adapter.metrics.stateWrites).toBe(writesAfterFirst);
+      // The 60 s system poll must not re-touch its objects either: createState
+      // uses extendObject (to retrofit changed `common` on upgraded installs),
+      // so without the once-per-restart cache every poll would rewrite every
+      // object — and re-run the common.states repair read on top.
+      expect(adapter.metrics.extendObjectCalls, "no object churn on a repeat poll").toBe(objectsAfterFirst);
     });
 
     it("should update wifi and uptime in info channel", async () => {

@@ -656,7 +656,7 @@ export class StateManager {
     const mPrefix = `${prefix}.measurement`;
 
     // Ensure measurement channel exists (cached after first call per device)
-    await this.ensureChannel(mPrefix, tName("measurement"));
+    await this.ensureChannel(mPrefix, () => tName("measurement"));
     if (isStale?.()) {
       return;
     }
@@ -673,7 +673,7 @@ export class StateManager {
       d => d.id.startsWith("quality.") && coerceFiniteNumber(record[d.key]) !== null,
     );
     if (hasQuality) {
-      await this.ensureChannel(`${mPrefix}.quality`, tName("powerQuality"));
+      await this.ensureChannel(`${mPrefix}.quality`, () => tName("powerQuality"));
     }
     const writes: Promise<void>[] = [];
     for (const def of MEASUREMENT_STATE_DEFS) {
@@ -717,7 +717,7 @@ export class StateManager {
         const unit = coerceString(rawExt.unit);
         const timestamp = coerceString(rawExt.timestamp);
 
-        await this.ensureChannel(`${mPrefix}.external`, tName("externalMeters"));
+        await this.ensureChannel(`${mPrefix}.external`, () => tName("externalMeters"));
 
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
         // External meter channel keeps the device-supplied type (e.g. "gas_meter")
@@ -1085,13 +1085,21 @@ export class StateManager {
    * @param id   Full channel ID (`<prefix>.<channelName>`).
    * @param name Display name (translation object or device-supplied string).
    */
-  private async ensureChannel(id: string, name: ioBroker.StringOrTranslated): Promise<void> {
+  private async ensureChannel(
+    id: string,
+    name: ioBroker.StringOrTranslated | (() => ioBroker.StringOrTranslated),
+  ): Promise<void> {
     if (this.createdIds.has(id)) {
       return;
     }
+    // The name may be passed as a thunk so the caller's `tName(...)` — which
+    // builds an 11-language object — only runs when the channel is really
+    // created. The measurement channel is ensured on EVERY ~1 Hz push, so the
+    // eager form threw that object away once per second per device (same waste
+    // the cold-path/hot-path split removed for the per-field names in L14).
     await this.adapter.setObjectNotExistsAsync(id, {
       type: "channel",
-      common: { name },
+      common: { name: typeof name === "function" ? name() : name },
       native: {},
     });
     this.createdIds.add(id);
