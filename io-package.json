@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.15.0",
+    "version": "0.15.1",
     "news": {
+      "0.15.1": {
+        "en": "The adapter needs noticeably less processing power on installations whose devices send a new reading every second.",
+        "de": "Der Adapter benötigt spürbar weniger Rechenleistung auf Anlagen, deren Geräte jede Sekunde einen neuen Messwert senden.",
+        "ru": "Адаптеру нужно заметно меньше вычислительной мощности там, где устройства присылают новое показание каждую секунду.",
+        "pt": "O adaptador precisa de bastante menos capacidade de processamento em instalações cujos aparelhos enviam uma leitura por segundo.",
+        "nl": "De adapter heeft merkbaar minder rekenkracht nodig bij installaties waarvan de apparaten elke seconde een nieuwe meting sturen.",
+        "fr": "L'adaptateur demande nettement moins de puissance de calcul sur les installations dont les appareils envoient une mesure chaque seconde.",
+        "it": "L'adattatore richiede molta meno potenza di calcolo negli impianti i cui dispositivi inviano una nuova misura ogni secondo.",
+        "es": "El adaptador necesita bastante menos potencia de cálculo en instalaciones cuyos dispositivos envían una lectura cada segundo.",
+        "pl": "Adapter potrzebuje zauważalnie mniej mocy obliczeniowej w instalacjach, w których urządzenia wysyłają nowy odczyt co sekundę.",
+        "uk": "Адаптер потребує помітно менше обчислювальної потужності там, де пристрої надсилають нове показання щосекунди.",
+        "zh-cn": "在设备每秒发送一次读数的安装环境中，适配器所需的处理能力明显更少。"
+      },
       "0.15.0": {
         "en": "A device that rejects the adapter's token now stops retrying and asks you to re-pair it, and pairing no longer repeatedly requests logins from a device it cannot read.",
         "de": "Ein Gerät, das den Token des Adapters ablehnt, versucht es nicht mehr endlos, sondern bittet um erneutes Koppeln; das Pairing fordert zudem keine Logins mehr von einem unlesbaren Gerät an.",
@@ -80,19 +93,6 @@
         "pl": "Dodano opcjonalne raportowanie błędów przez Sentry: awarie są wysyłane do dewelopera, aby szybciej rozwiązywać problemy. Aktywne tylko przy włączonej diagnostyce ioBroker; anonimowo.",
         "uk": "Додано необов'язкову відправку помилок через Sentry: збої надсилаються розробнику, щоб швидше їх виправляти. Працює лише з увімкненою діагностикою ioBroker; анонімно.",
         "zh-cn": "新增可选的 Sentry 错误上报：崩溃信息会发送给开发者以更快修复问题。仅在启用 ioBroker 诊断时生效；匿名。"
-      },
-      "0.11.0": {
-        "en": "Removed the raw P1 telegram datapoint — its data is already available as parsed measurement states; the leftover state is cleaned up automatically on existing P1 meters.",
-        "de": "Roher P1-Telegramm-Datenpunkt entfernt — seine Werte stehen ohnehin als geparste Messdaten-States bereit; der verbliebene State wird auf bestehenden P1-Zählern automatisch aufgeräumt.",
-        "ru": "Удалён необработанный датапоинт телеграммы P1 — его значения и так доступны как разобранные состояния измерений; оставшийся стейт на существующих счётчиках P1 удаляется автоматически.",
-        "pt": "Removido o datapoint do telegrama P1 bruto — os seus valores já estão disponíveis como estados de medição processados; o estado restante é limpo automaticamente nos medidores P1 existentes.",
-        "nl": "Ruwe P1-telegram-datapunt verwijderd — de waarden zijn al beschikbaar als verwerkte meet-states; de achtergebleven state wordt automatisch opgeruimd op bestaande P1-meters.",
-        "fr": "Point de données du télégramme P1 brut supprimé — ses valeurs sont déjà disponibles comme états de mesure analysés ; l'état résiduel est nettoyé automatiquement sur les compteurs P1 existants.",
-        "it": "Rimosso il datapoint del telegramma P1 grezzo — i suoi valori sono già disponibili come stati di misura elaborati; lo stato residuo viene rimosso automaticamente sui contatori P1 esistenti.",
-        "es": "Eliminado el datapoint del telegrama P1 sin procesar — sus valores ya están como estados de medición procesados; el estado restante se limpia automáticamente en los medidores P1 existentes.",
-        "pl": "Usunięto surowy punkt danych telegramu P1 — jego wartości są już dostępne jako przetworzone stany pomiarowe; pozostały stan jest automatycznie usuwany na istniejących licznikach P1.",
-        "uk": "Видалено необроблений датапоінт телеграми P1 — його значення вже доступні як оброблені стани вимірювань; залишковий стан автоматично видаляється на наявних лічильниках P1.",
-        "zh-cn": "移除了原始 P1 报文数据点——其数据已作为解析后的测量状态提供；现有 P1 电表上的残留状态会自动清理。"
       }
     },
     "plugins": {

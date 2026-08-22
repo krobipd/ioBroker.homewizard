@@ -575,7 +575,7 @@ class StateManager {
     }
     const prefix = this.devicePrefix(config);
     const mPrefix = `${prefix}.measurement`;
-    await this.ensureChannel(mPrefix, (0, import_i18n.tName)("measurement"));
+    await this.ensureChannel(mPrefix, () => (0, import_i18n.tName)("measurement"));
     if (isStale == null ? void 0 : isStale()) {
       return;
     }
@@ -584,7 +584,7 @@ class StateManager {
       (d) => d.id.startsWith("quality.") && (0, import_coerce.coerceFiniteNumber)(record[d.key]) !== null
     );
     if (hasQuality) {
-      await this.ensureChannel(`${mPrefix}.quality`, (0, import_i18n.tName)("powerQuality"));
+      await this.ensureChannel(`${mPrefix}.quality`, () => (0, import_i18n.tName)("powerQuality"));
     }
     const writes = [];
     for (const def of MEASUREMENT_STATE_DEFS) {
@@ -617,7 +617,7 @@ class StateManager {
         const value = (0, import_coerce.coerceFiniteNumber)(rawExt.value);
         const unit = (0, import_coerce.coerceString)(rawExt.unit);
         const timestamp = (0, import_coerce.coerceString)(rawExt.timestamp);
-        await this.ensureChannel(`${mPrefix}.external`, (0, import_i18n.tName)("externalMeters"));
+        await this.ensureChannel(`${mPrefix}.external`, () => (0, import_i18n.tName)("externalMeters"));
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
         await this.ensureChannel(extId, type);
         const extWrites = [];
@@ -952,7 +952,7 @@ class StateManager {
     }
     await this.adapter.setObjectNotExistsAsync(id, {
       type: "channel",
-      common: { name },
+      common: { name: typeof name === "function" ? name() : name },
       native: {}
     });
     this.createdIds.add(id);

@@ -1,4 +1,8 @@
 # Older Changes
+## 0.12.1 (2026-06-09)
+
+- Internal refactoring. No user-facing changes.
+
 ## 0.12.0 (2026-06-07)
 
 - Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.
