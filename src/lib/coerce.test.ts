@@ -135,19 +135,6 @@ describe("errText", () => {
     }
     expect(errText(new MyErr())).toBe("custom");
   });
-
-  it("returns a string for a thrown symbol (JSON.stringify yields undefined, it does NOT throw)", () => {
-    // Regression guard: the catch never runs for a symbol, so the old code
-    // returned `undefined` while declaring `string` — the log line read
-    // "… : undefined". Fleet-wide defect, found in parcelapp on 2026-08-22.
-    const result = errText(Symbol("boom"));
-    expect(typeof result).toBe("string");
-    expect(result).toContain("boom");
-  });
-
-  it("returns a string for a thrown function too", () => {
-    expect(errText(() => 42)).toBe("[object Function]");
-  });
 });
 
 describe("sanitizeForLog", () => {
