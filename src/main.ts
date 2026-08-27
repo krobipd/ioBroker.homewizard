@@ -149,8 +149,45 @@ export class HomeWizard extends utils.Adapter {
     // fire-and-forget paths use .catch (Fleet pattern — hueemu/parcelapp/nut).
   }
 
+  /**
+   * One-shot repair of a leftover `supportedMessages.stopInstance` in this
+   * instance's own object.
+   *
+   * The flag lives in two places: the adapter manifest and a copy in the
+   * instance object in the database. An update merges the manifest into that
+   * copy but never removes a field from it, so dropping the manifest line alone
+   * leaves every existing installation being hard-killed — `onUnload` would keep
+   * not running and the markers would keep staying green.
+   *
+   * Only write when the flag is actually set: every change to an instance object
+   * makes the host stop and restart the instance, so an unconditional write is a
+   * restart loop. The caller must leave `onReady` immediately afterwards — the
+   * host is already tearing this process down.
+   *
+   * @returns true when the flag was cleared and this start-up must not continue
+   */
+  private async clearStopInstanceFlag(): Promise<boolean> {
+    const id = `system.adapter.${this.namespace}`;
+    try {
+      const obj = await this.getForeignObjectAsync(id);
+      const supported = obj?.common?.supportedMessages as { stopInstance?: unknown } | undefined;
+      if (!supported?.stopInstance) {
+        return false;
+      }
+      this.log.info("Correcting a leftover setting from an earlier version — this instance restarts once");
+      await this.extendForeignObjectAsync(id, { common: { supportedMessages: { stopInstance: false } } });
+      return true;
+    } catch (err: unknown) {
+      this.log.debug(`Could not check the stopInstance flag: ${errText(err)}`);
+      return false;
+    }
+  }
+
   private async onReady(): Promise<void> {
     try {
+      if (await this.clearStopInstanceFlag()) {
+        return;
+      }
       await I18n.init(join(this.adapterDir, "admin"), this);
       this.stateManager = new StateManager(this);
 
@@ -198,6 +235,11 @@ export class HomeWizard extends utils.Adapter {
           await this.stateManager.cleanupMovedStates(device);
         }
         await this.stateManager.createDeviceStates(device);
+        // Stamp before the first connection attempt: the previous run's value
+        // survives in the database, so without this a device that was green when
+        // the adapter died stays green until its first WebSocket result — and
+        // forever if it never reconnects.
+        await this.stateManager.setDeviceConnected(device, false);
         const conn = createDeviceConnection(device, device.ip || "");
         this.connections.set(key, conn);
 
@@ -356,7 +398,16 @@ export class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Adapter stopping — MUST be synchronous
+   * Adapter stopping.
+   *
+   * Timers and sockets go down synchronously, but the last writes are awaited:
+   * every device carries an online marker behind `statusStates`, and nothing
+   * else resets it. Closing the WebSocket deliberately suppresses its disconnect
+   * handler, and the host's own reset of `info.connection` writes to the wrong
+   * id (js-controller#3472) — so if these writes are lost, the whole tree stays
+   * green while the adapter is off. Waiting is safe because the manifest no
+   * longer declares `supportedMessages.stopInstance`: the host grants the full
+   * `common.stopTimeout` instead of killing the process outright.
    *
    * @param callback Completion callback
    */
@@ -385,17 +436,29 @@ export class HomeWizard extends utils.Adapter {
 
       this.discovery?.stop();
 
+      // Read the configs off the registry BEFORE it is cleared — the markers are
+      // written from this list, and onUnload must not await an object query.
+      const configs = Array.from(this.connections.values(), conn => conn.config);
       for (const conn of this.connections.values()) {
         this.connectionManager.teardownConnection(conn);
       }
       this.connections.clear();
 
-      // onUnload must stay synchronous — fire-and-forget with a .catch (not await)
-      // so a DB hiccup here can't become an unhandled rejection during teardown.
-      this.setState("info.connection", { val: false, ack: true }).catch(() => {
-        /* shutting down */
-      });
-    } finally {
+      const writes: Promise<unknown>[] = [
+        this.stateManager.markAllDisconnected(configs),
+        this.stateManager.writeDeviceRollup(configs.length, 0),
+        this.setState("info.connection", { val: false, ack: true }),
+      ];
+      void Promise.all(writes)
+        .catch((err: unknown) => {
+          // A rejected write must not become an unhandled rejection — that turns
+          // an orderly stop into a crash. The trace explains a stale green tree.
+          this.log.debug(`Final shutdown write failed: ${errText(err)}`);
+        })
+        .finally(() => callback());
+      return;
+    } catch (err: unknown) {
+      this.log.debug(`Teardown failed: ${errText(err)}`);
       callback();
     }
   }
@@ -624,6 +687,11 @@ export class HomeWizard extends utils.Adapter {
         // Save to device object (no adapter restart!)
         await this.saveDeviceToObject(deviceConfig);
         await this.stateManager.createDeviceStates(deviceConfig);
+        // Same stamp as at start-up, and it matters most on a RE-pair: the old
+        // connection is torn down below, and tearing down deliberately suppresses
+        // the WebSocket's disconnect handler — without this the device would keep
+        // its stale `true` until the new connection authenticates.
+        await this.stateManager.setDeviceConnected(deviceConfig, false);
 
         // Re-pair of an existing device (e.g. after factory reset): close the
         // old connection's wsClient + timers before overwriting the map entry,

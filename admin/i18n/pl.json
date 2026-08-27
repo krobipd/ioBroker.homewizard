@@ -123,5 +123,8 @@
   "wifiSsid": "Sieć Wi-Fi (SSID)",
   "modePredictive": "Predykcyjny (na podstawie prognozy)",
   "batteryChargeToFull": "Naładuj do pełna",
-  "powerQuality": "Jakość sieci"
+  "powerQuality": "Jakość sieci",
+  "devicesTotal": "Urządzenia łącznie",
+  "devicesOnline": "Urządzenia online",
+  "devicesAllOnline": "Wszystkie urządzenia online"
 }

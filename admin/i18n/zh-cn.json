@@ -123,5 +123,8 @@
   "wifiSsid": "Wi-Fi 网络 (SSID)",
   "modePredictive": "预测模式（基于预测）",
   "batteryChargeToFull": "充至满电",
-  "powerQuality": "电能质量"
+  "powerQuality": "电能质量",
+  "devicesTotal": "设备总数",
+  "devicesOnline": "在线设备数",
+  "devicesAllOnline": "所有设备在线"
 }

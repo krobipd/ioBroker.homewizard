@@ -22,6 +22,7 @@ vi.mock("@iobroker/adapter-core", () => {
     public decrypt = vi.fn((t: string) => t);
     public getAdapterObjectsAsync = vi.fn(async () => ({}));
     public extendObjectAsync = vi.fn(async () => {});
+    public getForeignObjectAsync = vi.fn(async (): Promise<unknown> => null);
     public extendForeignObjectAsync = vi.fn(async () => {});
     public delObjectAsync = vi.fn(async () => {});
     public getObjectAsync = vi.fn(async () => null);
@@ -132,6 +133,8 @@ interface FakeStateMgr {
   devicePrefix: ReturnType<typeof vi.fn>;
   removeDevice: ReturnType<typeof vi.fn>;
   setDeviceConnected: ReturnType<typeof vi.fn>;
+  markAllDisconnected: ReturnType<typeof vi.fn>;
+  writeDeviceRollup: ReturnType<typeof vi.fn>;
   updateMeasurement: ReturnType<typeof vi.fn>;
   updateSystem: ReturnType<typeof vi.fn>;
   updateBattery: ReturnType<typeof vi.fn>;
@@ -192,6 +195,8 @@ function setup(): {
     ),
     removeDevice: vi.fn(async () => {}),
     setDeviceConnected: vi.fn(async () => {}),
+    markAllDisconnected: vi.fn(async () => {}),
+    writeDeviceRollup: vi.fn(async () => {}),
     updateMeasurement: vi.fn(async () => {}),
     updateSystem: vi.fn(async () => {}),
     updateBattery: vi.fn(async () => {}),
@@ -546,7 +551,10 @@ function internalOf(hw: HomeWizard): {
   encrypt: ReturnType<typeof vi.fn>;
   getAdapterObjectsAsync: ReturnType<typeof vi.fn>;
   extendObjectAsync: ReturnType<typeof vi.fn>;
+  getForeignObjectAsync: ReturnType<typeof vi.fn>;
   extendForeignObjectAsync: ReturnType<typeof vi.fn>;
+  setState: ReturnType<typeof vi.fn>;
+  setStateChangedAsync: ReturnType<typeof vi.fn>;
   subscribeStatesAsync: ReturnType<typeof vi.fn>;
   startPairing: () => Promise<void>;
   pollPairing: () => Promise<void>;
@@ -725,6 +733,23 @@ describe("HomeWizard pollPairing", () => {
 
     expect(oldWs.close).toHaveBeenCalled();
     expect(i.connections.has("hwe-p1_aabb")).toBe(true);
+  });
+
+  it("a re-paired device is stamped disconnected before its new connection", async () => {
+    const { hw, client, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+    conn.wsClient = { connect: vi.fn(), close: vi.fn() } as unknown as DeviceConnection["wsClient"];
+    i.discoveredDuringPairing = [{ ip: "192.168.1.5", productType: "HWE-P1", serial: "aabb", name: "P1" }];
+    client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "aabb", product_name: "P1" });
+    await i.pollPairing();
+    await settle();
+
+    // Tearing down the old connection deliberately suppresses the WebSocket's
+    // own disconnect handler, so nothing else clears the stale `true`.
+    expect(stateMgr.setDeviceConnected).toHaveBeenCalledWith(
+      expect.objectContaining({ serial: "aabb" }),
+      false,
+    );
   });
 
   it("in-flight guard: a second poll while one is running returns without polling again", async () => {
@@ -1052,7 +1077,7 @@ describe("HomeWizard onUnload", () => {
     conn.reconnectTimer = {} as never;
 
     const callback = vi.fn();
-    i.onUnload(callback);
+    await new Promise<void>(resolve => i.onUnload(() => (callback(), resolve())));
 
     expect(callback).toHaveBeenCalledTimes(1);
     expect(ws.close).toHaveBeenCalled();
@@ -1063,6 +1088,50 @@ describe("HomeWizard onUnload", () => {
     expect(i.ipRecoveryTimer).toBeUndefined();
     expect(conn.pollTimer).toBeUndefined();
     expect(conn.reconnectTimer).toBeUndefined();
+  });
+
+  it("marks every device disconnected and zeroes the online count", async () => {
+    const { hw, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+
+    await new Promise<void>(resolve => i.onUnload(resolve));
+
+    // Nothing else resets these: closing the WebSocket suppresses its own
+    // disconnect handler, so without this the whole tree stays green.
+    expect(stateMgr.markAllDisconnected).toHaveBeenCalledWith([conn.config]);
+    expect(i.setState).toHaveBeenCalledWith("info.connection", { val: false, ack: true });
+    // The device count survives — how many are set up does not change because
+    // the adapter is off; only how many answer does.
+    expect(stateMgr.writeDeviceRollup).toHaveBeenCalledWith(1, 0);
+  });
+
+  it("reports done only after the last write has landed", async () => {
+    const { hw, stateMgr } = setup();
+    const i = internalOf(hw);
+
+    // Settle a turn LATER than the call — a write that resolves synchronously
+    // would let this pass even with the callback fired first.
+    const order: string[] = [];
+    stateMgr.markAllDisconnected.mockImplementation(
+      async () => new Promise<void>(r => globalThis.setTimeout(() => (order.push("markers"), r()), 0)),
+    );
+
+    await new Promise<void>(resolve => i.onUnload(() => (order.push("callback"), resolve())));
+
+    expect(order).toEqual(["markers", "callback"]);
+  });
+
+  it("still reports done when a final write is rejected", async () => {
+    const { hw, stateMgr } = setup();
+    const i = internalOf(hw);
+    stateMgr.markAllDisconnected.mockRejectedValue(new Error("database gone"));
+
+    // A teardown that never calls back is killed by js-controller, and an
+    // unhandled rejection turns an orderly stop into a crash.
+    const callback = vi.fn();
+    await new Promise<void>(resolve => i.onUnload(() => (callback(), resolve())));
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(i.log.debug).toHaveBeenCalledWith(expect.stringContaining("Final shutdown write failed"));
   });
 });
 
@@ -1342,5 +1411,96 @@ describe("HomeWizard pairing discovery callback", () => {
     await i.startPairing();
     discovery.callback!({ ip: "192.168.1.80", productType: "HWE-KWH3", serial: "kwh3a", name: "kWh 3-phase" });
     expect(i.discoveredDuringPairing.some(d => d.serial === "kwh3a")).toBe(true);
+  });
+});
+
+describe("HomeWizard start-up marker", () => {
+  it("stamps every device as disconnected before its first connection attempt", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      "homewizard.0.hwe-p1_dev1": {
+        type: "device",
+        native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
+      },
+    });
+
+    await i.onReady();
+    await settle();
+
+    // The previous run's value survives in the database — a device that was green
+    // when the adapter died would stay green until its first WebSocket result,
+    // and forever if it never reconnects. onReady replaces the fake state manager
+    // with a real one, so this asserts at the adapter boundary.
+    expect(i.setStateChangedAsync).toHaveBeenCalledWith("hwe-p1_dev1.info.connected", { val: false, ack: true });
+    // …and the stamp has to land before the device object tree is handed on.
+    const stampCall = i.setStateChangedAsync.mock.calls.findIndex(
+      c => c[0] === "hwe-p1_dev1.info.connected" && (c[1] as { val: unknown }).val === false,
+    );
+    expect(stampCall).toBeGreaterThanOrEqual(0);
+  });
+
+  it("counts the devices and how many answer in one place", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      "homewizard.0.hwe-p1_dev1": {
+        type: "device",
+        native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
+      },
+    });
+
+    await i.onReady();
+    await settle();
+
+    // One device set up, none answering yet — and "all online" must NOT be true
+    // for a fresh install with nothing paired, so it needs a device to exist.
+    expect(i.setStateChangedAsync).toHaveBeenCalledWith("info.devicesTotal", { val: 1, ack: true });
+    expect(i.setStateChangedAsync).toHaveBeenCalledWith("info.devicesOnline", { val: 0, ack: true });
+    expect(i.setStateChangedAsync).toHaveBeenCalledWith("info.devicesAllOnline", { val: false, ack: true });
+  });
+
+  it("an install without any device reports no devices, not all-online", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+
+    await i.onReady();
+    await settle();
+
+    expect(i.setStateChangedAsync).toHaveBeenCalledWith("info.devicesTotal", { val: 0, ack: true });
+    expect(i.setStateChangedAsync).toHaveBeenCalledWith("info.devicesAllOnline", { val: false, ack: true });
+  });
+});
+
+describe("HomeWizard leftover stopInstance flag", () => {
+  it("clears the flag and stops the start-up when the instance object still carries it", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.getForeignObjectAsync.mockResolvedValue({ common: { supportedMessages: { stopInstance: true } } });
+
+    await i.onReady();
+
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.homewizard.0", {
+      common: { supportedMessages: { stopInstance: false } },
+    });
+    // The host restarts the instance on any object change — carrying on here
+    // arms timers of a process that is already going down.
+    expect(i.getAdapterObjectsAsync).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing and starts normally when the flag is absent", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.getForeignObjectAsync.mockResolvedValue({ common: {} });
+
+    await i.onReady();
+
+    // Every write to the instance object costs a restart — an unconditional one
+    // would be a restart loop.
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
+    expect(i.getAdapterObjectsAsync).toHaveBeenCalled();
   });
 });

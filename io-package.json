@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.15.1",
+    "version": "0.16.0",
     "news": {
+      "0.16.0": {
+        "en": "Honest device status: stopping the adapter no longer leaves everything green, a restart starts from not connected, and three new data points show how many devices answer.",
+        "de": "Ehrlicher Gerätestatus: Beim Stoppen bleibt nicht mehr alles grün, nach einem Neustart beginnt jedes Gerät auf nicht verbunden, und drei neue Datenpunkte zeigen, wie viele antworten.",
+        "ru": "Честный статус устройств: после остановки всё больше не остаётся зелёным, после перезапуска каждое устройство начинает как неподключённое, а три новых точки данных показывают, сколько отвечает.",
+        "pt": "Estado honesto dos dispositivos: ao parar já não fica tudo verde, após reiniciar cada dispositivo começa como não ligado, e três novos pontos de dados mostram quantos respondem.",
+        "nl": "Eerlijke apparaatstatus: bij het stoppen blijft niet meer alles groen, na een herstart begint elk apparaat als niet verbonden, en drie nieuwe datapunten tonen hoeveel er antwoorden.",
+        "fr": "Statut honnête des appareils : à l'arrêt tout ne reste plus au vert, après un redémarrage chaque appareil part de non connecté, et trois nouveaux points de données montrent combien répondent.",
+        "it": "Stato onesto dei dispositivi: all'arresto non resta più tutto verde, dopo un riavvio ogni dispositivo parte da non connesso e tre nuovi punti dati mostrano quanti rispondono.",
+        "es": "Estado honesto de los dispositivos: al detenerse ya no queda todo en verde, tras un reinicio cada dispositivo empieza como no conectado, y tres nuevos puntos de datos muestran cuántos responden.",
+        "pl": "Uczciwy status urządzeń: po zatrzymaniu nie wszystko pozostaje zielone, po restarcie każde urządzenie zaczyna jako niepołączone, a trzy nowe punkty danych pokazują, ile odpowiada.",
+        "uk": "Чесний стан пристроїв: після зупинки більше не залишається все зеленим, після перезапуску кожен пристрій починає як непід'єднаний, а три нові точки даних показують, скільки відповідають.",
+        "zh-cn": "诚实的设备状态：停止后不再全部显示为绿色，重启后每个设备从未连接开始，三个新数据点显示有多少设备在响应。"
+      },
       "0.15.1": {
         "en": "The adapter needs noticeably less processing power on installations whose devices send a new reading every second.",
         "de": "Der Adapter benötigt spürbar weniger Rechenleistung auf Anlagen, deren Geräte jede Sekunde einen neuen Messwert senden.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzna refaktoryzacja. Brak zmian widocznych dla użytkownika.",
         "uk": "Внутрішня переробка. Жодних змін для користувачів.",
         "zh-cn": "内部重构。对用户无可见变化。"
-      },
-      "0.12.0": {
-        "en": "Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.",
-        "de": "Optionale Fehlermeldung über Sentry hinzugefügt: Abstürze werden an den Entwickler gesendet, damit Probleme schneller behoben werden. Nur aktiv bei eingeschalteter ioBroker-Diagnose; anonym.",
-        "ru": "Добавлена необязательная отправка ошибок через Sentry: сбои отправляются разработчику, чтобы быстрее их устранять. Работает только при включённой диагностике ioBroker; анонимно.",
-        "pt": "Adicionado relatório de erros opcional via Sentry: as falhas são enviadas ao programador para corrigir problemas mais rápido. Ativo apenas com o diagnóstico do ioBroker ligado; anónimo.",
-        "nl": "Optionele foutrapportage via Sentry toegevoegd: crashes worden naar de ontwikkelaar gestuurd om problemen sneller op te lossen. Alleen actief met ioBroker-diagnostiek ingeschakeld; anoniem.",
-        "fr": "Rapport d'erreurs optionnel via Sentry ajouté : les plantages sont envoyés au développeur pour corriger plus vite. Actif seulement si le diagnostic ioBroker est activé ; anonyme.",
-        "it": "Aggiunta segnalazione errori opzionale via Sentry: gli arresti vengono inviati allo sviluppatore per risolvere prima i problemi. Attivo solo con la diagnostica ioBroker attiva; anonimo.",
-        "es": "Añadido informe de errores opcional mediante Sentry: los fallos se envían al desarrollador para solucionar problemas más rápido. Activo solo con el diagnóstico de ioBroker activado; anónimo.",
-        "pl": "Dodano opcjonalne raportowanie błędów przez Sentry: awarie są wysyłane do dewelopera, aby szybciej rozwiązywać problemy. Aktywne tylko przy włączonej diagnostyce ioBroker; anonimowo.",
-        "uk": "Додано необов'язкову відправку помилок через Sentry: збої надсилаються розробнику, щоб швидше їх виправляти. Працює лише з увімкненою діагностикою ioBroker; анонімно.",
-        "zh-cn": "新增可选的 Sentry 错误上报：崩溃信息会发送给开发者以更快修复问题。仅在启用 ioBroker 诊断时生效；匿名。"
       }
     },
     "plugins": {
@@ -157,9 +157,6 @@
     "adminUI": {
       "config": "json"
     },
-    "supportedMessages": {
-      "stopInstance": true
-    },
     "dependencies": [
       {
         "js-controller": ">=7.2.2"
@@ -214,6 +211,81 @@
         },
         "type": "boolean",
         "role": "indicator.connected",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.devicesTotal",
+      "type": "state",
+      "common": {
+        "name": {
+          "en": "Devices total",
+          "de": "Geräte gesamt",
+          "ru": "Всего устройств",
+          "pt": "Dispositivos no total",
+          "nl": "Apparaten totaal",
+          "fr": "Appareils au total",
+          "it": "Dispositivi totali",
+          "es": "Dispositivos en total",
+          "pl": "Urządzenia łącznie",
+          "uk": "Пристроїв усього",
+          "zh-cn": "设备总数"
+        },
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.devicesOnline",
+      "type": "state",
+      "common": {
+        "name": {
+          "en": "Devices online",
+          "de": "Geräte online",
+          "ru": "Устройств онлайн",
+          "pt": "Dispositivos online",
+          "nl": "Apparaten online",
+          "fr": "Appareils en ligne",
+          "it": "Dispositivi online",
+          "es": "Dispositivos en línea",
+          "pl": "Urządzenia online",
+          "uk": "Пристроїв онлайн",
+          "zh-cn": "在线设备数"
+        },
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.devicesAllOnline",
+      "type": "state",
+      "common": {
+        "name": {
+          "en": "All devices online",
+          "de": "Alle Geräte online",
+          "ru": "Все устройства онлайн",
+          "pt": "Todos os dispositivos online",
+          "nl": "Alle apparaten online",
+          "fr": "Tous les appareils en ligne",
+          "it": "Tutti i dispositivi online",
+          "es": "Todos los dispositivos en línea",
+          "pl": "Wszystkie urządzenia online",
+          "uk": "Усі пристрої онлайн",
+          "zh-cn": "所有设备在线"
+        },
+        "type": "boolean",
+        "role": "indicator",
         "read": true,
         "write": false,
         "def": false

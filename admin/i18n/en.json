@@ -123,5 +123,8 @@
   "wifiSsid": "WiFi network (SSID)",
   "modePredictive": "Predictive (forecast-based)",
   "batteryChargeToFull": "Charge to full",
-  "powerQuality": "Power Quality"
+  "powerQuality": "Power Quality",
+  "devicesTotal": "Devices total",
+  "devicesOnline": "Devices online",
+  "devicesAllOnline": "All devices online"
 }

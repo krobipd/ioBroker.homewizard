@@ -468,13 +468,23 @@ class ConnectionManager {
       this.logDeviceError(conn, "system", err);
     }
   }
-  /** Update global info.connection based on all device states. */
+  /**
+   * Update the instance-level connection state and the device summary from the
+   * registry.
+   *
+   * This is the single place both are derived, and it is called from every point
+   * where the picture can change: a device authenticating, a device dropping, the
+   * end of start-up, a newly paired device and a removed one. Deriving the summary
+   * anywhere else would let it drift away from the per-device markers.
+   */
   updateGlobalConnection() {
-    const anyConnected = Array.from(this.connections.values()).some((c) => c.wsAuthenticated);
+    const conns = Array.from(this.connections.values());
+    const online = conns.filter((c) => c.wsAuthenticated).length;
     this.adapter.setStateChangedAsync("info.connection", {
-      val: anyConnected,
+      val: online > 0,
       ack: true
     }).catch((err) => this.adapter.log.debug(`Failed to update info.connection: ${(0, import_coerce.errText)(err)}`));
+    this.host.getStateManager().writeDeviceRollup(conns.length, online).catch((err) => this.adapter.log.debug(`Failed to update the device summary: ${(0, import_coerce.errText)(err)}`));
   }
   /**
    * Whether a device has unstable connectivity (frequent short-lived connections).

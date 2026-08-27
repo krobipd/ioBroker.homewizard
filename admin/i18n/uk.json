@@ -123,5 +123,8 @@
   "wifiSsid": "Мережа Wi-Fi (SSID)",
   "modePredictive": "Прогнозований (на основі прогнозу)",
   "batteryChargeToFull": "Зарядити повністю",
-  "powerQuality": "Якість мережі"
+  "powerQuality": "Якість мережі",
+  "devicesTotal": "Пристроїв усього",
+  "devicesOnline": "Пристроїв онлайн",
+  "devicesAllOnline": "Усі пристрої онлайн"
 }

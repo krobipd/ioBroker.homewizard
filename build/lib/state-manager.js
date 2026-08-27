@@ -861,6 +861,40 @@ class StateManager {
     });
   }
   /**
+   * Mark every given device as not connected.
+   *
+   * Two moments need this and neither can wait for the network: start-up (the
+   * previous run's values survive a crash, a power cut or a hard kill, so every
+   * device would stay green until its first WebSocket result) and shutdown (the
+   * WebSocket is closed deliberately without firing its disconnect handler, so
+   * nothing else writes the markers).
+   *
+   * @param configs the devices to mark
+   * @returns resolves once every write has landed
+   */
+  async markAllDisconnected(configs) {
+    await Promise.all(configs.map((config) => this.setDeviceConnected(config, false)));
+  }
+  /**
+   * Write the instance-level summary of how many devices there are and how many
+   * of them are answering.
+   *
+   * `total` deliberately survives a shutdown — how many devices are set up does
+   * not change because the adapter is off, and a `0` there would read as "no
+   * devices paired". `allOnline` requires at least one device: with none paired,
+   * "all of them are connected" would be a success message for an empty setup.
+   *
+   * @param total how many devices are set up
+   * @param online how many of them are currently connected
+   */
+  async writeDeviceRollup(total, online) {
+    await Promise.all([
+      this.adapter.setStateChangedAsync("info.devicesTotal", { val: total, ack: true }),
+      this.adapter.setStateChangedAsync("info.devicesOnline", { val: online, ack: true }),
+      this.adapter.setStateChangedAsync("info.devicesAllOnline", { val: total > 0 && online === total, ack: true })
+    ]);
+  }
+  /**
    * Remove all states for a device
    *
    * @param config Device configuration

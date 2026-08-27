@@ -119,9 +119,46 @@ class HomeWizard extends utils.Adapter {
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
   }
+  /**
+   * One-shot repair of a leftover `supportedMessages.stopInstance` in this
+   * instance's own object.
+   *
+   * The flag lives in two places: the adapter manifest and a copy in the
+   * instance object in the database. An update merges the manifest into that
+   * copy but never removes a field from it, so dropping the manifest line alone
+   * leaves every existing installation being hard-killed — `onUnload` would keep
+   * not running and the markers would keep staying green.
+   *
+   * Only write when the flag is actually set: every change to an instance object
+   * makes the host stop and restart the instance, so an unconditional write is a
+   * restart loop. The caller must leave `onReady` immediately afterwards — the
+   * host is already tearing this process down.
+   *
+   * @returns true when the flag was cleared and this start-up must not continue
+   */
+  async clearStopInstanceFlag() {
+    var _a;
+    const id = `system.adapter.${this.namespace}`;
+    try {
+      const obj = await this.getForeignObjectAsync(id);
+      const supported = (_a = obj == null ? void 0 : obj.common) == null ? void 0 : _a.supportedMessages;
+      if (!(supported == null ? void 0 : supported.stopInstance)) {
+        return false;
+      }
+      this.log.info("Correcting a leftover setting from an earlier version \u2014 this instance restarts once");
+      await this.extendForeignObjectAsync(id, { common: { supportedMessages: { stopInstance: false } } });
+      return true;
+    } catch (err) {
+      this.log.debug(`Could not check the stopInstance flag: ${(0, import_coerce.errText)(err)}`);
+      return false;
+    }
+  }
   async onReady() {
     var _a;
     try {
+      if (await this.clearStopInstanceFlag()) {
+        return;
+      }
       await import_adapter_core.I18n.init((0, import_node_path.join)(this.adapterDir, "admin"), this);
       this.stateManager = new import_state_manager.StateManager(this);
       const caDaysLeft = (0, import_cacert.caDaysUntilExpiry)(Date.now());
@@ -154,6 +191,7 @@ class HomeWizard extends utils.Adapter {
           await this.stateManager.cleanupMovedStates(device);
         }
         await this.stateManager.createDeviceStates(device);
+        await this.stateManager.setDeviceConnected(device, false);
         const conn = (0, import_connection_utils.createDeviceConnection)(device, device.ip || "");
         this.connections.set(key, conn);
         if (conn.ip) {
@@ -279,7 +317,16 @@ class HomeWizard extends utils.Adapter {
     );
   }
   /**
-   * Adapter stopping — MUST be synchronous
+   * Adapter stopping.
+   *
+   * Timers and sockets go down synchronously, but the last writes are awaited:
+   * every device carries an online marker behind `statusStates`, and nothing
+   * else resets it. Closing the WebSocket deliberately suppresses its disconnect
+   * handler, and the host's own reset of `info.connection` writes to the wrong
+   * id (js-controller#3472) — so if these writes are lost, the whole tree stays
+   * green while the adapter is off. Waiting is safe because the manifest no
+   * longer declares `supportedMessages.stopInstance`: the host grants the full
+   * `common.stopTimeout` instead of killing the process outright.
    *
    * @param callback Completion callback
    */
@@ -304,13 +351,22 @@ class HomeWizard extends utils.Adapter {
         this.ipRecoveryTimer = void 0;
       }
       (_a = this.discovery) == null ? void 0 : _a.stop();
+      const configs = Array.from(this.connections.values(), (conn) => conn.config);
       for (const conn of this.connections.values()) {
         this.connectionManager.teardownConnection(conn);
       }
       this.connections.clear();
-      this.setState("info.connection", { val: false, ack: true }).catch(() => {
-      });
-    } finally {
+      const writes = [
+        this.stateManager.markAllDisconnected(configs),
+        this.stateManager.writeDeviceRollup(configs.length, 0),
+        this.setState("info.connection", { val: false, ack: true })
+      ];
+      void Promise.all(writes).catch((err) => {
+        this.log.debug(`Final shutdown write failed: ${(0, import_coerce.errText)(err)}`);
+      }).finally(() => callback());
+      return;
+    } catch (err) {
+      this.log.debug(`Teardown failed: ${(0, import_coerce.errText)(err)}`);
       callback();
     }
   }
@@ -491,6 +547,7 @@ class HomeWizard extends utils.Adapter {
         };
         await this.saveDeviceToObject(deviceConfig);
         await this.stateManager.createDeviceStates(deviceConfig);
+        await this.stateManager.setDeviceConnected(deviceConfig, false);
         const key = this.stateManager.devicePrefix(deviceConfig);
         const previous = this.connections.get(key);
         if (previous) {

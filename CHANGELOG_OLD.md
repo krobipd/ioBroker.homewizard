@@ -1,4 +1,9 @@
 # Older Changes
+## 0.12.2 (2026-06-11) — stable
+
+- Reboot and identify buttons reset themselves after the action, so they stay clickable in the admin UI
+- Re-pairing a removed device no longer inherits the old device's log cooldown — its first connection warning shows up immediately again
+
 ## 0.12.1 (2026-06-09)
 
 - Internal refactoring. No user-facing changes.

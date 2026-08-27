@@ -123,5 +123,8 @@
   "wifiSsid": "Wifi-netwerk (SSID)",
   "modePredictive": "Voorspellend (op basis van prognose)",
   "batteryChargeToFull": "Volledig opladen",
-  "powerQuality": "Netkwaliteit"
+  "powerQuality": "Netkwaliteit",
+  "devicesTotal": "Apparaten totaal",
+  "devicesOnline": "Apparaten online",
+  "devicesAllOnline": "Alle apparaten online"
 }
