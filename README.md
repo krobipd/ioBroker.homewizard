@@ -194,7 +194,7 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### 0.16.0 (2026-08-27)
+### 0.16.0 (2026-08-27) — stable
 
 - Fixed: stopping the adapter no longer leaves every device showing as connected — the device markers and the connection status are now reset before the adapter goes down.
 - Fixed: after a crash, a power cut or a restart, a device that was reachable before no longer stays green until it reconnects — every device starts out as not connected.
