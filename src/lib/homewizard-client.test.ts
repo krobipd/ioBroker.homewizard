@@ -1,5 +1,5 @@
 import * as https from "node:https";
-import { AddressInfo } from "node:net";
+import type { AddressInfo } from "node:net";
 import { HomeWizardApiError, HomeWizardClient } from "./homewizard-client";
 
 // Pre-generated self-signed RSA-2048 cert/key pair for `localhost` (CN+SAN), 100-year validity.
@@ -169,7 +169,7 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
       expect(req.method).toBe("GET");
       expect(req.path).toBe("/api");
       expect(req.headers["x-api-version"]).toBe("2");
-      expect(req.headers["authorization"]).toBe("Bearer test-token");
+      expect(req.headers.authorization).toBe("Bearer test-token");
     });
 
     it("throws HomeWizardApiError on 4xx with parsed errorCode", async () => {
@@ -227,7 +227,7 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
       const req = stub.requests[0];
       expect(req.method).toBe("POST");
       expect(req.path).toBe("/api/user");
-      expect(req.headers["authorization"]).toBeUndefined();
+      expect(req.headers.authorization).toBeUndefined();
       expect(req.headers["content-type"]).toBe("application/json");
       expect(JSON.parse(req.body)).toEqual({ name: "local/iobroker" });
     });

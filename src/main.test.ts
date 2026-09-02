@@ -12,20 +12,20 @@ vi.mock("@iobroker/adapter-core", () => {
     public on = vi.fn();
     public setStateAsync = vi.fn(async () => {});
     public setStateChangedAsync = vi.fn(async () => {});
-    public getStateAsync = vi.fn(async () => null);
+    public getStateAsync = vi.fn(() => Promise.resolve(null));
     public subscribeStatesAsync = vi.fn(async () => {});
-    public setTimeout = vi.fn(() => ({}) as unknown);
+    public setTimeout = vi.fn(() => ({}));
     public clearTimeout = vi.fn();
-    public setInterval = vi.fn(() => ({}) as unknown);
+    public setInterval = vi.fn(() => ({}));
     public clearInterval = vi.fn();
     public encrypt = vi.fn((t: string) => t);
     public decrypt = vi.fn((t: string) => t);
-    public getAdapterObjectsAsync = vi.fn(async () => ({}));
+    public getAdapterObjectsAsync = vi.fn(() => Promise.resolve({}));
     public extendObjectAsync = vi.fn(async () => {});
-    public getForeignObjectAsync = vi.fn(async (): Promise<unknown> => null);
+    public getForeignObjectAsync = vi.fn((): Promise<unknown> => Promise.resolve(null));
     public extendForeignObjectAsync = vi.fn(async () => {});
     public delObjectAsync = vi.fn(async () => {});
-    public getObjectAsync = vi.fn(async () => null);
+    public getObjectAsync = vi.fn(() => Promise.resolve(null));
     public setObjectNotExistsAsync = vi.fn(async () => {});
     public setState = vi.fn(async () => {});
     constructor(_opts: unknown) {}
@@ -62,14 +62,14 @@ function makeFakeClient(): FakeClient {
   return {
     reboot: vi.fn(async () => {}),
     identify: vi.fn(async () => {}),
-    setSystem: vi.fn(async () => ({})),
-    setBatteries: vi.fn(async () => ({})),
+    setSystem: vi.fn(() => Promise.resolve({})),
+    setBatteries: vi.fn(() => Promise.resolve({})),
     deleteUser: vi.fn(async () => {}),
-    getSystem: vi.fn(async () => ({ cloud_enabled: true })),
-    getDeviceInfo: vi.fn(async () => ({ product_name: "P1" })),
-    getBatteries: vi.fn(async () => ({})),
-    getMeasurement: vi.fn(async () => ({ power_w: 1 })),
-    requestPairing: vi.fn(async () => ({ token: "fresh-token" })),
+    getSystem: vi.fn(() => Promise.resolve({ cloud_enabled: true })),
+    getDeviceInfo: vi.fn(() => Promise.resolve({ product_name: "P1" })),
+    getBatteries: vi.fn(() => Promise.resolve({})),
+    getMeasurement: vi.fn(() => Promise.resolve({ power_w: 1 })),
+    requestPairing: vi.fn(() => Promise.resolve({ token: "fresh-token" })),
     getServerCertCn: vi.fn(() => null),
   };
 }
@@ -293,7 +293,7 @@ describe("HomeWizard onStateChange routing", () => {
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.mode", {
       val: "zero",
       ack: true,
-    } as ioBroker.State);
+    });
     expect(client.setBatteries).not.toHaveBeenCalled();
   });
 });
@@ -341,8 +341,7 @@ describe("HomeWizard removeDevice / onUnload — in-flight work must stop", () =
 describe("HomeWizard isUnstable", () => {
   it("becomes unstable at the disconnect threshold (T3 — real method, not a literal compare)", () => {
     const { hw, conn } = setup();
-    const isUnstable = (c: DeviceConnection): boolean =>
-      internalOf(hw).connectionManager.isUnstable(c);
+    const isUnstable = (c: DeviceConnection): boolean => internalOf(hw).connectionManager.isUnstable(c);
     expect(isUnstable(conn)).toBe(false);
     conn.recentDisconnects = 2;
     expect(isUnstable(conn)).toBe(false);
@@ -523,7 +522,11 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
   });
 });
 
-/** Typed access to private fields/methods used by the orchestration tests below. */
+/**
+ * Typed access to private fields/methods used by the orchestration tests below.
+ *
+ * @param hw Adapter instance under test
+ */
 function internalOf(hw: HomeWizard): {
   isPairing: boolean;
   pairingManualIp: string;
@@ -746,10 +749,7 @@ describe("HomeWizard pollPairing", () => {
 
     // Tearing down the old connection deliberately suppresses the WebSocket's
     // own disconnect handler, so nothing else clears the stale `true`.
-    expect(stateMgr.setDeviceConnected).toHaveBeenCalledWith(
-      expect.objectContaining({ serial: "aabb" }),
-      false,
-    );
+    expect(stateMgr.setDeviceConnected).toHaveBeenCalledWith(expect.objectContaining({ serial: "aabb" }), false);
   });
 
   it("in-flight guard: a second poll while one is running returns without polling again", async () => {
@@ -1145,8 +1145,8 @@ describe("HomeWizard onWsMeasurement", () => {
   it("catches a rejected write (transient Redis hiccup) as debug instead of an unhandled rejection", async () => {
     const { hw, conn, stateMgr } = setup();
     const i = internalOf(hw);
-    stateMgr.updateMeasurement.mockImplementation(async () => {
-      throw new Error("redis hiccup");
+    stateMgr.updateMeasurement.mockImplementation(() => {
+      return Promise.reject(new Error("redis hiccup"));
     });
     i.connectionManager.onWsMeasurement(conn, { power_w: 42 });
     await settle();
@@ -1275,7 +1275,12 @@ describe("v0.12.2 regressions", () => {
 });
 
 describe("HomeWizard startRestFallback (poll body)", () => {
-  /** Start the fallback and return the captured interval callback. */
+  /**
+   * Start the fallback and return the captured interval callback.
+   *
+   * @param hw Adapter instance under test
+   * @param conn Device connection the fallback polls
+   */
   function startAndCapture(hw: HomeWizard, conn: DeviceConnection): () => Promise<void> {
     const i = internalOf(hw);
     internalOf(hw).connectionManager.startRestFallback(conn);

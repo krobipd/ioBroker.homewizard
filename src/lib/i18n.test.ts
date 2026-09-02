@@ -13,26 +13,26 @@ import { resolveLabel, tName } from "./i18n";
 
 describe("tName", () => {
   it("delegates to I18n.getTranslatedObject", () => {
-    const result = tName("powerTotal" as never);
+    const result = tName("powerTotal");
     expect(result).toEqual({ en: "powerTotal", de: "powerTotal_de" });
   });
 });
 
 describe("resolveLabel", () => {
   it("delegates to I18n.translate", () => {
-    const result = resolveLabel("tariff1" as never);
+    const result = resolveLabel("tariff1");
     expect(result).toBe("tariff1");
   });
 });
 
 describe("i18n completeness", () => {
   const i18nDir = join(__dirname, "../../admin/i18n");
-  const files = readdirSync(i18nDir).filter((f) => f.endsWith(".json"));
-  const keysets = files.map((f) => ({
+  const files = readdirSync(i18nDir).filter(f => f.endsWith(".json"));
+  const keysets = files.map(f => ({
     lang: f.replace(".json", ""),
     keys: Object.keys(JSON.parse(readFileSync(join(i18nDir, f), "utf8"))),
   }));
-  const enKeys = keysets.find((k) => k.lang === "en")!.keys;
+  const enKeys = keysets.find(k => k.lang === "en")!.keys;
 
   it("all 11 languages have identical keysets", () => {
     expect(files).toHaveLength(11);

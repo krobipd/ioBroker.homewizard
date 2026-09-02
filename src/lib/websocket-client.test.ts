@@ -1,6 +1,7 @@
 import * as https from "node:https";
-import { AddressInfo } from "node:net";
-import { WebSocket as WsClient, WebSocketServer } from "ws";
+import type { AddressInfo } from "node:net";
+import type { WebSocket as WsClient } from "ws";
+import { WebSocketServer } from "ws";
 import {
   AUTH_TIMEOUT_MS,
   HomeWizardWebSocket,
@@ -683,7 +684,8 @@ async function startWssStub(): Promise<WssStub> {
     s.on("message", raw => {
       let msg: { type?: string; data?: unknown };
       try {
-        msg = JSON.parse(raw.toString());
+        const text = Buffer.isBuffer(raw) ? raw : Array.isArray(raw) ? Buffer.concat(raw) : Buffer.from(raw);
+        msg = JSON.parse(text.toString("utf8"));
       } catch {
         return;
       }
@@ -816,9 +818,11 @@ describe("HomeWizardWebSocket against a real wss stub-server (T4)", () => {
 
     // Grab the close-handler BEFORE the teardown detaches it, so we can replay
     // the close event that a dying socket still has queued.
-    const socket = (ws as unknown as {
-      ws: { listeners: (e: string) => Array<(...a: unknown[]) => void>; listenerCount: (e: string) => number } | null;
-    }).ws;
+    const socket = (
+      ws as unknown as {
+        ws: { listeners: (e: string) => Array<(...a: unknown[]) => void>; listenerCount: (e: string) => number } | null;
+      }
+    ).ws;
     const closeHandler = socket?.listeners("close")[0];
 
     ws.close();

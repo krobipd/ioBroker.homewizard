@@ -1,5 +1,5 @@
 import { X509Certificate } from "node:crypto";
-import * as https from "node:https";
+import type * as https from "node:https";
 import type { PeerCertificate } from "node:tls";
 import { describe, expect, it } from "vitest";
 import {
@@ -12,7 +12,11 @@ import {
   HW_AGENT,
 } from "./cacert";
 
-/** Build a minimal PeerCertificate stub with the given CN. */
+/**
+ * Build a minimal PeerCertificate stub with the given CN.
+ *
+ * @param cn Common name to put into the subject, or undefined for none
+ */
 function certWithCn(cn: string | undefined): PeerCertificate {
   return { subject: { CN: cn } } as unknown as PeerCertificate;
 }

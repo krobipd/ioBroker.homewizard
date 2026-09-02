@@ -82,7 +82,7 @@ function createMockAdapter(): MockAdapter {
     states,
     metrics,
     log: { debug: (): void => {} },
-    extendObjectAsync: async (
+    extendObjectAsync: (
       id: string,
       obj: Partial<ObjectDef>,
       options?: { preserve?: { common?: string[] } },
@@ -102,42 +102,47 @@ function createMockAdapter(): MockAdapter {
         common: newCommon,
         native: { ...existing.native, ...(obj.native || {}) },
       });
+      return Promise.resolve();
     },
-    setObjectNotExistsAsync: async (id: string, obj: Partial<ObjectDef>): Promise<void> => {
+    setObjectNotExistsAsync: (id: string, obj: Partial<ObjectDef>): Promise<void> => {
       metrics.setObjectNotExistsCalls++;
       if (objects.has(id)) {
-        return;
+        return Promise.resolve();
       }
       objects.set(id, {
         type: obj.type || "",
         common: obj.common || {},
         native: obj.native || {},
       });
+      return Promise.resolve();
     },
-    setObjectAsync: async (id: string, obj: Partial<ObjectDef>): Promise<void> => {
+    setObjectAsync: (id: string, obj: Partial<ObjectDef>): Promise<void> => {
       objects.set(id, {
         type: obj.type || "",
         common: obj.common || {},
         native: obj.native || {},
       });
+      return Promise.resolve();
     },
-    getObjectAsync: async (id: string): Promise<ObjectDef | null> => {
-      return objects.get(id) || null;
+    getObjectAsync: (id: string): Promise<ObjectDef | null> => {
+      return Promise.resolve(objects.get(id) || null);
     },
-    setStateAsync: async (id: string, state: StateValue): Promise<void> => {
+    setStateAsync: (id: string, state: StateValue): Promise<void> => {
       metrics.stateWrites++;
       states.set(id, state);
+      return Promise.resolve();
     },
     // Faithful to ioBroker: write only when the value actually changed.
-    setStateChangedAsync: async (id: string, state: StateValue): Promise<void> => {
+    setStateChangedAsync: (id: string, state: StateValue): Promise<void> => {
       const prev = states.get(id);
       if (prev && prev.val === state.val) {
-        return;
+        return Promise.resolve();
       }
       metrics.stateWrites++;
       states.set(id, state);
+      return Promise.resolve();
     },
-    delObjectAsync: async (id: string, _opts?: { recursive: boolean }): Promise<void> => {
+    delObjectAsync: (id: string, _opts?: { recursive: boolean }): Promise<void> => {
       // Delete the object and all children
       for (const key of objects.keys()) {
         if (key === id || key.startsWith(`${id}.`)) {
@@ -149,6 +154,7 @@ function createMockAdapter(): MockAdapter {
           states.delete(key);
         }
       }
+      return Promise.resolve();
     },
   };
 }
@@ -696,7 +702,7 @@ describe("StateManager", () => {
       await manager.updateMeasurement(testDevice, { tariff: 2 });
       const obj = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.tariff");
       const states = obj!.common.states as Record<string, unknown>;
-      for (const [k, v] of Object.entries(states)) {
+      for (const v of Object.values(states)) {
         expect(typeof v).toBe("string");
       }
     });
@@ -706,7 +712,7 @@ describe("StateManager", () => {
       await manager.updateBattery(testDevice, battery);
       const obj = adapter.objects.get("hwe-p1_aabbccddeeff.battery.mode");
       const states = obj!.common.states as Record<string, unknown>;
-      for (const [k, v] of Object.entries(states)) {
+      for (const v of Object.values(states)) {
         expect(typeof v).toBe("string");
       }
     });
@@ -898,12 +904,12 @@ describe("StateManager", () => {
     });
 
     it("rejects NaN in number field", async () => {
-      await manager.updateMeasurement(testDevice, { power_w: NaN } as unknown as Measurement);
+      await manager.updateMeasurement(testDevice, { power_w: NaN });
       expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.power_w")).toBe(false);
     });
 
     it("rejects Infinity in number field", async () => {
-      await manager.updateMeasurement(testDevice, { power_w: Infinity } as unknown as Measurement);
+      await manager.updateMeasurement(testDevice, { power_w: Infinity });
       expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.power_w")).toBe(false);
     });
 
@@ -923,7 +929,7 @@ describe("StateManager", () => {
     });
 
     it("rejects empty string for string field", async () => {
-      await manager.updateMeasurement(testDevice, { meter_model: "" } as Measurement);
+      await manager.updateMeasurement(testDevice, { meter_model: "" });
       expect(adapter.states.has("hwe-p1_aabbccddeeff.measurement.meter_model")).toBe(false);
     });
 
@@ -971,7 +977,7 @@ describe("StateManager", () => {
     });
 
     it("ignores empty external array", async () => {
-      await manager.updateMeasurement(testDevice, { external: [] } as unknown as Measurement);
+      await manager.updateMeasurement(testDevice, { external: [] });
       const extKeys = Array.from(adapter.objects.keys()).filter(k => k.includes(".external"));
       expect(extKeys).toHaveLength(0);
     });
@@ -997,7 +1003,7 @@ describe("StateManager", () => {
         cloud_enabled: true,
         status_led_brightness_pct: 50,
         wifi_ssid: "x",
-      } as unknown as SystemInfo);
+      });
       expect(adapter.states.has("hwe-p1_aabbccddeeff.info.wifi_rssi_db")).toBe(false);
       expect(adapter.states.get("hwe-p1_aabbccddeeff.info.uptime_s")?.val).toBe(100);
     });
