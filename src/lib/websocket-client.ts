@@ -106,6 +106,10 @@ export class HomeWizardWebSocket {
     this.cleanup();
     this.authorized = false;
     this.authError = null;
+    // The error-frame dedup is per connection: a device that repeats the same
+    // error after a reconnect gets its warning again, not silence for the rest
+    // of the adapter's lifetime.
+    this.lastErrorDetail = null;
 
     const portSeg = this.port !== 443 ? `:${this.port}` : "";
     const url = `wss://${this.ip}${portSeg}/api/ws`;

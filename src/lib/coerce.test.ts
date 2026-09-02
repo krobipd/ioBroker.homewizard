@@ -135,6 +135,24 @@ describe("errText", () => {
     }
     expect(errText(new MyErr())).toBe("custom");
   });
+
+  it("returns a string for a thrown symbol (JSON.stringify yields undefined, it does NOT throw)", () => {
+    // The catch never runs for a symbol, so the old code returned `undefined`
+    // while declaring `string` — the log line read "… : undefined". Fleet
+    // defect found in parcelapp on 2026-08-22; this adapter still carried it.
+    const result = errText(Symbol("boom"));
+    expect(typeof result).toBe("string");
+    expect(result).toContain("boom");
+  });
+
+  it("returns a string for a thrown function too", () => {
+    expect(errText(() => 42)).toBe("[object Function]");
+  });
+
+  it("returns a string when toJSON drops the whole value", () => {
+    const weird = { toJSON: () => undefined };
+    expect(errText(weird)).toBe("[object Object]");
+  });
 });
 
 describe("sanitizeForLog", () => {

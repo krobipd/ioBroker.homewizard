@@ -462,6 +462,18 @@ describe("StateManager", () => {
       expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.external.water_meter_water1.value")?.val).toBe(50);
     });
 
+    it("strips line breaks from a device-supplied external meter type before it becomes an object name", async () => {
+      // The meter type is a device string that lands in common.name — a hostile
+      // device must not carry CR/LF into the object tree (same rule as the
+      // product name, L9). The object id is sanitised separately.
+      await manager.updateMeasurement(testDevice, {
+        external: [{ unique_id: "g1", type: "gas\nmeter", timestamp: "t", value: 1, unit: "m3" }],
+      } as unknown as Measurement);
+      const channel = [...adapter.objects.entries()].find(([k]) => k.includes(".external.gas_meter_g1"));
+      expect(channel, "external meter channel created").toBeDefined();
+      expect(channel![1].common.name).toBe("gas meter");
+    });
+
     it("should handle empty measurement", async () => {
       const data: Measurement = {};
       await manager.updateMeasurement(testDevice, data);
@@ -757,6 +769,30 @@ describe("StateManager", () => {
       await manager.setDeviceConnected(testDevice, false);
       const state = adapter.states.get("hwe-p1_aabbccddeeff.info.connected");
       expect(state?.val).toBe(false);
+    });
+  });
+
+  describe("markAllDisconnected / writeDeviceRollup (shutdown + summary writes)", () => {
+    it("markAllDisconnected sets every given device to not connected", async () => {
+      const second: DeviceConfig = { ...testDevice, serial: "112233445566" };
+      await manager.setDeviceConnected(testDevice, true);
+      await manager.setDeviceConnected(second, true);
+      await manager.markAllDisconnected([testDevice, second]);
+      expect(adapter.states.get("hwe-p1_aabbccddeeff.info.connected")?.val).toBe(false);
+      expect(adapter.states.get("hwe-p1_112233445566.info.connected")?.val).toBe(false);
+    });
+
+    it("writeDeviceRollup: allOnline only when EVERY set-up device answers, never for an empty setup", async () => {
+      await manager.writeDeviceRollup(2, 1);
+      expect(adapter.states.get("info.devicesTotal")?.val).toBe(2);
+      expect(adapter.states.get("info.devicesOnline")?.val).toBe(1);
+      // One of two answering is not "all of them".
+      expect(adapter.states.get("info.devicesAllOnline")?.val).toBe(false);
+      await manager.writeDeviceRollup(2, 2);
+      expect(adapter.states.get("info.devicesAllOnline")?.val).toBe(true);
+      // No device paired: "all connected" would be a success message for an empty setup.
+      await manager.writeDeviceRollup(0, 0);
+      expect(adapter.states.get("info.devicesAllOnline")?.val).toBe(false);
     });
   });
 

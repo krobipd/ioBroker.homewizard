@@ -3,6 +3,19 @@
     "name": "homewizard",
     "version": "0.16.0",
     "news": {
+      "NEXT": {
+        "en": "Audit fixes: the status reset now works on every stop, a device repeating an error after a reconnect is reported again, switch acks show the real value, and error texts are readable.",
+        "de": "Audit-Korrekturen: Der Status wird bei jedem Stopp zurückgesetzt, ein Gerät mit demselben Fehler nach dem Neuverbinden wird wieder gemeldet, Schalter bestätigen den echten Wert, Fehlertexte lesbar.",
+        "ru": "Исправления аудита: сброс статуса при каждой остановке, устройство с той же ошибкой после переподключения снова сообщается, переключатели подтверждают реальное значение, тексты ошибок читаемы.",
+        "pt": "Correções da auditoria: o estado é reposto em cada paragem, um dispositivo que repete um erro após religar volta a ser reportado, os interruptores confirmam o valor real e os erros são legíveis.",
+        "nl": "Auditcorrecties: de status wordt bij elke stop gereset, een apparaat dat na opnieuw verbinden dezelfde fout herhaalt wordt weer gemeld, schakelaars bevestigen de echte waarde, fouten zijn leesbaar.",
+        "fr": "Corrections d'audit : statut réinitialisé à chaque arrêt, un appareil répétant une erreur après reconnexion est de nouveau signalé, les interrupteurs confirment la vraie valeur, erreurs lisibles.",
+        "it": "Correzioni dell'audit: lo stato viene azzerato a ogni arresto, un dispositivo che ripete un errore dopo la riconnessione viene segnalato di nuovo, gli interruttori confermano il valore reale.",
+        "es": "Correcciones de auditoría: el estado se restablece en cada parada, un dispositivo que repite un error tras reconectar vuelve a notificarse, los interruptores confirman el valor real, errores legibles.",
+        "pl": "Poprawki z audytu: status jest resetowany przy każdym zatrzymaniu, urządzenie powtarzające błąd po ponownym połączeniu jest znów zgłaszane, przełączniki potwierdzają prawdziwą wartość.",
+        "uk": "Виправлення аудиту: скидання стану при кожній зупинці, пристрій з тією ж помилкою після перепідключення знову повідомляється, перемикачі підтверджують справжнє значення, тексти помилок читабельні.",
+        "zh-cn": "审计修复：每次停止时状态都会重置，重新连接后重复同一错误的设备会再次被报告，开关确认真实值，错误文本可读。"
+      },
       "0.16.0": {
         "en": "Honest device status: stopping the adapter no longer leaves everything green, a restart starts from not connected, and three new data points show how many devices answer.",
         "de": "Ehrlicher Gerätestatus: Beim Stoppen bleibt nicht mehr alles grün, nach einem Neustart beginnt jedes Gerät auf nicht verbunden, und drei neue Datenpunkte zeigen, wie viele antworten.",
@@ -80,19 +93,6 @@
         "pl": "Przyciski restartu i identyfikacji resetują się po akcji i pozostają klikalne. Ponownie sparowane urządzenia od razu pokazują pierwsze ostrzeżenie o połączeniu.",
         "uk": "Кнопки перезавантаження та ідентифікації скидаються після дії та залишаються клікабельними. Повторно з'єднані пристрої знову одразу показують перше попередження про з'єднання.",
         "zh-cn": "重启和识别按钮在操作后会自行复位并保持可点击。重新配对的设备会立即再次显示首次连接警告。"
-      },
-      "0.12.1": {
-        "en": "Internal refactoring. No user-facing changes.",
-        "de": "Interne Überarbeitung. Keine für Nutzer sichtbaren Änderungen.",
-        "ru": "Внутренняя переработка. Никаких изменений для пользователей.",
-        "pt": "Refatoração interna. Sem alterações visíveis para o utilizador.",
-        "nl": "Interne herstructurering. Geen zichtbare wijzigingen voor gebruikers.",
-        "fr": "Refactorisation interne. Aucun changement visible pour l'utilisateur.",
-        "it": "Refactoring interno. Nessuna modifica visibile per l'utente.",
-        "es": "Refactorización interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzna refaktoryzacja. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішня переробка. Жодних змін для користувачів.",
-        "zh-cn": "内部重构。对用户无可见变化。"
       }
     },
     "plugins": {
@@ -164,7 +164,7 @@
     ],
     "globalDependencies": [
       {
-        "admin": ">=7.8.23"
+        "admin": ">=8.0.11"
       }
     ]
   },

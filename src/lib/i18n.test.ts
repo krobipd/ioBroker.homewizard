@@ -36,8 +36,11 @@ describe("i18n completeness", () => {
 
   it("all 11 languages have identical keysets", () => {
     expect(files).toHaveLength(11);
+    // Compare as sorted sets — key PRESENCE matters, not order. A translation
+    // tool re-sorting a complete file must not fail this.
+    const enSorted = [...enKeys].sort();
     for (const { lang, keys } of keysets) {
-      expect(keys, `${lang} keyset mismatch`).toEqual(enKeys);
+      expect([...keys].sort(), `${lang} keyset mismatch`).toEqual(enSorted);
     }
   });
 

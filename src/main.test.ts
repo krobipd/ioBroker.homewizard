@@ -304,6 +304,8 @@ describe("HomeWizard removeDevice (A2 token revoke)", () => {
     await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
     expect(client.deleteUser).toHaveBeenCalled();
     expect(stateMgr.removeDevice).toHaveBeenCalled();
+    // The summary is derived from the registry — a removed device must leave it.
+    expect(stateMgr.writeDeviceRollup).toHaveBeenLastCalledWith(0, 0);
   });
 });
 
@@ -693,6 +695,9 @@ describe("HomeWizard pollPairing", () => {
     expect(stateMgr.createDeviceStates).toHaveBeenCalled();
     expect(i.connections.has("hwe-p1_new01")).toBe(true);
     expect(i.discoveredDuringPairing).toHaveLength(0);
+    // The summary counts the new device right away (set up: 2, answering: 0 —
+    // the fresh connection has not authenticated yet).
+    expect(stateMgr.writeDeviceRollup).toHaveBeenLastCalledWith(2, 0);
   });
 
   it("removes the just-paired entry by identity, not serial (D1-1 manual-IP placeholder)", async () => {
@@ -1132,6 +1137,59 @@ describe("HomeWizard onUnload", () => {
     await new Promise<void>(resolve => i.onUnload(() => (callback(), resolve())));
     expect(callback).toHaveBeenCalledTimes(1);
     expect(i.log.debug).toHaveBeenCalledWith(expect.stringContaining("Final shutdown write failed"));
+  });
+});
+
+describe("HomeWizard onUnload before the start-up got anywhere", () => {
+  it("still writes info.connection and reports done when no state manager was ever built", async () => {
+    // The stopInstance correction returns from onReady BEFORE the state manager
+    // exists, and the host then restarts the instance — so this unload runs on a
+    // process that never built one. It used to throw inside the teardown
+    // ("Teardown failed") and skip even the info.connection write.
+    const hw = new HomeWizard();
+    const i = internalOf(hw);
+    const callback = vi.fn();
+
+    await new Promise<void>(resolve => i.onUnload(() => (callback(), resolve())));
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(i.setState).toHaveBeenCalledWith("info.connection", { val: false, ack: true });
+    expect(i.log.debug).not.toHaveBeenCalledWith(expect.stringContaining("Teardown failed"));
+  });
+});
+
+describe("HomeWizard onStateChange acks the value it sent, not the raw write", () => {
+  it("cloud_enabled written as the string 'true' is sent and acked as boolean true", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.cloud_enabled", active("true"));
+    expect(client.setSystem).toHaveBeenCalledWith({ cloud_enabled: true });
+    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.cloud_enabled", {
+      val: true,
+      ack: true,
+    });
+  });
+
+  it("charge_to_full written as 0 is sent and acked as boolean false", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.charge_to_full", active(0));
+    expect(client.setBatteries).toHaveBeenCalledWith({ charge_to_full: false });
+    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.battery.charge_to_full", {
+      val: false,
+      ack: true,
+    });
+  });
+
+  it("api_v1_enabled written as 1 is sent and acked as boolean true", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.api_v1_enabled", active(1));
+    expect(client.setSystem).toHaveBeenCalledWith({ api_v1_enabled: true });
+    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.api_v1_enabled", {
+      val: true,
+      ack: true,
+    });
   });
 });
 

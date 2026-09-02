@@ -469,8 +469,27 @@ describe("HomeWizardApiError", () => {
     it("should handle empty error object", () => {
       const body = JSON.stringify({ error: {} });
       const err = new HomeWizardApiError(500, body, "GET /api");
-      // {} has no code property → falls through to parsed.error itself
       expect(err.statusCode).toBe(500);
+      // {} has no code — the field is typed string and must not carry the object.
+      expect(err.errorCode).toBe("unknown");
+    });
+
+    it("keeps errorCode a string when the device sends a non-string code or description", () => {
+      const err = new HomeWizardApiError(
+        500,
+        JSON.stringify({ error: { code: 42, description: { x: 1 } } }),
+        "GET /api",
+      );
+      expect(err.errorCode).toBe("unknown");
+      expect(typeof err.errorCode).toBe("string");
+      // A non-string description falls back to the raw body, never "[object Object]".
+      expect(err.message).not.toContain("[object Object]");
+      expect(err.message).toContain("42");
+    });
+
+    it("stays 'unknown' for a JSON body that is not an object", () => {
+      expect(new HomeWizardApiError(500, "[1,2]", "GET /api").errorCode).toBe("unknown");
+      expect(new HomeWizardApiError(500, "null", "GET /api").errorCode).toBe("unknown");
     });
   });
 

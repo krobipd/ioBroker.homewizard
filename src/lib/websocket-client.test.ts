@@ -437,6 +437,22 @@ describe("HomeWizardWebSocket", () => {
       ws.close();
     });
 
+    it("warns the same error again on a NEW connection — the dedup is per session, not per process", () => {
+      const { callbacks, tracker } = createCallbackTracker();
+      const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());
+
+      callHandleMessage(ws, { type: "error", data: { message: "subscription rejected" } });
+      // A reconnect starts a fresh session: a device that answers the new
+      // subscription with the same error must be heard again, not silenced
+      // for the rest of the adapter's lifetime.
+      ws.connect();
+      callHandleMessage(ws, { type: "error", data: { message: "subscription rejected" } });
+
+      const warns = tracker.logs.filter(l => l.level === "warn" && l.msg.includes("subscription rejected"));
+      expect(warns).toHaveLength(2);
+      ws.close();
+    });
+
     it("stages a typed auth error on an error frame before authorization (D4-1/D2-1)", () => {
       const { callbacks } = createCallbackTracker();
       const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());

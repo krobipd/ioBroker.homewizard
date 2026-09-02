@@ -1,6 +1,7 @@
 import * as https from "node:https";
 import type * as tls from "node:tls";
 import { HW_AGENT } from "./cacert";
+import { isPlainObject } from "./coerce";
 import type {
   BatteryControl,
   BatterySettingsWrite,
@@ -296,9 +297,20 @@ export class HomeWizardApiError extends Error {
     let errorCode = "unknown";
     let description = body;
     try {
-      const parsed = JSON.parse(body);
-      errorCode = parsed.error?.code ?? parsed.error ?? "unknown";
-      description = parsed.error?.description ?? parsed.error?.code ?? body;
+      const parsed: unknown = JSON.parse(body);
+      // The device's own shape is {"error":{"code":"…","description":"…"}}; a flat
+      // {"error":"…"} is accepted too. Anything that is not a string stays "unknown"
+      // — the field is typed string and is compared/logged as such.
+      const error = isPlainObject(parsed) ? parsed.error : undefined;
+      const nested = isPlainObject(error) ? error : undefined;
+      const code = nested ? nested.code : error;
+      if (typeof code === "string") {
+        errorCode = code;
+      }
+      const desc = nested?.description ?? nested?.code;
+      if (typeof desc === "string") {
+        description = desc;
+      }
     } catch {
       // body is not JSON
     }

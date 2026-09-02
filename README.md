@@ -33,7 +33,7 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 
 - **Node.js >= 22**
 - **ioBroker js-controller >= 7.2.2**
-- **ioBroker Admin >= 7.8.23**
+- **ioBroker Admin >= 8.0.11**
 - **HomeWizard device with API v2 support** (firmware 4.x+ with local API enabled)
 
 ---
@@ -194,6 +194,15 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Fixed: stopping the adapter during the one-time correction restart after an update no longer fails silently — the connection status is reset even when the start-up was cut short.
+- Fixed: a device that repeats the same error after reconnecting is warned about again, instead of staying silent for the rest of the adapter's run.
+- Fixed: switching cloud access, the legacy v1 API or charge-to-full from a script now confirms the actual on or off value, not the raw text that was written.
+- Fixed: two rare cases where a log line could show undefined or an object instead of the error now show the real text, and a malformed device error keeps a readable code.
+- Security: the meter type reported by an external gas or water meter is cleaned before it becomes an object name, as the product name already was.
+- Changed: ioBroker Admin 8.0.11 or newer is now required — the adapter's settings page is checked against that version in the automated tests.
+
 ### 0.16.0 (2026-08-27) — stable
 
 - Fixed: stopping the adapter no longer leaves every device showing as connected — the device markers and the connection status are now reset before the adapter goes down.

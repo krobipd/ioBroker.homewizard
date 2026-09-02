@@ -1,5 +1,5 @@
 import type * as utils from "@iobroker/adapter-core";
-import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject } from "./coerce";
+import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject, sanitizeForLog } from "./coerce";
 import type { I18nKey } from "./i18n";
 import { resolveLabel, tName } from "./i18n";
 import type { BatteryControl, DeviceConfig, Measurement, SystemInfo } from "./types";
@@ -721,8 +721,10 @@ export class StateManager {
 
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
         // External meter channel keeps the device-supplied type (e.g. "gas_meter")
-        // as channel name — identifies the physical meter, not localizable.
-        await this.ensureChannel(extId, type);
+        // as channel name — identifies the physical meter, not localizable. Same
+        // CR/LF strip as the product name (L9): a device string becomes an object
+        // name, and a hostile one must not carry line breaks into the object tree.
+        await this.ensureChannel(extId, sanitizeForLog(type));
 
         const extWrites: Promise<void>[] = [];
         if (value !== null) {
