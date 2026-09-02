@@ -179,7 +179,10 @@ export function parseBatteryPermissions(raw: string): BatteryPermissionsResult {
  * Extract a log-friendly message from a thrown / rejected value. Centralizes the
  * `err instanceof Error ? err.message : String(err)` pattern that otherwise
  * gets repeated at every catch-site. Plain objects are JSON-stringified so a
- * `[object Object]` log is avoided when adapters throw bag-of-fields.
+ * `[object Object]` log is avoided when adapters throw bag-of-fields. Always
+ * returns a string: symbols, functions and `toJSON → undefined` (where
+ * JSON.stringify yields undefined without throwing) fall back to the
+ * `[object X]` tag instead of leaking `undefined` into the log line.
  *
  * @param err Caught value of unknown shape (Error, string, undefined, ...).
  */
