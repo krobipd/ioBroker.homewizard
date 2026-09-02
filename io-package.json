@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.16.0",
+    "version": "0.17.0",
     "news": {
-      "NEXT": {
+      "0.17.0": {
         "en": "Audit fixes: the status reset now works on every stop, a device repeating an error after a reconnect is reported again, switch acks show the real value, and error texts are readable.",
         "de": "Audit-Korrekturen: Der Status wird bei jedem Stopp zurückgesetzt, ein Gerät mit demselben Fehler nach dem Neuverbinden wird wieder gemeldet, Schalter bestätigen den echten Wert, Fehlertexte lesbar.",
         "ru": "Исправления аудита: сброс статуса при каждой остановке, устройство с той же ошибкой после переподключения снова сообщается, переключатели подтверждают реальное значение, тексты ошибок читаемы.",

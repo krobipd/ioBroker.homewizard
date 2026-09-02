@@ -86,6 +86,7 @@ class HomeWizardWebSocket {
     this.cleanup();
     this.authorized = false;
     this.authError = null;
+    this.lastErrorDetail = null;
     const portSeg = this.port !== 443 ? `:${this.port}` : "";
     const url = `wss://${this.ip}${portSeg}/api/ws`;
     this.callbacks.log.debug(`WS connecting to ${url}`);

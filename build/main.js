@@ -356,11 +356,11 @@ class HomeWizard extends utils.Adapter {
         this.connectionManager.teardownConnection(conn);
       }
       this.connections.clear();
-      const writes = [
-        this.stateManager.markAllDisconnected(configs),
-        this.stateManager.writeDeviceRollup(configs.length, 0),
-        this.setState("info.connection", { val: false, ack: true })
-      ];
+      const writes = [this.setState("info.connection", { val: false, ack: true })];
+      const stateManager = this.stateManager;
+      if (stateManager) {
+        writes.push(stateManager.markAllDisconnected(configs), stateManager.writeDeviceRollup(configs.length, 0));
+      }
       void Promise.all(writes).catch((err) => {
         this.log.debug(`Final shutdown write failed: ${(0, import_coerce.errText)(err)}`);
       }).finally(() => callback());
@@ -402,8 +402,9 @@ class HomeWizard extends utils.Adapter {
           await client.identify();
           await this.setStateAsync(id, { val: false, ack: true });
         } else if (id.endsWith(".system.cloud_enabled")) {
-          await client.setSystem({ cloud_enabled: !!state.val });
-          await this.setStateAsync(id, { val: state.val, ack: true });
+          const enabled = !!state.val;
+          await client.setSystem({ cloud_enabled: enabled });
+          await this.setStateAsync(id, { val: enabled, ack: true });
         } else if (id.endsWith(".system.status_led_brightness_pct")) {
           const pct = (0, import_coerce.coerceFiniteNumber)(state.val);
           if (pct === null || pct < 0 || pct > 100) {
@@ -418,8 +419,9 @@ class HomeWizard extends utils.Adapter {
               `${conn.config.productName}: enabling the legacy v1 API \u2014 it has no TLS and no token, so any host on the LAN can then read and control this device without authentication.`
             );
           }
-          await client.setSystem({ api_v1_enabled: !!state.val });
-          await this.setStateAsync(id, { val: state.val, ack: true });
+          const v1Enabled = !!state.val;
+          await client.setSystem({ api_v1_enabled: v1Enabled });
+          await this.setStateAsync(id, { val: v1Enabled, ack: true });
         } else if (id.endsWith(".battery.mode")) {
           const mode = (0, import_coerce.validateBatteryMode)(String(state.val));
           if (!mode) {
@@ -441,8 +443,9 @@ class HomeWizard extends utils.Adapter {
           await client.setBatteries({ permissions: result.perms });
           await this.setStateAsync(id, { val: state.val, ack: true });
         } else if (id.endsWith(".battery.charge_to_full")) {
-          await client.setBatteries({ charge_to_full: !!state.val });
-          await this.setStateAsync(id, { val: state.val, ack: true });
+          const chargeToFull = !!state.val;
+          await client.setBatteries({ charge_to_full: chargeToFull });
+          await this.setStateAsync(id, { val: chargeToFull, ack: true });
         }
       } catch (err) {
         this.log.warn(`Failed to set ${id}: ${(0, import_coerce.errText)(err)}`);

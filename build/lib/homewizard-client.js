@@ -34,6 +34,7 @@ __export(homewizard_client_exports, {
 module.exports = __toCommonJS(homewizard_client_exports);
 var https = __toESM(require("node:https"));
 var import_cacert = require("./cacert");
+var import_coerce = require("./coerce");
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 class HomeWizardClient {
   ip;
@@ -246,13 +247,21 @@ class HomeWizardApiError extends Error {
    * @param context Request context for error message
    */
   constructor(statusCode, body, context) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a;
     let errorCode = "unknown";
     let description = body;
     try {
       const parsed = JSON.parse(body);
-      errorCode = (_c = (_b = (_a = parsed.error) == null ? void 0 : _a.code) != null ? _b : parsed.error) != null ? _c : "unknown";
-      description = (_g = (_f = (_d = parsed.error) == null ? void 0 : _d.description) != null ? _f : (_e = parsed.error) == null ? void 0 : _e.code) != null ? _g : body;
+      const error = (0, import_coerce.isPlainObject)(parsed) ? parsed.error : void 0;
+      const nested = (0, import_coerce.isPlainObject)(error) ? error : void 0;
+      const code = nested ? nested.code : error;
+      if (typeof code === "string") {
+        errorCode = code;
+      }
+      const desc = (_a = nested == null ? void 0 : nested.description) != null ? _a : nested == null ? void 0 : nested.code;
+      if (typeof desc === "string") {
+        description = desc;
+      }
     } catch {
     }
     super(`${context}: HTTP ${statusCode} \u2014 ${description}`);

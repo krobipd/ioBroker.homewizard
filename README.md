@@ -194,14 +194,14 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.17.0 (2026-09-02)
 
-- Fixed: stopping the adapter during the one-time correction restart after an update no longer fails silently — the connection status is reset even when the start-up was cut short.
+- Fixed: the connection status is now reset on every stop, even when the adapter is stopped right after it started — before, such a stop could leave it showing as connected.
 - Fixed: a device that repeats the same error after reconnecting is warned about again, instead of staying silent for the rest of the adapter's run.
 - Fixed: switching cloud access, the legacy v1 API or charge-to-full from a script now confirms the actual on or off value, not the raw text that was written.
 - Fixed: two rare cases where a log line could show undefined or an object instead of the error now show the real text, and a malformed device error keeps a readable code.
-- Security: the meter type reported by an external gas or water meter is cleaned before it becomes an object name, as the product name already was.
-- Changed: ioBroker Admin 8.0.11 or newer is now required — the adapter's settings page is checked against that version in the automated tests.
+- Fixed: an external gas or water meter whose reported type contains unusual characters now gets a clean name in the object tree instead of a broken one.
+- Changed: ioBroker Admin 8.0.11 or newer is now required — the same minimum version that the current ioBroker stable repository ships with.
 
 ### 0.16.0 (2026-08-27) — stable
 
@@ -226,14 +226,6 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 - Corrected state roles (grid frequency, reactive power) and 0–100 bounds (LED brightness, charge level); existing devices pick these up automatically on the next start and keep any names you changed
 - Security: after an update, an older device is verified by its serial from the very first connection — its access token no longer briefly crosses a not-fully-verified connection
 - Security: device and network-discovery names are cleaned before they reach the log, and pairing now cross-checks the device's serial against its certificate
-
-### 0.13.0 (2026-06-24) — stable
-
-- Security: the adapter now checks each device's certificate, so it only ever talks to your real device
-- Pairing a device by manual IP no longer leaves repeated pairing attempts and throwaway tokens behind on the device
-- The manual pairing IP field now rejects addresses that are not on your home network
-- Fixed a rare crash while a device was connecting or disconnecting
-- Meter identifier and protocol version are now available as states
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

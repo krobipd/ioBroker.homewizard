@@ -619,7 +619,7 @@ class StateManager {
         const timestamp = (0, import_coerce.coerceString)(rawExt.timestamp);
         await this.ensureChannel(`${mPrefix}.external`, () => (0, import_i18n.tName)("externalMeters"));
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
-        await this.ensureChannel(extId, type);
+        await this.ensureChannel(extId, (0, import_coerce.sanitizeForLog)(type));
         const extWrites = [];
         if (value !== null) {
           extWrites.push(

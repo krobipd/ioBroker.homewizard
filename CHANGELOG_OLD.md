@@ -1,4 +1,12 @@
 # Older Changes
+## 0.13.0 (2026-06-24) — stable
+
+- Security: the adapter now checks each device's certificate, so it only ever talks to your real device
+- Pairing a device by manual IP no longer leaves repeated pairing attempts and throwaway tokens behind on the device
+- The manual pairing IP field now rejects addresses that are not on your home network
+- Fixed a rare crash while a device was connecting or disconnecting
+- Meter identifier and protocol version are now available as states
+
 ## 0.12.2 (2026-06-11) — stable
 
 - Reboot and identify buttons reset themselves after the action, so they stay clickable in the admin UI
