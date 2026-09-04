@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.17.0",
+    "version": "0.18.0",
     "news": {
+      "0.18.0": {
+        "en": "Honest connection status: a device answering over the fallback no longer shows as disconnected, corrected names now reach existing installations, and messages to the adapter work again.",
+        "de": "Ehrlicher Verbindungsstatus: Ein Gerät, das über den Rückfall antwortet, gilt nicht mehr als getrennt, korrigierte Namen erreichen bestehende Anlagen, und Nachrichten an den Adapter kommen wieder an.",
+        "ru": "Честный статус связи: устройство, отвечающее через резервный опрос, больше не считается отключённым, исправленные названия доходят до существующих установок, а сообщения адаптеру снова приходят.",
+        "pt": "Estado de ligação honesto: um dispositivo que responde pelo modo de recurso já não surge como desligado, os nomes corrigidos chegam às instalações existentes e as mensagens ao adaptador funcionam.",
+        "nl": "Eerlijke verbindingsstatus: een apparaat dat via de terugval antwoordt geldt niet meer als losgekoppeld, gecorrigeerde namen bereiken bestaande installaties en berichten aan de adapter komen weer aan.",
+        "fr": "Statut de connexion honnête : un appareil répondant via le mode de secours n'apparaît plus déconnecté, les noms corrigés atteignent les installations existantes et les messages fonctionnent.",
+        "it": "Stato di connessione onesto: un dispositivo che risponde tramite il ripiego non risulta più disconnesso, i nomi corretti raggiungono gli impianti esistenti e i messaggi funzionano di nuovo.",
+        "es": "Estado de conexión honesto: un dispositivo que responde por el modo de reserva ya no aparece desconectado, los nombres corregidos llegan a las instalaciones existentes y los mensajes funcionan.",
+        "pl": "Uczciwy status połączenia: urządzenie odpowiadające przez tryb zapasowy nie jest już pokazywane jako rozłączone, poprawione nazwy docierają do istniejących instalacji, a wiadomości działają.",
+        "uk": "Чесний стан з'єднання: пристрій, який відповідає через резервне опитування, більше не вважається від'єднаним, виправлені назви доходять до наявних встановлень, а повідомлення адаптеру знову працюють.",
+        "zh-cn": "诚实的连接状态：通过回退方式响应的设备不再显示为已断开，修正后的名称能够到达已有安装，向适配器发送的消息也重新可用。"
+      },
       "0.17.0": {
         "en": "Audit fixes: the status reset now works on every stop, a device repeating an error after a reconnect is reported again, switch acks show the real value, and error texts are readable.",
         "de": "Audit-Korrekturen: Der Status wird bei jedem Stopp zurückgesetzt, ein Gerät mit demselben Fehler nach dem Neuverbinden wird wieder gemeldet, Schalter bestätigen den echten Wert, Fehlertexte lesbar.",
@@ -80,19 +93,6 @@
         "pl": "Bezpieczeństwo: adapter sprawdza certyfikat urządzenia i łączy się tylko z Twoim, a parowanie przez ręczny IP nie zostawia zbędnych logowań. Nowość: ID licznika i wersja protokołu.",
         "uk": "Безпека: адаптер перевіряє сертифікат пристрою і зв'язується лише з вашим, а сполучення за ручним IP не лишає зайвих входів. Нове: ID лічильника і версія протоколу.",
         "zh-cn": "安全性：适配器会检查每个设备的证书，只与你的真实设备通信，且通过手动 IP 配对不再残留多余登录。新增电表 ID 和协议版本状态。"
-      },
-      "0.12.2": {
-        "en": "Reboot and identify buttons reset themselves after the action and stay clickable. Re-paired devices show their first connection warning again right away.",
-        "de": "Neustart- und Identifizieren-Buttons setzen sich nach der Aktion zurück und bleiben klickbar. Neu gekoppelte Geräte zeigen ihre erste Verbindungswarnung wieder sofort.",
-        "ru": "Кнопки перезагрузки и идентификации сбрасываются после действия и остаются кликабельными. Повторно сопряжённые устройства снова сразу показывают первое предупреждение о соединении.",
-        "pt": "Os botões de reiniciar e identificar são redefinidos após a ação e continuam clicáveis. Dispositivos emparelhados novamente mostram o primeiro aviso de conexão de imediato.",
-        "nl": "Herstart- en identificatieknoppen resetten zichzelf na de actie en blijven klikbaar. Opnieuw gekoppelde apparaten tonen hun eerste verbindingswaarschuwing weer direct.",
-        "fr": "Les boutons redémarrer et identifier se réinitialisent après l'action et restent cliquables. Les appareils ré-appairés affichent de nouveau leur premier avertissement de connexion.",
-        "it": "I pulsanti di riavvio e identificazione si ripristinano dopo l'azione e restano cliccabili. I dispositivi riaccoppiati mostrano di nuovo subito il primo avviso di connessione.",
-        "es": "Los botones de reinicio e identificación se restablecen tras la acción y siguen siendo clicables. Los dispositivos emparejados de nuevo muestran su primera advertencia de conexión de inmediato.",
-        "pl": "Przyciski restartu i identyfikacji resetują się po akcji i pozostają klikalne. Ponownie sparowane urządzenia od razu pokazują pierwsze ostrzeżenie o połączeniu.",
-        "uk": "Кнопки перезавантаження та ідентифікації скидаються після дії та залишаються клікабельними. Повторно з'єднані пристрої знову одразу показують перше попередження про з'єднання.",
-        "zh-cn": "重启和识别按钮在操作后会自行复位并保持可点击。重新配对的设备会立即再次显示首次连接警告。"
       }
     },
     "plugins": {

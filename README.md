@@ -201,17 +201,17 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.18.0 (2026-09-04)
 
 - Fixed: a device that keeps answering while its push connection is down is no longer shown as not connected — the status describes the device now, not one connection type.
 - Fixed: WiFi signal strength and uptime keep updating for such a device instead of freezing at the values from before the drop.
 - Fixed: corrected names and descriptions now reach installations that already exist — until now they only ever arrived on fresh ones.
-- Fixed: sending a message to the adapter works again; a leftover setting from an earlier version blocked it silently.
+- Fixed: sending a message to the adapter works again — a leftover setting from an earlier version blocked every message silently, with nothing about it in the log.
 - Fixed: a device with no usable IP address is reported at start-up and searched for, instead of staying quietly dead until the next restart.
 - Fixed: the reboot and identify buttons reset themselves even when the command fails, so they no longer stay pressed in Admin.
-- Fixed: battery data points are removed once the battery is gone, instead of keeping its last values forever.
+- Fixed: the battery data points are removed once the meter reports that no battery is connected any more, instead of showing its last values forever.
 - New: the data points under `info` explain what they mean in all eleven languages, and a user guide is now part of the documentation portal.
-- Changed: an address announced over mDNS is only accepted from a private network range, and device-supplied names can no longer put line breaks into the log.
+- Changed: for security, an address announced over the network is only accepted when it belongs to a private range, so pairing can no longer be directed at a host outside your own network.
 
 ### 0.17.0 (2026-09-02)
 
@@ -236,15 +236,6 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 
 - A device that rejects the adapter's token now stops retrying and warns you to re-pair it, instead of quietly retrying in the background
 - When pairing a device that connects but cannot be added, the adapter now tells you once so you can try again, instead of silently retrying
-
-### 0.14.0 (2026-07-07)
-
-- A brief WiFi dropout no longer makes the adapter wrongly treat a device as having a permanently unstable connection after a single outage
-- Power-quality values (voltage sag/swell and power-fail counts) now sit in a named "quality" sub-folder under measurement instead of loose
-- The Plug-In Battery's cloud-connection state is now a read-only indicator instead of a switch that could never be toggled
-- Corrected state roles (grid frequency, reactive power) and 0–100 bounds (LED brightness, charge level); existing devices pick these up automatically on the next start and keep any names you changed
-- Security: after an update, an older device is verified by its serial from the very first connection — its access token no longer briefly crosses a not-fully-verified connection
-- Security: device and network-discovery names are cleaned before they reach the log, and pairing now cross-checks the device's serial against its certificate
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 
