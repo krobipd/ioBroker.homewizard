@@ -24,6 +24,7 @@ __export(coerce_exports, {
   coerceString: () => coerceString,
   errText: () => errText,
   isAssignableDeviceIpv4: () => isAssignableDeviceIpv4,
+  isLanDeviceIpv4: () => isLanDeviceIpv4,
   isPlainObject: () => isPlainObject,
   isValidIpv4: () => isValidIpv4,
   parseBatteryPermissions: () => parseBatteryPermissions,
@@ -99,6 +100,19 @@ function isAssignableDeviceIpv4(value) {
   }
   return true;
 }
+function isLanDeviceIpv4(value) {
+  if (!isAssignableDeviceIpv4(value)) {
+    return false;
+  }
+  const [a, b] = value.split(".").map(Number);
+  if (a === 10) {
+    return true;
+  }
+  if (a === 172 && b >= 16 && b <= 31) {
+    return true;
+  }
+  return a === 192 && b === 168;
+}
 const BATTERY_MODES = ["zero", "to_full", "standby", "predictive"];
 function validateBatteryMode(value) {
   return typeof value === "string" && BATTERY_MODES.includes(value) ? value : null;
@@ -165,6 +179,7 @@ function sanitizeForLog(value, maxLength = 200) {
   coerceString,
   errText,
   isAssignableDeviceIpv4,
+  isLanDeviceIpv4,
   isPlainObject,
   isValidIpv4,
   parseBatteryPermissions,

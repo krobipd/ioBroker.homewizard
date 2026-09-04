@@ -33,7 +33,8 @@ src/main.ts                  → Adapter (Lifecycle, Pairing, Multi-Device, Stat
 src/lib/connection-manager.ts → ConnectionManager: Reconnect/WS-Push/REST-Fallback/System-Poll/Auth-Stop-State-Machine + Connection-Registry (F5, aus main extrahiert; ConnectionManagerHost-Schnittstelle)
 src/lib/types.ts             → Interfaces
 src/lib/connection-utils.ts  → classifyError, isAuthError, createDeviceConnection (pure, testbar)
-src/lib/cacert.ts            → HomeWizard CA-Cert + shared HTTPS Agent
+src/lib/main-helpers.ts      → reine Entscheidungs-Helfer (Backoff, Unstable-Hysterese, Cooldown, State-ID-Lookup)
+src/lib/cacert.ts            → HomeWizard CA-Cert, shared HTTPS Agent, per-Device-Agents + `pinnedAgent` (welche Identitätsprüfung eine Verbindung bekommt)
 src/lib/coerce.ts            → Type-Guards für API-Boundary (coerceFiniteNumber/-String/-Boolean, isPlainObject)
 src/lib/discovery.ts         → mDNS (_homewizard._tcp), nur bei Pairing/IP-Recovery
 src/lib/homewizard-client.ts → HTTPS-Client (REST)
@@ -53,6 +54,7 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
 7. **TLS mit CA-Cert + per-Device-CN-Pinning** (CN-Pinning seit v0.13.0) — HomeWizard CA gebündelt (`HW_AGENT`), `minVersion:TLSv1.2`. Etablierte Geräte nutzen einen per-Device-Agent (`createDeviceAgent(certCn)`), dessen `checkServerIdentity` die präsentierte Cert-CN (`appliance/<type>/<serial>`, beim Pairing via `getPeerCertificate()` erfasst + in `native.certCn` persistiert; lazy-Migration beim ersten Connect für Bestandsgeräte) gegen die bekannte Identität prüft. Blanket-Accept (`HW_AGENT`, CN übersprungen) NUR während Pairing (Identität pre-Pairing unbekannt). Schließt LAN-MITM mit fremdem HW-CA-Cert → Token-Harvest. Per offizieller v2-Doku (Hostname-Validierung).
 8. **Admin UI ohne Gerätetabelle** — Geräte im Objekte-Tab, nicht in Config
 9. **statusStates** (seit v0.4.0) — Device-Objekte haben `statusStates.onlineId` → grün/grau Icon im Objektbaum.
+   **Seit v0.18.0 sagt der Marker „das GERÄT antwortet", nicht „der WebSocket steht"** — s. Entscheidung 20.
    **Die Marker-Kette (seit v0.16.0)** — `info.connected` wird an JEDEM Punkt geschrieben, an dem sich das Bild
    ändern kann, nicht nur beim WS-Ereignis: Start-Stempel vor dem ersten Verbindungsversuch (der Wert des
    Vorlaufs überlebt Absturz/Stromausfall), beim Neu-Koppeln eines bekannten Geräts (der Abbau der alten
@@ -89,6 +91,48 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
    `{error:{code,description}}` und flaches `{error:"…"}` werden gelesen; alles, was kein String ist (Zahl,
    Objekt, `{error:{}}`), bleibt `"unknown"`, die Beschreibung fällt dann auf den Rohkörper zurück. Vorher konnte
    ein Objekt im String-Feld landen und als `[object Object]` im Log stehen.
+20. **Die Verbindungs-Anzeigen beschreiben das GERÄT, nicht einen Transportweg** (seit v0.18.0, ersetzt
+    die alte Entscheidung 8). Der Rollen-Katalog definiert `indicator.reachable` als „if a device is
+    online" — ein Gerät, das den REST-Rückfall beantwortet, IST online, auch wenn der WebSocket gerade
+    nicht steht. `isDeviceOnline(conn) = wsAuthenticated || restHealthy` ist die EINZIGE Quelle für den
+    Geräte-Marker, die `info.devices*`-Summe UND den System-Poll-Filter; eine zweite Rechenstelle würde
+    driften (wie Entscheidung 13). `restHealthy` wird nach einem erfolgreichen Rückfall-Abruf gesetzt,
+    bei dessen erstem Fehlschlag gelöscht und beim WS-Verbinden/-Trennen sowie im Abbau zurückgesetzt —
+    der Wert verfällt also von selbst. Vorher meldeten beide Anzeigen bis zu fünf Minuten „nicht
+    verbunden", während Messwerte in den Baum liefen; am sichtbarsten bei Geräten mit schwachem Empfang,
+    für die der Rückfall überhaupt gebaut wurde. `info.connected` wird nirgends gelesen, nur geschrieben
+    — Reconnect, IP-Wiederfindung und Unstable-Erkennung hängen weiter an `wsAuthenticated`.
+21. **Ein Update erreicht die Namen BESTEHENDER Anlagen** (seit v0.18.0). Vier Schichten, die vorher
+    alle einfroren: die sieben Manifest-Objekte bekommen in `onReady` je einen ausgeschriebenen
+    `extendObject`-Aufruf (`ensureManifestObjects`, wörtlich statt Schleife — sonst hat das
+    Konsistenz-Gate nichts zu prüfen); `createState`, der `info`-Kanal, `ensureChannel` und
+    `createButton` schreiben ohne `preserve` bzw. mit `extendObject` statt `setObjectNotExists`.
+    **`preserve: {common:["name"]}` bleibt an genau zwei Stellen** — dem Geräte-Objekt (Name kommt vom
+    Gerät, der Nutzer darf ihn ändern) und dem Kanal eines externen Zählers (`deviceOwnedName: true`).
+    Ein Test hält die Liste der `preserve`-Stellen fest; kein Gate sieht diesen Fehler sonst.
+22. **`supportedMessages` wird GELÖSCHT, nicht auf `false` gesetzt** (seit v0.18.0). Die Liste ist eine
+    POSITIVliste: ein `{stopInstance:false}` — und selbst ein leeres Objekt — heißt „nur diese
+    Nachrichten werden unterstützt", also keine. Die Messagebox stirbt dann still, kein `sendTo`
+    kommt an, nichts wird protokolliert. Auslöser der Einmal-Korrektur ist deshalb die bloße Existenz
+    des Schlüssels, der Schreibvorgang ist `{ common: { supportedMessages: null } }`.
+23. **Adressen aus mDNS werden strenger geprüft als eine eingetippte** (seit v0.18.0). `isLanDeviceIpv4`
+    (nur 10/8, 172.16/12, 192.168/16) gilt für den mDNS-Weg: dort tippt niemand, und ein echtes Gerät
+    kann link-lokal keine öffentliche Adresse ansagen — ein bösartiger Responder aber schon. Der manuelle
+    Pairing-Pfad behält `isAssignableDeviceIpv4` (sperrt Loopback/Link-Local/0.x/Broadcast, lässt
+    öffentliche Adressen zu), weil ein Heimnetz auf öffentlichem Bereich selten, aber real ist.
+    CGNAT (100.64/10) gehört NICHT dazu — das liegt auf der WAN-Seite des Routers.
+24. **Ein Gerät ohne gespeicherte IP meldet sich** (seit v0.18.0) — Warnung beim Start plus einmaliger
+    Anstoß der mDNS-Wiederfindung. Vorher bekam es keinen Verbindungsversuch, und die Wiederfindung wird
+    ausschließlich aus `connectWebSocket` angestoßen, wohin ein Gerät ohne IP nie gelangt: es blieb bis
+    zum nächsten Neustart oder Neu-Koppeln stumm liegen.
+25. **Ein Knopf fällt auch nach einem Fehlschlag zurück** (seit v0.18.0) — `finally` um **genau den
+    einen** Geräteaufruf, nie um den ganzen Handler: dort würde es den LED-Prozentwert und jede
+    Schalter-Bestätigung mit `false` überschreiben. Die Rückstellung selbst schluckt ihren Fehler,
+    damit sie den ursprünglichen nicht verdrängt.
+26. **Batterie-Datenpunkte überleben die Batterie nicht** (seit v0.18.0) — meldet der System-Poll
+    zweimal hintereinander `battery_count: 0`, wird der `battery`-Zweig entfernt statt mit den letzten
+    Werten zu altern. Ausgewertet wird am 60-s-Poll, nicht am 1-Hz-Push: ein einzelner Aussetzer würde
+    sonst den Objektbaum durchwalken und die Historie zerschneiden.
 
 ## Error-Handling (seit v0.3.5)
 
@@ -138,7 +182,7 @@ P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630),
 
 **Außerhalb des Scope (final, nicht „noch nicht"):** Energy Socket (HWE-SKT), Watermeter (HWE-WTR), Energy Display (HWE-DSP). Diese Geräte sprechen nur die deprecated v1-API. Adapter ist v2-only — siehe Design-Entscheidung 5.
 
-## Tests (409 unit + 57 package = 466)
+## Tests (453 unit + 57 package = 510)
 
 ## Multi-Language (seit v0.7.0)
 

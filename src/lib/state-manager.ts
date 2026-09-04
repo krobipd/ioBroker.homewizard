@@ -492,6 +492,14 @@ export const MOMENTARY_KEYS = new Set<string>([
 ]);
 
 /**
+ * The measurement keys that live under `measurement.quality`. Precomputed once:
+ * deciding whether the quality channel is needed happens on every ~1 Hz push per
+ * device, and scanning all ~66 definitions there is work thrown away on a P1 that
+ * reports no power-quality counters at all.
+ */
+const QUALITY_KEYS: string[] = MEASUREMENT_STATE_DEFS.filter(d => d.id.startsWith("quality.")).map(d => d.key);
+
+/**
  * Build a `common.states` map for tariff (T1-T4) with plain-string labels.
  *
  * **VALUES MUST be plain-string** — Admin renders states-values as React
@@ -578,15 +586,14 @@ export class StateManager {
       { preserve: { common: ["name"] } },
     );
 
-    await this.adapter.extendObjectAsync(
-      `${prefix}.info`,
-      {
-        type: "channel",
-        common: { name: tName("deviceInformation") },
-        native: {},
-      },
-      { preserve: { common: ["name"] } },
-    );
+    // No `preserve` here: the channel name is the adapter's own translated text,
+    // so preserving the existing one would freeze it on every upgraded install
+    // and a renamed channel would only ever reach fresh installations.
+    await this.adapter.extendObjectAsync(`${prefix}.info`, {
+      type: "channel",
+      common: { name: tName("deviceInformation") },
+      native: {},
+    });
 
     await this.createState({
       id: `${prefix}.info.productName`,
@@ -604,6 +611,7 @@ export class StateManager {
     await this.createState({
       id: `${prefix}.info.connected`,
       name: tName("connected"),
+      desc: tName("connectedDesc"),
       type: "boolean",
       role: "indicator.reachable",
     });
@@ -669,9 +677,7 @@ export class StateManager {
     // parent channel exists before them (like the external-meter path below),
     // otherwise they are orphaned (E3009 "missing intermediate object" on a P1
     // object dump, and an unnamed folder in Admin).
-    const hasQuality = MEASUREMENT_STATE_DEFS.some(
-      d => d.id.startsWith("quality.") && coerceFiniteNumber(record[d.key]) !== null,
-    );
+    const hasQuality = QUALITY_KEYS.some(key => coerceFiniteNumber(record[key]) !== null);
     if (hasQuality) {
       await this.ensureChannel(`${mPrefix}.quality`, () => tName("powerQuality"));
     }
@@ -724,7 +730,7 @@ export class StateManager {
         // as channel name — identifies the physical meter, not localizable. Same
         // CR/LF strip as the product name (L9): a device string becomes an object
         // name, and a hostile one must not carry line breaks into the object tree.
-        await this.ensureChannel(extId, sanitizeForLog(type));
+        await this.ensureChannel(extId, sanitizeForLog(type), /* deviceOwnedName */ true);
 
         const extWrites: Promise<void>[] = [];
         if (value !== null) {
@@ -1048,6 +1054,33 @@ export class StateManager {
   }
 
   /**
+   * Remove a device's whole `battery` branch — used when the meter reports that
+   * no batteries are connected any more.
+   *
+   * The datapoints would otherwise keep showing the last values of a battery that
+   * is gone, `battery_count` included: numbers that describe nothing. The adapter
+   * owns its datapoint inventory, so it clears them instead of leaving them to
+   * age. A battery that comes back re-creates the branch on the next poll.
+   *
+   * @param config Device configuration
+   * @returns `true` when a branch was actually removed, `false` when there was none
+   */
+  async removeBatteryStates(config: DeviceConfig): Promise<boolean> {
+    const prefix = this.devicePrefix(config);
+    const channel = `${prefix}.battery`;
+    if (!(await this.adapter.getObjectAsync(channel))) {
+      return false;
+    }
+    await this.adapter.delObjectAsync(channel, { recursive: true });
+    for (const id of this.createdIds) {
+      if (id === channel || id.startsWith(`${channel}.`)) {
+        this.createdIds.delete(id);
+      }
+    }
+    return true;
+  }
+
+  /**
    * Remove obsolete states: pre-v0.4.0 device-root paths (now under measurement/) plus
    * states retired in later versions (v0.11.0: raw P1 telegram).
    *
@@ -1083,14 +1116,18 @@ export class StateManager {
   /**
    * I6: mark the pre-v0.4.0/v0.11.0 legacy-state cleanup as complete so later
    * restarts skip the per-device scan. A write-once indicator state at the adapter
-   * root (fleet pattern, beszel L6). Idempotent — the object create is a no-op once
-   * it exists and the value only ever flips false→true.
+   * root. Idempotent — the value only ever flips false→true.
+   *
+   * `extendObject` + translated name/description: the state was created with a
+   * fixed English string in earlier versions, and a create-only write would leave
+   * that string standing on every installation that already has it.
    */
   async markLegacyCleanupDone(): Promise<void> {
-    await this.adapter.setObjectNotExistsAsync("info.legacyMigrated", {
+    await this.adapter.extendObjectAsync("info.legacyMigrated", {
       type: "state",
       common: {
-        name: "Legacy state cleanup completed",
+        name: tName("legacyMigrated"),
+        desc: tName("legacyMigratedDesc"),
         type: "boolean",
         role: "indicator",
         read: true,
@@ -1117,29 +1154,44 @@ export class StateManager {
   }
 
   /**
-   * Ensure a channel object exists. Skips the DB lookup once `id` is in the
-   * cache — channels are static after first creation per device.
+   * Ensure a channel object exists and carries the current name. Skips the DB
+   * write once `id` is in the cache — channels are static after first creation
+   * per device.
    *
-   * @param id   Full channel ID (`<prefix>.<channelName>`).
-   * @param name Display name (translation object or device-supplied string).
+   * `extendObject`, not `setObjectNotExists`: a create-only write freezes the
+   * name on every installation that already has the channel, so a renamed or
+   * newly translated channel would only ever reach fresh installations.
+   *
+   * @param id              Full channel ID (`<prefix>.<channelName>`).
+   * @param name            Display name (translation object or device-supplied string).
+   * @param deviceOwnedName `true` when the name comes from the device (external
+   *   meter type) — then the stored name is preserved, because a user may have
+   *   renamed it and the adapter does not own that text. Adapter-owned names
+   *   (everything translated) must NOT preserve.
    */
   private async ensureChannel(
     id: string,
     name: ioBroker.StringOrTranslated | (() => ioBroker.StringOrTranslated),
+    deviceOwnedName = false,
   ): Promise<void> {
     if (this.createdIds.has(id)) {
       return;
     }
     // The name may be passed as a thunk so the caller's `tName(...)` — which
     // builds an 11-language object — only runs when the channel is really
-    // created. The measurement channel is ensured on EVERY ~1 Hz push, so the
+    // written. The measurement channel is ensured on EVERY ~1 Hz push, so the
     // eager form threw that object away once per second per device (same waste
     // the cold-path/hot-path split removed for the per-field names in L14).
-    await this.adapter.setObjectNotExistsAsync(id, {
-      type: "channel",
+    const obj = {
+      type: "channel" as const,
       common: { name: typeof name === "function" ? name() : name },
       native: {},
-    });
+    };
+    if (deviceOwnedName) {
+      await this.adapter.extendObjectAsync(id, obj, { preserve: { common: ["name"] } });
+    } else {
+      await this.adapter.extendObjectAsync(id, obj);
+    }
     this.createdIds.add(id);
   }
 
@@ -1177,20 +1229,21 @@ export class StateManager {
     // DP-retrofit: extendObject (not setObjectNotExists) on first touch so a
     // changed `common` — M3 cloud_enabled role switch→indicator, L11/I2 min/max,
     // I1 role precision — reaches states that already exist on an upgraded
-    // install. User-renamed names are preserved via `preserve.common.name`.
-    // createdIds-gated → runs once per state per restart, with NO getObject read,
-    // so the fragile-snapshot migration anti-pattern (lgtv #418/#421) cannot
-    // occur. Fleet pattern (beszel v0.9.0); uses the same extendObjectAsync +
-    // preserve:name form as createDeviceStates above.
-    await this.adapter.extendObjectAsync(
-      def.id,
-      {
-        type: "state",
-        common,
-        native: {},
-      },
-      { preserve: { common: ["name"] } },
-    );
+    // install. createdIds-gated → runs once per state per restart, with NO
+    // getObject read, so the fragile-snapshot migration anti-pattern
+    // (lgtv #418/#421) cannot occur.
+    //
+    // Deliberately WITHOUT `preserve: { common: ["name"] }`: every name here is
+    // the adapter's own translated text. Preserving would freeze it on each
+    // existing installation, so a corrected or newly translated label would
+    // reach fresh installs only — and no gate sees that, because the source
+    // shows the correct tName() call either way. `preserve` belongs where the
+    // name comes from outside (the device object's productName).
+    await this.adapter.extendObjectAsync(def.id, {
+      type: "state",
+      common,
+      native: {},
+    });
     if (def.states) {
       // Existing datapoints from earlier releases may carry translation-object
       // VALUES in `common.states` (v0.7.0 introduced tLabel-as-string casts).
@@ -1256,9 +1309,12 @@ export class StateManager {
     if (desc) {
       common.desc = desc;
     }
-    await this.adapter.setObjectNotExistsAsync(id, {
+    // extendObject without `preserve`, like createState: label and description
+    // are the adapter's own translated texts, and a create-only write would
+    // leave every upgraded installation on the old wording forever.
+    await this.adapter.extendObjectAsync(id, {
       type: "state",
-      common: common as ioBroker.StateCommon,
+      common,
       native: {},
     });
     await this.adapter.setStateAsync(id, { val: false, ack: true });

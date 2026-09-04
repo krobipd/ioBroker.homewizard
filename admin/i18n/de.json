@@ -126,5 +126,13 @@
   "powerQuality": "Netzqualität",
   "devicesTotal": "Geräte gesamt",
   "devicesOnline": "Geräte online",
-  "devicesAllOnline": "Alle Geräte online"
+  "devicesAllOnline": "Alle Geräte online",
+  "legacyMigrated": "Altbestand-Bereinigung erledigt",
+  "legacyMigratedDesc": "Interne Markierung: Das einmalige Entfernen von Datenpunkten älterer Adapter-Versionen ist gelaufen.",
+  "pairingIpDesc": "IP-Adresse des zu koppelnden Geräts, für Netze, in denen die mDNS-Suche es nicht erreicht. Vor dem Start des Kopplungsmodus eintragen.",
+  "infoConnectionDesc": "Wahr, solange mindestens ein gekoppeltes Gerät dem Adapter antwortet.",
+  "devicesTotalDesc": "Wie viele Geräte mit dieser Instanz gekoppelt sind — der Wert bleibt auch beim Stoppen des Adapters stehen.",
+  "devicesOnlineDesc": "Wie viele der gekoppelten Geräte gerade antworten.",
+  "devicesAllOnlineDesc": "Wahr nur, wenn jedes gekoppelte Gerät antwortet, und falsch, solange gar kein Gerät gekoppelt ist.",
+  "connectedDesc": "Wahr, solange das Gerät dem Adapter antwortet — über die Echtzeit-Verbindung oder den Abruf im Rückfall."
 }

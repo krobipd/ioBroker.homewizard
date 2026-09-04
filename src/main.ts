@@ -1,6 +1,5 @@
 import * as utils from "@iobroker/adapter-core";
 import { I18n } from "@iobroker/adapter-core";
-import type * as https from "node:https";
 import { join } from "node:path";
 import {
   coerceFiniteNumber,
@@ -14,14 +13,9 @@ import {
 import { createDeviceConnection } from "./lib/connection-utils";
 import { ConnectionManager, WS_RECONNECT_MAX_MS, type ConnectionManagerHost } from "./lib/connection-manager";
 import { HomeWizardDiscovery } from "./lib/discovery";
-import {
-  CA_NOT_AFTER,
-  caDaysUntilExpiry,
-  createDeviceAgent,
-  createDeviceAgentForSerial,
-  dropDeviceAgent,
-} from "./lib/cacert";
+import { CA_NOT_AFTER, caDaysUntilExpiry, dropDeviceAgent, pinnedAgent } from "./lib/cacert";
 import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
+import { tName } from "./lib/i18n";
 import { StateManager } from "./lib/state-manager";
 import type { DeviceConfig, DeviceConnection, DiscoveredDevice } from "./lib/types";
 import { HomeWizardWebSocket, type TimerDeps, type WsCallbacks } from "./lib/websocket-client";
@@ -34,27 +28,6 @@ const PAIRING_POLL_MS = 2_000;
 const SYSTEM_POLL_MS = 60_000;
 /** mDNS IP recovery timeout in milliseconds */
 const IP_RECOVERY_TIMEOUT_MS = 60_000;
-
-/**
- * Pick the TLS agent for a device client/WebSocket:
- * - a stored full CN → exact-match pin ({@link createDeviceAgent});
- * - else a known serial → CN-suffix pin from connect #1 ({@link createDeviceAgentForSerial},
- *   M4 — closes the legacy-migration window where a pre-v0.13.0 device would send its
- *   token once under a CN-unchecked blanket agent);
- * - else (pairing, identity genuinely unknown) → undefined = blanket HW_AGENT.
- *
- * @param certCn Stored certificate CN, if captured.
- * @param serial Device serial, if known.
- */
-function pinnedAgent(certCn?: string, serial?: string): https.Agent | undefined {
-  if (certCn) {
-    return createDeviceAgent(certCn);
-  }
-  if (serial) {
-    return createDeviceAgentForSerial(serial);
-  }
-  return undefined;
-}
 
 /**
  * HomeWizard adapter — manages multiple devices over API v2 (HTTPS + WebSocket):
@@ -150,37 +123,98 @@ export class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * One-shot repair of a leftover `supportedMessages.stopInstance` in this
-   * instance's own object.
+   * One-shot repair of a leftover `supportedMessages` entry in this instance's
+   * own object.
    *
-   * The flag lives in two places: the adapter manifest and a copy in the
-   * instance object in the database. An update merges the manifest into that
-   * copy but never removes a field from it, so dropping the manifest line alone
-   * leaves every existing installation being hard-killed — `onUnload` would keep
-   * not running and the markers would keep staying green.
+   * The manifest's `supportedMessages` is copied into the instance object in the
+   * database. An update merges the manifest into that copy but never removes a
+   * field from it, so dropping the manifest line alone leaves every existing
+   * installation being hard-killed — `onUnload` would keep not running and the
+   * markers would keep staying green.
    *
-   * Only write when the flag is actually set: every change to an instance object
+   * `supportedMessages` is a POSITIVE list: an entry that is merely `false` — and
+   * even an empty object — still means "only these messages are supported", which
+   * is none. The messagebox then dies silently: no `sendTo` reaches the adapter and
+   * nothing is logged. Setting `{ stopInstance: false }` therefore does not repair
+   * anything, it trades one defect for a quieter one. The key has to be DELETED
+   * (`null`), and the trigger is its mere existence, not the flag's value. This
+   * adapter declares no message at all (no `deviceManager`), so the whole key goes.
+   *
+   * Only write when the key is actually there: every change to an instance object
    * makes the host stop and restart the instance, so an unconditional write is a
    * restart loop. The caller must leave `onReady` immediately afterwards — the
    * host is already tearing this process down.
    *
-   * @returns true when the flag was cleared and this start-up must not continue
+   * @returns true when the key was deleted and this start-up must not continue
    */
   private async clearStopInstanceFlag(): Promise<boolean> {
     const id = `system.adapter.${this.namespace}`;
     try {
       const obj = await this.getForeignObjectAsync(id);
-      const supported = obj?.common?.supportedMessages as { stopInstance?: unknown } | undefined;
-      if (!supported?.stopInstance) {
+      const supported = obj?.common?.supportedMessages as Record<string, unknown> | undefined;
+      if (supported === undefined || supported === null) {
         return false;
       }
       this.log.info("Correcting a leftover setting from an earlier version — this instance restarts once");
-      await this.extendForeignObjectAsync(id, { common: { supportedMessages: { stopInstance: false } } });
+      await this.extendForeignObjectAsync(id, { common: { supportedMessages: null } });
       return true;
     } catch (err: unknown) {
-      this.log.debug(`Could not check the stopInstance flag: ${errText(err)}`);
+      this.log.debug(`Could not check the supportedMessages key: ${errText(err)}`);
       return false;
     }
+  }
+
+  /**
+   * Bring the manifest's `instanceObjects` up to the current labels on an
+   * EXISTING installation.
+   *
+   * js-controller creates those objects only where they are missing, so a
+   * changed `common.name`/`desc` in `io-package.json` otherwise reaches fresh
+   * installations only — an installed tree keeps the old text while the manifest
+   * and every gate look green. Each object therefore gets an explicit
+   * `extendObject` here, spelled out one by one: a loop over the manifest would
+   * be DRYer but leaves nothing a consistency check can match against the ids.
+   *
+   * The labels come from the same `admin/i18n` keys that
+   * `sync-iopackage-from-i18n.py` renders into the manifest, so the two cannot
+   * drift apart.
+   */
+  private async ensureManifestObjects(): Promise<void> {
+    await this.extendObjectAsync("info", {
+      type: "channel",
+      common: { name: tName("info") },
+      native: {},
+    });
+    await this.extendObjectAsync("info.connection", {
+      type: "state",
+      common: { name: tName("infoConnection"), desc: tName("infoConnectionDesc") },
+      native: {},
+    });
+    await this.extendObjectAsync("info.devicesTotal", {
+      type: "state",
+      common: { name: tName("devicesTotal"), desc: tName("devicesTotalDesc") },
+      native: {},
+    });
+    await this.extendObjectAsync("info.devicesOnline", {
+      type: "state",
+      common: { name: tName("devicesOnline"), desc: tName("devicesOnlineDesc") },
+      native: {},
+    });
+    await this.extendObjectAsync("info.devicesAllOnline", {
+      type: "state",
+      common: { name: tName("devicesAllOnline"), desc: tName("devicesAllOnlineDesc") },
+      native: {},
+    });
+    await this.extendObjectAsync("startPairing", {
+      type: "state",
+      common: { name: tName("startPairing"), desc: tName("startPairingDesc") },
+      native: {},
+    });
+    await this.extendObjectAsync("pairingIp", {
+      type: "state",
+      common: { name: tName("pairingIp"), desc: tName("pairingIpDesc") },
+      native: {},
+    });
   }
 
   private async onReady(): Promise<void> {
@@ -190,6 +224,7 @@ export class HomeWizard extends utils.Adapter {
       }
       await I18n.init(join(this.adapterDir, "admin"), this);
       this.stateManager = new StateManager(this);
+      await this.ensureManifestObjects();
 
       // Warn if the bundled HomeWizard CA is close to expiry — after notAfter,
       // rejectUnauthorized:true rejects every device cert and all connections fail.
@@ -249,6 +284,18 @@ export class HomeWizard extends utils.Adapter {
             this.log.error(`initDevice failed for ${conn.config.productName}: ${errText(err)}`),
           );
         }
+      }
+
+      // A device whose stored IP is missing or was discarded as invalid gets no
+      // connection attempt at all — and IP recovery is only ever triggered from
+      // connectWebSocket, which such a device never reaches. Left alone it would
+      // stay dead until the next restart with a valid IP or a re-pair, without a
+      // single line saying so. Say it, and start the mDNS search once.
+      if (devices.some(device => !device.ip)) {
+        for (const device of devices.filter(d => !d.ip)) {
+          this.log.warn(`${device.productName}: no usable IP address stored — searching for the device via mDNS`);
+        }
+        this.startIpRecovery();
       }
 
       // I6: record the cleanup as done so the next start skips the legacy scan.
@@ -388,12 +435,16 @@ export class HomeWizard extends utils.Adapter {
     // Cap the list — a flood of spoofed mDNS announcements (unique serials defeat
     // the dedup above) could otherwise grow it unbounded for the 60s pairing window.
     if (this.discoveredDuringPairing.length >= 50) {
-      this.log.debug(`mDNS: discovery list full (50) — ignoring ${discovered.name}`);
+      this.log.debug(`mDNS: discovery list full (50) — ignoring ${sanitizeForLog(discovered.name)}`);
       return;
     }
     this.discoveredDuringPairing.push(discovered);
+    // L9/DD17: name and product type come straight from an mDNS TXT record, so
+    // any host on the LAN picks them. Without the CR/LF strip a crafted
+    // announcement forges additional log lines. (The IP is already validated.)
     this.log.info(
-      `Found ${discovered.name} (${discovered.productType}) at ${discovered.ip} — press the button on the device to pair`,
+      `Found ${sanitizeForLog(discovered.name)} (${sanitizeForLog(discovered.productType)}) at ${discovered.ip} — ` +
+        `press the button on the device to pair`,
     );
   }
 
@@ -468,6 +519,23 @@ export class HomeWizard extends utils.Adapter {
     }
   }
 
+  /**
+   * Put a momentary button back to `false, ack:true` so Admin shows it as
+   * clickable again.
+   *
+   * Runs from a `finally`, so it must never throw: a rejected write here would
+   * replace the error the caller is about to report with a meaningless one.
+   *
+   * @param id Full state ID of the button.
+   */
+  private async resetButton(id: string): Promise<void> {
+    try {
+      await this.setStateAsync(id, { val: false, ack: true });
+    } catch (err: unknown) {
+      this.log.debug(`Could not reset the button ${id}: ${errText(err)}`);
+    }
+  }
+
   private async onStateChange(id: string, state: ioBroker.State | null | undefined): Promise<void> {
     try {
       if (!state || state.ack || this.unloading) {
@@ -501,13 +569,23 @@ export class HomeWizard extends utils.Adapter {
       try {
         if (id.endsWith(".system.reboot")) {
           this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
-          await client.reboot();
-          // Reset the button so it is clickable again in Admin (fleet pattern,
-          // same as startPairing above — a button must not stay `true, ack=false`).
-          await this.setStateAsync(id, { val: false, ack: true });
+          // Reset the button whatever the outcome, so it is clickable again in
+          // Admin (fleet pattern — a button must not stay `true, ack=false`).
+          // The `finally` wraps ONLY this device call: put around the whole
+          // handler it would overwrite the LED percentage and every switch ack
+          // with `false`. A failing reset must not replace the original error
+          // either, hence its own catch.
+          try {
+            await client.reboot();
+          } finally {
+            await this.resetButton(id);
+          }
         } else if (id.endsWith(".system.identify")) {
-          await client.identify();
-          await this.setStateAsync(id, { val: false, ack: true });
+          try {
+            await client.identify();
+          } finally {
+            await this.resetButton(id);
+          }
         } else if (id.endsWith(".system.cloud_enabled")) {
           // Ack the value that was actually sent (a script may write "true" or 1
           // into the boolean state) — the ack must not carry the raw write.
@@ -541,7 +619,11 @@ export class HomeWizard extends utils.Adapter {
             return;
           }
           await client.setBatteries({ mode });
-          await this.setStateAsync(id, { val: state.val, ack: true });
+          // The validated mode, not the raw write — same rule as above. (These
+          // two cannot differ today, because validateBatteryMode only lets the
+          // four exact strings through; acking the sent value keeps it that way
+          // if the validation ever gains a normalisation step.)
+          await this.setStateAsync(id, { val: mode, ack: true });
         } else if (id.endsWith(".battery.permissions")) {
           const result = parseBatteryPermissions(String(state.val));
           if (!result.ok) {
@@ -551,7 +633,10 @@ export class HomeWizard extends utils.Adapter {
             return;
           }
           await client.setBatteries({ permissions: result.perms });
-          await this.setStateAsync(id, { val: state.val, ack: true });
+          // Ack the list that actually went to the device, not the raw text a
+          // script wrote — otherwise its spacing stays in the datapoint while
+          // the device holds the parsed value (same rule as the switches, DD16).
+          await this.setStateAsync(id, { val: JSON.stringify(result.perms), ack: true });
         } else if (id.endsWith(".battery.charge_to_full")) {
           const chargeToFull = !!state.val;
           await client.setBatteries({ charge_to_full: chargeToFull });
@@ -658,9 +743,11 @@ export class HomeWizard extends utils.Adapter {
         const result = await client.requestPairing();
         issuedToken = result.token;
 
-        // Success! Button was pressed
+        // Success! Button was pressed. Name and product type are the mDNS-supplied
+        // values — same CR/LF strip as the error path below (L9/DD17).
         this.log.info(
-          `Successfully paired with ${device.name} (${device.productType}) at ${device.ip} — connecting...`,
+          `Successfully paired with ${sanitizeForLog(device.name)} (${sanitizeForLog(device.productType)}) ` +
+            `at ${device.ip} — connecting...`,
         );
 
         // Get device info + capture the device's TLS cert CN to pin its identity on future connects

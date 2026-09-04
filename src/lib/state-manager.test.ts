@@ -56,6 +56,8 @@ interface MockAdapter {
   objects: Map<string, ObjectDef>;
   states: Map<string, StateValue>;
   metrics: MockAdapterMetrics;
+  /** Ids of every extendObject call that carried `preserve.common` — see the preserve-scope test. */
+  preservedIds: string[];
   log: { debug: (msg: string) => void };
   extendObjectAsync: (
     id: string,
@@ -74,6 +76,7 @@ function createMockAdapter(): MockAdapter {
   const objects = new Map<string, ObjectDef>();
   const states = new Map<string, StateValue>();
   const metrics: MockAdapterMetrics = { setObjectNotExistsCalls: 0, extendObjectCalls: 0, stateWrites: 0 };
+  const preservedIds: string[] = [];
 
   return {
     namespace: "homewizard.0",
@@ -81,6 +84,7 @@ function createMockAdapter(): MockAdapter {
     objects,
     states,
     metrics,
+    preservedIds,
     log: { debug: (): void => {} },
     extendObjectAsync: (
       id: string,
@@ -88,6 +92,9 @@ function createMockAdapter(): MockAdapter {
       options?: { preserve?: { common?: string[] } },
     ): Promise<void> => {
       metrics.extendObjectCalls++;
+      if (options?.preserve?.common?.length) {
+        preservedIds.push(id);
+      }
       const existing = objects.get(id) || { type: "", common: {}, native: {} };
       const newCommon: Record<string, unknown> = { ...existing.common, ...(obj.common || {}) };
       if (options?.preserve?.common && objects.has(id)) {
@@ -293,13 +300,28 @@ describe("StateManager", () => {
       expect(state!.ack).toBe(true);
     });
 
-    it("should preserve user-modified info channel name on re-create", async () => {
+    it("refreshes the info channel name so a corrected label reaches an existing installation", async () => {
       await manager.createDeviceStates(testDevice);
       const obj = adapter.objects.get("hwe-p1_aabbccddeeff.info")!;
-      obj.common.name = "My Custom Name";
+      // What an installation upgraded from an older version carries: the label
+      // this adapter shipped back then. The channel name is the adapter's own
+      // translated text, so a new version has to be able to replace it —
+      // `preserve` here would freeze it forever and let the change reach fresh
+      // installations only.
+      obj.common.name = "Device Information";
       await manager.createDeviceStates(testDevice);
       const after = adapter.objects.get("hwe-p1_aabbccddeeff.info")!;
-      expect(after.common.name).toBe("My Custom Name");
+      expect(after.common.name).toEqual(expect.objectContaining({ en: expect.any(String) }));
+      expect(after.common.name).not.toBe("Device Information");
+    });
+
+    it("keeps a user-renamed DEVICE object name — that one is not the adapter's text", async () => {
+      await manager.createDeviceStates(testDevice);
+      const obj = adapter.objects.get("hwe-p1_aabbccddeeff")!;
+      obj.common.name = "Meter in the basement";
+      await manager.createDeviceStates(testDevice);
+      const after = adapter.objects.get("hwe-p1_aabbccddeeff")!;
+      expect(after.common.name).toBe("Meter in the basement");
     });
   });
 
@@ -339,7 +361,7 @@ describe("StateManager", () => {
       const translate = I18n.getTranslatedObject as unknown as { mock: { calls: unknown[] } };
       const data: Measurement = { power_w: 100, voltage_l1_v: 230.5, energy_import_kwh: 1 };
       await manager.updateMeasurement(testDevice, data);
-      const objectCalls = adapter.metrics.setObjectNotExistsCalls;
+      const objectCalls = adapter.metrics.extendObjectCalls;
       const translations = translate.mock.calls.length;
       expect(objectCalls).toBeGreaterThan(0);
       expect(translations).toBeGreaterThan(0);
@@ -350,7 +372,7 @@ describe("StateManager", () => {
       // exact waste the cold-path/hot-path split exists to remove.
       await manager.updateMeasurement(testDevice, { power_w: 101, voltage_l1_v: 231, energy_import_kwh: 2 });
       await manager.updateMeasurement(testDevice, { power_w: 102, voltage_l1_v: 232, energy_import_kwh: 3 });
-      expect(adapter.metrics.setObjectNotExistsCalls).toBe(objectCalls);
+      expect(adapter.metrics.extendObjectCalls).toBe(objectCalls);
       expect(translate.mock.calls.length, "no translation work on the hot path").toBe(translations);
     });
 
@@ -830,15 +852,15 @@ describe("StateManager", () => {
       await manager.createDeviceStates(testDevice);
       await manager.updateMeasurement(testDevice, { power_w: 100 });
       await manager.removeDevice(testDevice);
-      const beforeRecreate = adapter.metrics.setObjectNotExistsCalls;
-      // Re-pair: createDeviceStates + updateMeasurement must hit setObjectNotExists again
+      const beforeRecreate = adapter.metrics.extendObjectCalls;
+      // Re-pair: createDeviceStates + updateMeasurement must write the objects again
       await manager.createDeviceStates(testDevice);
       await manager.updateMeasurement(testDevice, { power_w: 50 });
-      expect(adapter.metrics.setObjectNotExistsCalls).toBeGreaterThan(beforeRecreate);
+      expect(adapter.metrics.extendObjectCalls).toBeGreaterThan(beforeRecreate);
     });
   });
 
-  describe("DP-retrofit: schema changes reach existing installs, name preserved", () => {
+  describe("DP-retrofit: schema AND name changes reach existing installs", () => {
     const batDevice: DeviceConfig = {
       token: "t",
       productType: "HWE-BAT",
@@ -846,13 +868,13 @@ describe("StateManager", () => {
       productName: "Plug-In Battery",
     };
 
-    it("updates cloud_enabled role switch→indicator on an already-existing state while keeping a user-renamed name (M3)", async () => {
+    it("updates cloud_enabled role switch→indicator AND the label on an already-existing state (M3)", async () => {
       const id = "hwe-bat_bat123456789.system.cloud_enabled";
       // Simulate an install from before the M3 fix: the object already exists
-      // with the old switch role and a name the user renamed in Admin.
+      // with the old switch role and the fixed English label of that version.
       adapter.objects.set(id, {
         type: "state",
-        common: { name: "My Cloud Toggle", type: "boolean", role: "switch", read: true, write: false },
+        common: { name: "Cloud", type: "boolean", role: "switch", read: true, write: false },
         native: {},
       });
       await manager.updateSystem(batDevice, {
@@ -865,8 +887,10 @@ describe("StateManager", () => {
       const obj = adapter.objects.get(id);
       // extendObjectAsync retrofit reached the existing state...
       expect(obj?.common.role).toBe("indicator");
-      // ...but the preserve:name option kept the user's rename.
-      expect(obj?.common.name).toBe("My Cloud Toggle");
+      // ...and so did the label: this name is the adapter's own translated text,
+      // so it must NOT be preserved — otherwise a corrected wording reaches
+      // fresh installations only and no gate ever notices.
+      expect(obj?.common.name).toEqual(expect.objectContaining({ en: expect.any(String) }));
     });
 
     it("retrofits min/max onto an already-existing status_led_brightness_pct state (L11)", async () => {
@@ -1156,5 +1180,127 @@ describe("StateManager", () => {
       expect(adapter.objects.has("hwe-p1_aabbccddeeff.system.reboot")).toBe(true);
       expect(adapter.objects.get("hwe-p1_aabbccddeeff.system.cloud_enabled")?.common.write).toBe(true);
     });
+  });
+});
+
+describe("name ownership — which objects may keep their stored name", () => {
+  let adapter: MockAdapter;
+  let manager: StateManager;
+
+  const device: DeviceConfig = {
+    token: "t",
+    productType: "HWE-P1",
+    serial: "aabbccddeeff",
+    productName: "P1 Meter",
+  };
+
+  beforeEach(() => {
+    adapter = createMockAdapter();
+    manager = new StateManager(adapter as never);
+  });
+
+  it("preserves the stored name ONLY where the name comes from outside the adapter", async () => {
+    // A full pass over every object-creating path.
+    await manager.createDeviceStates(device);
+    await manager.updateMeasurement(device, {
+      power_w: 100,
+      energy_import_kwh: 5,
+      voltage_sag_l1_count: 2,
+      tariff: 1,
+      external: [{ type: "gas_meter", unique_id: "g1", value: 12.5, unit: "m3", timestamp: "2026-09-04T09:00:00" }],
+    } as unknown as Measurement);
+    await manager.updateSystem(device, {
+      wifi_ssid: "net",
+      wifi_rssi_db: -50,
+      uptime_s: 10,
+      cloud_enabled: true,
+      status_led_brightness_pct: 50,
+      api_v1_enabled: false,
+    });
+    await manager.updateBattery(device, { mode: "zero", battery_count: 1, charge_to_full: false });
+    await manager.markLegacyCleanupDone();
+
+    // `preserve: { common: ["name"] }` keeps whatever name is already stored. That
+    // is right exactly where the adapter does not own the text — the device object
+    // (its name is the device-supplied product name a user may have renamed) and
+    // the external-meter channel (named after the device-supplied meter type).
+    // Everywhere else the name is this adapter's own translation, and preserving
+    // it would mean a corrected label never reaches an existing installation
+    // (reference_preserve_name_verhindert_umbenennung). No gate catches that, so
+    // this list is the guard.
+    expect([...new Set(adapter.preservedIds)].sort()).toEqual([
+      "hwe-p1_aabbccddeeff",
+      "hwe-p1_aabbccddeeff.measurement.external.gas_meter_g1",
+    ]);
+  });
+
+  it("creates no object through a create-only write — every path must reach existing installs", async () => {
+    await manager.createDeviceStates(device);
+    await manager.updateMeasurement(device, { power_w: 100 });
+    await manager.updateSystem(device, {
+      wifi_ssid: "net",
+      wifi_rssi_db: -50,
+      uptime_s: 10,
+      cloud_enabled: true,
+      status_led_brightness_pct: 50,
+    });
+    await manager.updateBattery(device, { mode: "zero", battery_count: 1 });
+    await manager.markLegacyCleanupDone();
+
+    // setObjectNotExists writes only when the object is missing, so a changed
+    // name or description would land on fresh installations only. Channels,
+    // buttons and the legacy marker used to be created that way.
+    expect(adapter.metrics.setObjectNotExistsCalls).toBe(0);
+  });
+});
+
+describe("the legacy-cleanup marker and the quality channel", () => {
+  let adapter: MockAdapter;
+  let manager: StateManager;
+
+  const device: DeviceConfig = {
+    token: "t",
+    productType: "HWE-P1",
+    serial: "aabbccddeeff",
+    productName: "P1 Meter",
+  };
+
+  beforeEach(() => {
+    adapter = createMockAdapter();
+    manager = new StateManager(adapter as never);
+  });
+
+  it("gives info.legacyMigrated a translated name and description, not a fixed string", async () => {
+    // The state-role gate rejects a plain string in common.name — and a fixed
+    // English label would be the only untranslated object in the whole tree.
+    await manager.markLegacyCleanupDone();
+    const obj = adapter.objects.get("info.legacyMigrated");
+    expect(obj).toBeDefined();
+    expect(typeof obj!.common.name).toBe("object");
+    expect(obj!.common.name).toEqual(expect.objectContaining({ en: expect.any(String), de: expect.any(String) }));
+    expect(typeof obj!.common.desc).toBe("object");
+    expect(adapter.states.get("info.legacyMigrated")?.val).toBe(true);
+  });
+
+  it("creates the quality channel before the power-quality counters live under it", async () => {
+    // Every parent path of a dynamic child needs its own object first —
+    // otherwise the counters are orphaned (E3009) and Admin shows an unnamed
+    // folder.
+    await manager.updateMeasurement(device, {
+      power_w: 100,
+      voltage_sag_l1_count: 2,
+      long_power_fail_count: 1,
+    });
+
+    const channel = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.quality");
+    expect(channel, "the quality channel must exist").toBeDefined();
+    expect(channel!.type).toBe("channel");
+    expect(adapter.objects.has("hwe-p1_aabbccddeeff.measurement.quality.voltage_sag_l1_count")).toBe(true);
+    expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.quality.long_power_fail_count")?.val).toBe(1);
+  });
+
+  it("does not create the quality channel for a device that reports no counters", async () => {
+    await manager.updateMeasurement(device, { power_w: 100 });
+    expect(adapter.objects.has("hwe-p1_aabbccddeeff.measurement.quality")).toBe(false);
   });
 });

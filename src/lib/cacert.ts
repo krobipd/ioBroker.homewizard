@@ -133,6 +133,35 @@ export function createDeviceAgentForSerial(serial: string): https.Agent {
 }
 
 /**
+ * Pick the TLS agent for one device's client/WebSocket — the single decision on
+ * how hard the connection verifies who it is talking to:
+ *
+ * - a stored full CN → exact-match pin ({@link createDeviceAgent});
+ * - else a known serial → CN-suffix pin from connect #1
+ *   ({@link createDeviceAgentForSerial}, M4 — closes the legacy-migration window
+ *   where a pre-v0.13.0 device would send its token once under a CN-unchecked
+ *   blanket agent);
+ * - else (pairing, identity genuinely unknown) → `undefined` = blanket
+ *   {@link HW_AGENT}, which validates the HomeWizard CA but not the CN.
+ *
+ * Lives next to the agent factories, not in main: a mistake here silently turns
+ * the whole per-device pinning back into blanket accept, so it belongs with the
+ * code it decides between — and under the same tests.
+ *
+ * @param certCn Stored certificate CN, if captured.
+ * @param serial Device serial, if known.
+ */
+export function pinnedAgent(certCn?: string, serial?: string): https.Agent | undefined {
+  if (certCn) {
+    return createDeviceAgent(certCn);
+  }
+  if (serial) {
+    return createDeviceAgentForSerial(serial);
+  }
+  return undefined;
+}
+
+/**
  * Evict the memoized per-device agent for a CN and close its pooled sockets.
  * Called from removeDevice so a removed/re-paired device leaves no agent behind.
  * The map is already bounded (one entry per paired device), but this keeps it

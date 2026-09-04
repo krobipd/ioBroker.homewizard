@@ -271,6 +271,15 @@ export interface DeviceConnection {
   wsClient: HomeWizardWebSocket | null;
   /** Whether WS is authenticated */
   wsAuthenticated: boolean;
+  /**
+   * Whether the REST fallback is currently getting answers from the device.
+   * Set after a successful fallback poll, cleared on its first failure and
+   * whenever the poll stops. Together with {@link wsAuthenticated} this is what
+   * "the device is online" means for the reachability indicators — a device
+   * answering every REST poll IS online, whatever the WebSocket is doing
+   * (`indicator.reachable`: "If a device is online").
+   */
+  restHealthy: boolean;
   /** REST fallback polling timer */
   pollTimer: ioBroker.Interval | undefined;
   /** Reconnect timer */
@@ -299,4 +308,10 @@ export interface DeviceConnection {
   restPollBusy?: boolean;
   /** I7: system-poll counter — the productName-rename getDeviceInfo runs only every Nth poll. */
   systemPollCount?: number;
+  /**
+   * Consecutive system polls that reported no connected battery. Reset by any
+   * poll that finds one; once it reaches the threshold the battery branch is
+   * removed instead of ageing with the values of a battery that is gone.
+   */
+  batteryAbsentPolls?: number;
 }

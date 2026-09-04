@@ -146,6 +146,14 @@
     "icon": "homewizard.svg",
     "extIcon": "https://cdn.jsdelivr.net/gh/krobipd/ioBroker.homewizard@main/admin/homewizard.svg",
     "readme": "https://github.com/krobipd/ioBroker.homewizard/blob/main/README.md",
+    "docs": {
+      "en": [
+        "docs/en/README.md"
+      ],
+      "de": [
+        "docs/de/README.md"
+      ]
+    },
     "enabled": true,
     "tier": 3,
     "loglevel": "info",
@@ -213,7 +221,20 @@
         "role": "indicator.connected",
         "read": true,
         "write": false,
-        "def": false
+        "def": false,
+        "desc": {
+          "en": "True while at least one paired device is answering the adapter.",
+          "de": "Wahr, solange mindestens ein gekoppeltes Gerät dem Adapter antwortet.",
+          "ru": "Истина, пока хотя бы одно сопряжённое устройство отвечает адаптеру.",
+          "pt": "Verdadeiro enquanto pelo menos um dispositivo emparelhado responder ao adaptador.",
+          "nl": "Waar zolang minstens één gekoppeld apparaat de adapter antwoordt.",
+          "fr": "Vrai tant qu'au moins un appareil appairé répond à l'adaptateur.",
+          "it": "Vero finché almeno un dispositivo accoppiato risponde all'adattatore.",
+          "es": "Verdadero mientras al menos un dispositivo emparejado responda al adaptador.",
+          "pl": "Prawda, dopóki co najmniej jedno sparowane urządzenie odpowiada adapterowi.",
+          "uk": "Істина, поки щонайменше один сполучений пристрій відповідає адаптеру.",
+          "zh-cn": "只要至少有一台已配对设备响应适配器，即为真。"
+        }
       },
       "native": {}
     },
@@ -238,7 +259,20 @@
         "role": "value",
         "read": true,
         "write": false,
-        "def": 0
+        "def": 0,
+        "desc": {
+          "en": "How many devices are paired with this instance — the value stays when the adapter is stopped.",
+          "de": "Wie viele Geräte mit dieser Instanz gekoppelt sind — der Wert bleibt auch beim Stoppen des Adapters stehen.",
+          "ru": "Сколько устройств сопряжено с этим экземпляром — значение сохраняется и после остановки адаптера.",
+          "pt": "Quantos dispositivos estão emparelhados com esta instância — o valor mantém-se quando o adaptador é parado.",
+          "nl": "Hoeveel apparaten aan deze instantie zijn gekoppeld — de waarde blijft staan als de adapter wordt gestopt.",
+          "fr": "Nombre d'appareils appairés à cette instance — la valeur est conservée à l'arrêt de l'adaptateur.",
+          "it": "Quanti dispositivi sono accoppiati a questa istanza — il valore resta anche all'arresto dell'adattatore.",
+          "es": "Cuántos dispositivos están emparejados con esta instancia — el valor se mantiene al detener el adaptador.",
+          "pl": "Ile urządzeń jest sparowanych z tą instancją — wartość pozostaje także po zatrzymaniu adaptera.",
+          "uk": "Скільки пристроїв сполучено з цим екземпляром — значення зберігається і після зупинки адаптера.",
+          "zh-cn": "与此实例配对的设备数量——适配器停止后该值仍保留。"
+        }
       },
       "native": {}
     },
@@ -263,7 +297,20 @@
         "role": "value",
         "read": true,
         "write": false,
-        "def": 0
+        "def": 0,
+        "desc": {
+          "en": "How many of the paired devices are answering right now.",
+          "de": "Wie viele der gekoppelten Geräte gerade antworten.",
+          "ru": "Сколько из сопряжённых устройств отвечают в данный момент.",
+          "pt": "Quantos dos dispositivos emparelhados estão a responder neste momento.",
+          "nl": "Hoeveel van de gekoppelde apparaten op dit moment antwoorden.",
+          "fr": "Combien des appareils appairés répondent en ce moment.",
+          "it": "Quanti dei dispositivi accoppiati stanno rispondendo in questo momento.",
+          "es": "Cuántos de los dispositivos emparejados están respondiendo en este momento.",
+          "pl": "Ile ze sparowanych urządzeń odpowiada w tej chwili.",
+          "uk": "Скільки зі сполучених пристроїв відповідають зараз.",
+          "zh-cn": "已配对设备中当前正在响应的数量。"
+        }
       },
       "native": {}
     },
@@ -288,7 +335,20 @@
         "role": "indicator",
         "read": true,
         "write": false,
-        "def": false
+        "def": false,
+        "desc": {
+          "en": "True only when every paired device is answering, and false while no device is paired at all.",
+          "de": "Wahr nur, wenn jedes gekoppelte Gerät antwortet, und falsch, solange gar kein Gerät gekoppelt ist.",
+          "ru": "Истина только тогда, когда отвечают все сопряжённые устройства, и ложь, пока не сопряжено ни одного.",
+          "pt": "Verdadeiro apenas quando todos os dispositivos emparelhados respondem, e falso enquanto não houver nenhum emparelhado.",
+          "nl": "Alleen waar als elk gekoppeld apparaat antwoordt, en onwaar zolang er geen apparaat gekoppeld is.",
+          "fr": "Vrai uniquement lorsque tous les appareils appairés répondent, et faux tant qu'aucun appareil n'est appairé.",
+          "it": "Vero solo quando ogni dispositivo accoppiato risponde, e falso finché non è accoppiato alcun dispositivo.",
+          "es": "Verdadero solo cuando todos los dispositivos emparejados responden, y falso mientras no haya ninguno emparejado.",
+          "pl": "Prawda tylko wtedy, gdy odpowiadają wszystkie sparowane urządzenia, i fałsz, dopóki żadne nie jest sparowane.",
+          "uk": "Істина лише тоді, коли відповідають усі сполучені пристрої, і хиба, поки не сполучено жодного.",
+          "zh-cn": "仅当每台已配对设备都在响应时为真；未配对任何设备时为假。"
+        }
       },
       "native": {}
     },
@@ -351,7 +411,20 @@
         "role": "text",
         "read": true,
         "write": true,
-        "def": ""
+        "def": "",
+        "desc": {
+          "en": "IP address of the device to pair, for networks where mDNS discovery does not reach it. Set this before starting the pairing mode.",
+          "de": "IP-Adresse des zu koppelnden Geräts, für Netze, in denen die mDNS-Suche es nicht erreicht. Vor dem Start des Kopplungsmodus eintragen.",
+          "ru": "IP-адрес устройства для сопряжения — для сетей, где его не находит mDNS. Укажите перед запуском режима сопряжения.",
+          "pt": "Endereço IP do dispositivo a emparelhar, para redes onde a deteção mDNS não o alcança. Defina antes de iniciar o modo de emparelhamento.",
+          "nl": "IP-adres van het te koppelen apparaat, voor netwerken waar mDNS-detectie het niet bereikt. Stel dit in voordat u de koppelmodus start.",
+          "fr": "Adresse IP de l'appareil à appairer, pour les réseaux où la détection mDNS ne l'atteint pas. À renseigner avant de démarrer le mode d'appairage.",
+          "it": "Indirizzo IP del dispositivo da accoppiare, per reti in cui la rilevazione mDNS non lo raggiunge. Impostalo prima di avviare la modalità di accoppiamento.",
+          "es": "Dirección IP del dispositivo que se va a emparejar, para redes donde la detección mDNS no lo alcanza. Configúrala antes de iniciar el modo de emparejamiento.",
+          "pl": "Adres IP urządzenia do sparowania, dla sieci, w których wykrywanie mDNS go nie osiąga. Ustaw przed uruchomieniem trybu parowania.",
+          "uk": "IP-адреса пристрою для сполучення — для мереж, де його не знаходить mDNS. Укажіть перед запуском режиму сполучення.",
+          "zh-cn": "要配对设备的 IP 地址，用于 mDNS 发现无法覆盖的网络。请在启动配对模式前填写。"
+        }
       },
       "native": {}
     }

@@ -1,5 +1,5 @@
 import Bonjour from "bonjour-service";
-import { isAssignableDeviceIpv4, sanitizeForLog } from "./coerce";
+import { isLanDeviceIpv4, sanitizeForLog } from "./coerce";
 import type { DiscoveredDevice } from "./types";
 
 type BonjourService = ReturnType<InstanceType<typeof Bonjour>["publish"]>;
@@ -89,14 +89,15 @@ export class HomeWizardDiscovery {
    * @param service Bonjour service record
    */
   private parseService(service: BonjourService): DiscoveredDevice | null {
-    // Pick a LAN-assignable IPv4. `addr.includes(".")` alone would also accept an
-    // IPv4-mapped IPv6 or a malformed string; isValidIpv4 alone would still accept
-    // loopback / link-local (incl. 169.254.169.254) / public. L6: use the same guard
-    // as the manual-IP path so a rogue mDNS responder can't point us at 127.0.0.1,
-    // a metadata IP, or any off-LAN host.
-    const ip = service.addresses?.find((addr: string) => isAssignableDeviceIpv4(addr));
+    // Pick a private-range IPv4. `addr.includes(".")` alone would also accept an
+    // IPv4-mapped IPv6 or a malformed string, and isValidIpv4 alone would accept
+    // loopback / link-local (incl. 169.254.169.254) / any public address. L6/G:
+    // nobody typed this address — a rogue responder on the LAN picks it freely,
+    // and mDNS is link-local, so a genuine device can only ever announce an
+    // RFC-1918 address here. The manual-IP path stays laxer on purpose.
+    const ip = service.addresses?.find((addr: string) => isLanDeviceIpv4(addr));
     if (!ip) {
-      this.log.debug(`mDNS: no IPv4 address for ${sanitizeForLog(service.name)}`);
+      this.log.debug(`mDNS: no usable private IPv4 address for ${sanitizeForLog(service.name)}`);
       return null;
     }
 

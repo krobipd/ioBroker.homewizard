@@ -81,6 +81,13 @@ All paired devices are listed in the **Objects** tab under `homewizard.0`. Each 
 
 - **Remove a device:** Set its `remove` data point to `true` — the device and all data points are deleted immediately
 - **IP changes:** Detected automatically — after 3 failed reconnects, mDNS searches for the new IP. If not found, the device is marked offline
+- **A device with no stored IP:** reported in the log at start-up, and the mDNS search runs for it right away
+
+### Connection status
+
+Measurements normally arrive as a push about once per second. If that connection drops, the adapter polls over HTTPS instead (every 10 seconds, every 30 for a device it has recognised as having a weak signal) while it reconnects in the background.
+
+`connected` and `info.connection` describe the **device**, not one connection type: a device that answers the fallback polling counts as online, because it is. Reconnect and IP recovery keep running underneath regardless.
 
 ---
 
@@ -88,7 +95,7 @@ All paired devices are listed in the **Objects** tab under `homewizard.0`. Each 
 
 ```
 homewizard.0.
-├── info.connection              — Overall connection status (bool)
+├── info.connection              — True while at least one device answers (bool)
 ├── info.devicesTotal            — How many devices are set up (number)
 ├── info.devicesOnline           — How many of them are answering right now (number)
 ├── info.devicesAllOnline        — True only while every device answers (bool)
@@ -99,7 +106,7 @@ homewizard.0.
     │   ├── productName          — Device name (string)
     │   ├── productType          — Product type (string)
     │   ├── firmware             — Firmware version (string)
-    │   ├── connected            — Device reachable (bool) — drives the green/grey icon on the device
+    │   ├── connected            — Device answers, over the push connection or the fallback polling (bool) — drives the green/grey icon on the device
     │   ├── wifi_ssid            — WiFi network name / SSID (string)
     │   ├── wifi_rssi_db         — WiFi signal strength (number, dBm)
     │   └── uptime_s             — Device uptime (number, s)
@@ -194,6 +201,18 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Fixed: a device that keeps answering while its push connection is down is no longer shown as not connected — the status describes the device now, not one connection type.
+- Fixed: WiFi signal strength and uptime keep updating for such a device instead of freezing at the values from before the drop.
+- Fixed: corrected names and descriptions now reach installations that already exist — until now they only ever arrived on fresh ones.
+- Fixed: sending a message to the adapter works again; a leftover setting from an earlier version blocked it silently.
+- Fixed: a device with no usable IP address is reported at start-up and searched for, instead of staying quietly dead until the next restart.
+- Fixed: the reboot and identify buttons reset themselves even when the command fails, so they no longer stay pressed in Admin.
+- Fixed: battery data points are removed once the battery is gone, instead of keeping its last values forever.
+- New: the data points under `info` explain what they mean in all eleven languages, and a user guide is now part of the documentation portal.
+- Changed: an address announced over mDNS is only accepted from a private network range, and device-supplied names can no longer put line breaks into the log.
+
 ### 0.17.0 (2026-09-02)
 
 - Fixed: the connection status is now reset on every stop, even when the adapter is stopped right after it started — before, such a stop could leave it showing as connected.

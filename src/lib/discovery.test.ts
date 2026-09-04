@@ -142,6 +142,27 @@ describe("HomeWizardDiscovery", () => {
       expect(result).toBeNull();
     });
 
+    it("ignores a public address announced over mDNS (rogue responder guard)", () => {
+      // mDNS is link-local: a genuine device can only ever announce a private
+      // address here. Anything public means someone is trying to send the
+      // adapter — and its pairing request — off the LAN.
+      const service = {
+        name: "test",
+        addresses: ["203.0.113.5", "8.8.8.8"],
+        txt: { product_type: "HWE-P1" },
+      };
+      expect(parseService(discovery, service)).toBeNull();
+    });
+
+    it("picks the private address when a public one is announced alongside it", () => {
+      const service = {
+        name: "test",
+        addresses: ["203.0.113.5", "192.168.1.7"],
+        txt: { product_type: "HWE-P1" },
+      };
+      expect(parseService(discovery, service)?.ip).toBe("192.168.1.7");
+    });
+
     it("should return null when no addresses", () => {
       const service = {
         name: "test",

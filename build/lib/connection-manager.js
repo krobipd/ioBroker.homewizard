@@ -37,6 +37,7 @@ const WS_RECONNECT_MAX_UNSTABLE_MS = 6e4;
 const REST_POLL_UNSTABLE_MS = 3e4;
 const WARN_COOLDOWN_MS = 60 * 60 * 1e3;
 const INFO_COOLDOWN_MS = 60 * 60 * 1e3;
+const BATTERY_ABSENT_POLLS_BEFORE_CLEANUP = 2;
 class ConnectionManager {
   adapter;
   host;
@@ -80,12 +81,53 @@ class ConnectionManager {
     return (0, import_main_helpers.findConnectionForState)(stateId, this.adapter.namespace, this.connections);
   }
   /**
+   * Whether the device is online, for the reachability indicators.
+   *
+   * The single source for `<device>.info.connected`, the `info.devices*` summary
+   * and the system-poll filter. A device answering the REST fallback IS online —
+   * the role catalogue defines `indicator.reachable` as "if a device is online",
+   * not "if a particular transport is up". Deriving it anywhere a second time
+   * would let the two indicators drift apart.
+   *
+   * @param conn Device connection.
+   */
+  isDeviceOnline(conn) {
+    return conn.wsAuthenticated || conn.restHealthy;
+  }
+  /**
+   * Record whether the REST fallback is getting answers, and — only when that
+   * actually flips — write the derived online state.
+   *
+   * @param conn    Device connection.
+   * @param healthy `true` after a successful fallback poll, `false` on its failure.
+   */
+  setRestHealthy(conn, healthy) {
+    if (conn.restHealthy === healthy) {
+      return;
+    }
+    conn.restHealthy = healthy;
+    this.refreshDeviceOnline(conn);
+  }
+  /**
+   * Write the derived online state for one device plus the instance summary.
+   *
+   * @param conn Device connection.
+   */
+  refreshDeviceOnline(conn) {
+    const online = this.isDeviceOnline(conn);
+    this.host.getStateManager().setDeviceConnected(conn.config, online).catch(
+      (err) => this.adapter.log.debug(`setDeviceConnected(${online}) failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`)
+    );
+    this.updateGlobalConnection();
+  }
+  /**
    * Close a connection's WebSocket and clear its poll + reconnect timers.
    *
    * @param conn Device connection to tear down.
    */
   teardownConnection(conn) {
     var _a;
+    conn.restHealthy = false;
     (_a = conn.wsClient) == null ? void 0 : _a.close();
     if (conn.pollTimer) {
       this.adapter.clearInterval(conn.pollTimer);
@@ -283,6 +325,7 @@ class ConnectionManager {
       this.adapter.clearInterval(conn.pollTimer);
       conn.pollTimer = void 0;
     }
+    conn.restHealthy = false;
     this.host.onDeviceConnected();
     if (conn.lastErrorCode) {
       const now = Date.now();
@@ -328,11 +371,9 @@ class ConnectionManager {
     conn.wsAuthenticated = false;
     conn.wsClient = null;
     conn.recovering = false;
+    conn.restHealthy = false;
     conn.lastConnectedAt = 0;
-    this.host.getStateManager().setDeviceConnected(conn.config, false).catch(
-      (err) => this.adapter.log.debug(`setDeviceConnected(false) failed for ${conn.config.productName}: ${(0, import_coerce.errText)(err)}`)
-    );
-    this.updateGlobalConnection();
+    this.refreshDeviceOnline(conn);
     if (error) {
       this.logDeviceError(conn, "ws", error);
     }
@@ -382,11 +423,13 @@ class ConnectionManager {
         if (conn.removed || this.host.isUnloading()) {
           return;
         }
+        this.setRestHealthy(conn, true);
         await this.host.getStateManager().updateMeasurement(conn.config, data, () => conn.removed || this.host.isUnloading());
       } catch (err) {
         if (this.host.isUnloading()) {
           return;
         }
+        this.setRestHealthy(conn, false);
         this.logDeviceError(conn, "rest", err);
         if ((0, import_connection_utils.isAuthError)(err)) {
           this.handleAuthFailure(
@@ -411,7 +454,7 @@ class ConnectionManager {
     if (this.host.isUnloading()) {
       return;
     }
-    const tasks = Array.from(this.connections.values()).filter((c) => c.ip && c.wsAuthenticated && !c.removed).map((c) => this.pollSystemInfo(c));
+    const tasks = Array.from(this.connections.values()).filter((c) => c.ip && this.isDeviceOnline(c) && !c.removed).map((c) => this.pollSystemInfo(c));
     await Promise.all(tasks);
   }
   /**
@@ -420,7 +463,7 @@ class ConnectionManager {
    * @param conn Device connection.
    */
   async pollSystemInfo(conn) {
-    var _a;
+    var _a, _b;
     if (!conn.ip || conn.removed || this.host.isUnloading()) {
       return;
     }
@@ -453,7 +496,17 @@ class ConnectionManager {
           return;
         }
         if (battery && battery.battery_count && battery.battery_count > 0) {
+          conn.batteryAbsentPolls = 0;
           await this.host.getStateManager().updateBattery(conn.config, battery);
+        } else if (battery) {
+          conn.batteryAbsentPolls = ((_b = conn.batteryAbsentPolls) != null ? _b : 0) + 1;
+          if (conn.batteryAbsentPolls >= BATTERY_ABSENT_POLLS_BEFORE_CLEANUP) {
+            conn.batteryAbsentPolls = 0;
+            const removed = await this.host.getStateManager().removeBatteryStates(conn.config);
+            if (removed) {
+              this.adapter.log.info(`${conn.config.productName}: no battery connected any more \u2014 data points removed`);
+            }
+          }
         }
       } catch (err) {
         if (err instanceof import_homewizard_client.HomeWizardApiError && err.statusCode === 404) {
@@ -479,7 +532,7 @@ class ConnectionManager {
    */
   updateGlobalConnection() {
     const conns = Array.from(this.connections.values());
-    const online = conns.filter((c) => c.wsAuthenticated).length;
+    const online = conns.filter((c) => this.isDeviceOnline(c)).length;
     this.adapter.setStateChangedAsync("info.connection", {
       val: online > 0,
       ack: true

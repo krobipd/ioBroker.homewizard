@@ -126,5 +126,13 @@
   "powerQuality": "Netkwaliteit",
   "devicesTotal": "Apparaten totaal",
   "devicesOnline": "Apparaten online",
-  "devicesAllOnline": "Alle apparaten online"
+  "devicesAllOnline": "Alle apparaten online",
+  "legacyMigrated": "Opschonen van oude gegevens voltooid",
+  "legacyMigratedDesc": "Interne markering: het eenmalig verwijderen van datapunten uit oudere adapterversies is uitgevoerd.",
+  "pairingIpDesc": "IP-adres van het te koppelen apparaat, voor netwerken waar mDNS-detectie het niet bereikt. Stel dit in voordat u de koppelmodus start.",
+  "infoConnectionDesc": "Waar zolang minstens één gekoppeld apparaat de adapter antwoordt.",
+  "devicesTotalDesc": "Hoeveel apparaten aan deze instantie zijn gekoppeld — de waarde blijft staan als de adapter wordt gestopt.",
+  "devicesOnlineDesc": "Hoeveel van de gekoppelde apparaten op dit moment antwoorden.",
+  "devicesAllOnlineDesc": "Alleen waar als elk gekoppeld apparaat antwoordt, en onwaar zolang er geen apparaat gekoppeld is.",
+  "connectedDesc": "Waar zolang het apparaat de adapter antwoordt, via de realtime-verbinding of via het terugvalpollen."
 }

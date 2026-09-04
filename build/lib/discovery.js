@@ -93,9 +93,9 @@ class HomeWizardDiscovery {
    */
   parseService(service) {
     var _a, _b, _c, _d, _e, _f, _g;
-    const ip = (_a = service.addresses) == null ? void 0 : _a.find((addr) => (0, import_coerce.isAssignableDeviceIpv4)(addr));
+    const ip = (_a = service.addresses) == null ? void 0 : _a.find((addr) => (0, import_coerce.isLanDeviceIpv4)(addr));
     if (!ip) {
-      this.log.debug(`mDNS: no IPv4 address for ${(0, import_coerce.sanitizeForLog)(service.name)}`);
+      this.log.debug(`mDNS: no usable private IPv4 address for ${(0, import_coerce.sanitizeForLog)(service.name)}`);
       return null;
     }
     const txt = (_b = service.txt) != null ? _b : {};

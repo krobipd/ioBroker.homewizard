@@ -42,6 +42,12 @@ const REST_POLL_UNSTABLE_MS = 30_000;
 const WARN_COOLDOWN_MS = 60 * 60 * 1000;
 /** Cooldown window for `connection restored` infos — analog to warn cooldown. */
 const INFO_COOLDOWN_MS = 60 * 60 * 1000;
+/**
+ * Consecutive system polls reporting `battery_count: 0` before the battery
+ * branch is removed. Two (≈2 minutes) so a single odd frame from a firmware
+ * hiccup cannot churn the object tree and cut the history.
+ */
+const BATTERY_ABSENT_POLLS_BEFORE_CLEANUP = 2;
 
 /**
  * Collaborators the {@link ConnectionManager} needs from the adapter. All members
@@ -150,11 +156,61 @@ export class ConnectionManager {
   }
 
   /**
+   * Whether the device is online, for the reachability indicators.
+   *
+   * The single source for `<device>.info.connected`, the `info.devices*` summary
+   * and the system-poll filter. A device answering the REST fallback IS online —
+   * the role catalogue defines `indicator.reachable` as "if a device is online",
+   * not "if a particular transport is up". Deriving it anywhere a second time
+   * would let the two indicators drift apart.
+   *
+   * @param conn Device connection.
+   */
+  isDeviceOnline(conn: DeviceConnection): boolean {
+    return conn.wsAuthenticated || conn.restHealthy;
+  }
+
+  /**
+   * Record whether the REST fallback is getting answers, and — only when that
+   * actually flips — write the derived online state.
+   *
+   * @param conn    Device connection.
+   * @param healthy `true` after a successful fallback poll, `false` on its failure.
+   */
+  private setRestHealthy(conn: DeviceConnection, healthy: boolean): void {
+    if (conn.restHealthy === healthy) {
+      return;
+    }
+    conn.restHealthy = healthy;
+    this.refreshDeviceOnline(conn);
+  }
+
+  /**
+   * Write the derived online state for one device plus the instance summary.
+   *
+   * @param conn Device connection.
+   */
+  private refreshDeviceOnline(conn: DeviceConnection): void {
+    const online = this.isDeviceOnline(conn);
+    this.host
+      .getStateManager()
+      .setDeviceConnected(conn.config, online)
+      .catch((err: unknown) =>
+        this.adapter.log.debug(`setDeviceConnected(${online}) failed for ${conn.config.productName}: ${errText(err)}`),
+      );
+    this.updateGlobalConnection();
+  }
+
+  /**
    * Close a connection's WebSocket and clear its poll + reconnect timers.
    *
    * @param conn Device connection to tear down.
    */
   teardownConnection(conn: DeviceConnection): void {
+    // The fallback is going away with the timers below — no state write here:
+    // teardown runs during removal, re-pairing and shutdown, where the markers
+    // are written deliberately by the caller.
+    conn.restHealthy = false;
     conn.wsClient?.close();
     if (conn.pollTimer) {
       this.adapter.clearInterval(conn.pollTimer);
@@ -410,11 +466,13 @@ export class ConnectionManager {
       );
     this.updateGlobalConnection();
 
-    // Stop REST fallback if active
+    // Stop REST fallback if active — the push is back, so the fallback's own
+    // health says nothing any more (the WebSocket now carries the online state).
     if (conn.pollTimer) {
       this.adapter.clearInterval(conn.pollTimer);
       conn.pollTimer = undefined;
     }
+    conn.restHealthy = false;
 
     // Main owns the mDNS browser — it stops IP recovery once all devices are connected.
     this.host.onDeviceConnected();
@@ -477,6 +535,10 @@ export class ConnectionManager {
     conn.wsAuthenticated = false;
     conn.wsClient = null;
     conn.recovering = false;
+    // The fallback has not answered yet at this point, so the derived state is
+    // false here — it flips back to online as soon as the first fallback poll
+    // gets a reply, which is what the reachability indicator has to say.
+    conn.restHealthy = false;
     // M1: reset the connect-timestamp AFTER the stability block above has read it.
     // A FAILED reconnect never re-authenticates (onWsConnected is not called), so
     // lastConnectedAt would otherwise still hold the FIRST connect's time and every
@@ -484,13 +546,7 @@ export class ConnectionManager {
     // failed reconnects flips the device to unstable after a single drop. With the
     // reset, only a real connect (which sets lastConnectedAt again) counts.
     conn.lastConnectedAt = 0;
-    this.host
-      .getStateManager()
-      .setDeviceConnected(conn.config, false)
-      .catch((err: unknown) =>
-        this.adapter.log.debug(`setDeviceConnected(false) failed for ${conn.config.productName}: ${errText(err)}`),
-      );
-    this.updateGlobalConnection();
+    this.refreshDeviceOnline(conn);
 
     if (error) {
       this.logDeviceError(conn, "ws", error);
@@ -552,6 +608,8 @@ export class ConnectionManager {
         if (conn.removed || this.host.isUnloading()) {
           return;
         }
+        // The device answered: it is reachable, whatever the WebSocket is doing.
+        this.setRestHealthy(conn, true);
         await this.host
           .getStateManager()
           .updateMeasurement(conn.config, data, () => conn.removed || this.host.isUnloading());
@@ -559,6 +617,8 @@ export class ConnectionManager {
         if (this.host.isUnloading()) {
           return;
         }
+        // No answer — the fallback no longer proves the device is there.
+        this.setRestHealthy(conn, false);
         this.logDeviceError(conn, "rest", err);
 
         // Auth failures: stop everything — token is bad, re-pair required.
@@ -584,8 +644,14 @@ export class ConnectionManager {
     if (this.host.isUnloading()) {
       return;
     }
+    // Same online definition as the indicators: a device answering the REST
+    // fallback gets its system poll too. Otherwise wifi_ssid, wifi_rssi_db and
+    // uptime_s freeze at the last WebSocket values — and the signal strength
+    // that would explain why the device fell back to REST is exactly what goes
+    // stale. A genuinely unreachable device has neither flag and is still
+    // spared the minute poll.
     const tasks = Array.from(this.connections.values())
-      .filter(c => c.ip && c.wsAuthenticated && !c.removed)
+      .filter(c => c.ip && this.isDeviceOnline(c) && !c.removed)
       .map(c => this.pollSystemInfo(c));
     await Promise.all(tasks);
   }
@@ -648,7 +714,22 @@ export class ConnectionManager {
         // guard the deref (the catch below would swallow the TypeError anyway, but
         // this avoids a misleading debug line). Only create states if batteries exist.
         if (battery && battery.battery_count && battery.battery_count > 0) {
+          conn.batteryAbsentPolls = 0;
           await this.host.getStateManager().updateBattery(conn.config, battery);
+        } else if (battery) {
+          // The meter answered and says there is no battery. Once that holds
+          // across two consecutive polls — a single frame could be a firmware
+          // hiccup, and churning the object tree on one would cut history for
+          // nothing — the branch goes, instead of showing the last values of a
+          // battery that is gone. A returning battery re-creates it above.
+          conn.batteryAbsentPolls = (conn.batteryAbsentPolls ?? 0) + 1;
+          if (conn.batteryAbsentPolls >= BATTERY_ABSENT_POLLS_BEFORE_CLEANUP) {
+            conn.batteryAbsentPolls = 0;
+            const removed = await this.host.getStateManager().removeBatteryStates(conn.config);
+            if (removed) {
+              this.adapter.log.info(`${conn.config.productName}: no battery connected any more — data points removed`);
+            }
+          }
         }
       } catch (err) {
         if (err instanceof HomeWizardApiError && err.statusCode === 404) {
@@ -675,7 +756,7 @@ export class ConnectionManager {
    */
   updateGlobalConnection(): void {
     const conns = Array.from(this.connections.values());
-    const online = conns.filter(c => c.wsAuthenticated).length;
+    const online = conns.filter(c => this.isDeviceOnline(c)).length;
     // setStateChanged: flips rarely (connect/disconnect), called on every WS event — skip no-op writes.
     this.adapter
       .setStateChangedAsync("info.connection", {

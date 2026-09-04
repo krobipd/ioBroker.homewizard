@@ -58,7 +58,7 @@ class HomeWizardWebSocket {
   authorized = false;
   /** Set when the device rejected the handshake (bad token) — passed to onDisconnected. */
   authError = null;
-  /** L8: last error-frame detail logged — dedups consecutive identical error frames. */
+  /** L8: last error-frame detail logged — dedups consecutive identical error frames within ONE connection (reset in connect()). */
   lastErrorDetail = null;
   /**
    * @param ip Device IP address

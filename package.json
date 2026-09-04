@@ -73,9 +73,12 @@
     "translate": "translate-adapter",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "release": "release-script"
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.{ts,js}\" \"admin/**/*.json\" \"*.mjs\" \"*.mts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.{ts,js}\" \"admin/**/*.json\" \"*.mjs\" \"*.mts\"",
+    "release": "release-script",
+    "release-patch": "release-script patch --yes --all",
+    "release-minor": "release-script minor --yes --all",
+    "release-major": "release-script major --yes --all"
   },
   "bugs": {
     "url": "https://github.com/krobipd/ioBroker.homewizard/issues"

@@ -6,7 +6,10 @@ export default [
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ["*.mjs", "vitest.config.mts"],
+          // test/standards is this repo's own suite and gets linted; it sits
+          // outside the tsconfig `include` (which stays on src/**, fleet master),
+          // so the default project has to accept it.
+          allowDefaultProject: ["*.mjs", "vitest.config.mts", "test/standards/*.test.ts"],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -22,7 +25,10 @@ export default [
       ".dev-server/",
       ".vscode/",
       "*.test.js",
-      "test/**",
+      // Only the ioBroker template files under test/ stay out — `test/standards/`
+      // is this repo's own suite and gets linted like every other test.
+      "test/integration.js",
+      "test/package.js",
       "*.config.mjs",
       "build",
       // Generated coverage report (npm run coverage) — never lint it.

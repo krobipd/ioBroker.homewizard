@@ -126,5 +126,13 @@
   "powerQuality": "电能质量",
   "devicesTotal": "设备总数",
   "devicesOnline": "在线设备数",
-  "devicesAllOnline": "所有设备在线"
+  "devicesAllOnline": "所有设备在线",
+  "legacyMigrated": "旧数据清理已完成",
+  "legacyMigratedDesc": "内部标记：已执行一次性清除旧版适配器遗留的数据点。",
+  "pairingIpDesc": "要配对设备的 IP 地址，用于 mDNS 发现无法覆盖的网络。请在启动配对模式前填写。",
+  "infoConnectionDesc": "只要至少有一台已配对设备响应适配器，即为真。",
+  "devicesTotalDesc": "与此实例配对的设备数量——适配器停止后该值仍保留。",
+  "devicesOnlineDesc": "已配对设备中当前正在响应的数量。",
+  "devicesAllOnlineDesc": "仅当每台已配对设备都在响应时为真；未配对任何设备时为假。",
+  "connectedDesc": "只要设备响应适配器即为真——无论通过实时连接还是通过回退轮询。"
 }

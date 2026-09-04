@@ -126,5 +126,13 @@
   "powerQuality": "Power Quality",
   "devicesTotal": "Devices total",
   "devicesOnline": "Devices online",
-  "devicesAllOnline": "All devices online"
+  "devicesAllOnline": "All devices online",
+  "legacyMigrated": "Legacy cleanup completed",
+  "legacyMigratedDesc": "Internal marker: the one-time removal of data points from older adapter versions has run.",
+  "pairingIpDesc": "IP address of the device to pair, for networks where mDNS discovery does not reach it. Set this before starting the pairing mode.",
+  "infoConnectionDesc": "True while at least one paired device is answering the adapter.",
+  "devicesTotalDesc": "How many devices are paired with this instance — the value stays when the adapter is stopped.",
+  "devicesOnlineDesc": "How many of the paired devices are answering right now.",
+  "devicesAllOnlineDesc": "True only when every paired device is answering, and false while no device is paired at all.",
+  "connectedDesc": "True while the device answers the adapter, over the real-time connection or the fallback polling."
 }

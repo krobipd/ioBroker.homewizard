@@ -126,5 +126,13 @@
   "powerQuality": "Calidad de red",
   "devicesTotal": "Dispositivos en total",
   "devicesOnline": "Dispositivos en línea",
-  "devicesAllOnline": "Todos los dispositivos en línea"
+  "devicesAllOnline": "Todos los dispositivos en línea",
+  "legacyMigrated": "Limpieza de datos antiguos completada",
+  "legacyMigratedDesc": "Marcador interno: la eliminación única de puntos de datos de versiones anteriores del adaptador se ha ejecutado.",
+  "pairingIpDesc": "Dirección IP del dispositivo que se va a emparejar, para redes donde la detección mDNS no lo alcanza. Configúrala antes de iniciar el modo de emparejamiento.",
+  "infoConnectionDesc": "Verdadero mientras al menos un dispositivo emparejado responda al adaptador.",
+  "devicesTotalDesc": "Cuántos dispositivos están emparejados con esta instancia — el valor se mantiene al detener el adaptador.",
+  "devicesOnlineDesc": "Cuántos de los dispositivos emparejados están respondiendo en este momento.",
+  "devicesAllOnlineDesc": "Verdadero solo cuando todos los dispositivos emparejados responden, y falso mientras no haya ninguno emparejado.",
+  "connectedDesc": "Verdadero mientras el dispositivo responda al adaptador, por la conexión en tiempo real o por el sondeo de reserva."
 }

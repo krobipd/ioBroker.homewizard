@@ -16,6 +16,7 @@ export function createDeviceConnection(config: DeviceConfig, ip: string): Device
     ip,
     wsClient: null,
     wsAuthenticated: false,
+    restHealthy: false,
     pollTimer: undefined,
     reconnectTimer: undefined,
     wsFailCount: 0,

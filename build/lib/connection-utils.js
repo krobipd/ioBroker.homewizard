@@ -32,6 +32,7 @@ function createDeviceConnection(config, ip) {
     ip,
     wsClient: null,
     wsAuthenticated: false,
+    restHealthy: false,
     pollTimer: void 0,
     reconnectTimer: void 0,
     wsFailCount: 0,

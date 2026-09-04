@@ -135,6 +135,7 @@ describe("findConnectionForState", () => {
       ip: "192.168.1.1",
       wsClient: null,
       wsAuthenticated: false,
+      restHealthy: false,
       pollTimer: undefined,
       reconnectTimer: undefined,
       wsFailCount: 0,

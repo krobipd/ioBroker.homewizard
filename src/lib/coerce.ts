@@ -92,11 +92,17 @@ export function isValidIpv4(value: unknown): boolean {
 }
 
 /**
- * True only for a syntactically-valid IPv4 that could plausibly be a HomeWizard
- * device on the LAN — additionally rejects loopback (127/8), link-local
- * (169.254/16, incl. the cloud-metadata IP), unspecified (0.x) and broadcast
- * (255.255.255.255). Used for the user-supplied pairing IP so it cannot be abused
- * as a connect/port-probe oracle against the host itself or a metadata endpoint.
+ * True for a syntactically-valid IPv4 that is not one of the addresses a device
+ * can never legitimately be reached at: loopback (127/8), link-local (169.254/16,
+ * including the cloud-metadata IP), unspecified (0.x) and broadcast
+ * (255.255.255.255).
+ *
+ * Deliberately still accepts public addresses: this guards the IP a USER types
+ * in for manual pairing, and a home network on a public IPv4 range is unusual but
+ * real — rejecting those would lock those users out of pairing entirely. What it
+ * does prevent is the input being abused as a connect/port-probe oracle against
+ * the host itself or a metadata endpoint. For an address nobody typed — one
+ * announced over mDNS — use {@link isLanDeviceIpv4}, which is strict.
  *
  * @param value Raw user input.
  */
@@ -119,6 +125,37 @@ export function isAssignableDeviceIpv4(value: unknown): boolean {
     return false; // limited broadcast
   }
   return true;
+}
+
+/**
+ * True only for an IPv4 out of the private ranges a home network actually uses:
+ * `10/8`, `172.16/12` and `192.168/16` (RFC 1918).
+ *
+ * This is the guard for an address the adapter was never told by a human — one
+ * announced over mDNS. mDNS is link-local by definition, so a genuine HomeWizard
+ * device cannot announce a public address there; a hostile responder on the LAN,
+ * however, can announce any address it likes and would otherwise send the adapter
+ * off to an arbitrary internet host with a pairing request. The manual pairing
+ * path keeps the laxer {@link isAssignableDeviceIpv4} on purpose, because there a
+ * person deliberately typed the address.
+ *
+ * Carrier-grade NAT (`100.64/10`) is NOT included: it lives on the WAN side of
+ * the router, never on a LAN segment where a device announces itself.
+ *
+ * @param value Raw address from an mDNS announcement.
+ */
+export function isLanDeviceIpv4(value: unknown): boolean {
+  if (!isAssignableDeviceIpv4(value)) {
+    return false;
+  }
+  const [a, b] = (value as string).split(".").map(Number);
+  if (a === 10) {
+    return true;
+  }
+  if (a === 172 && b >= 16 && b <= 31) {
+    return true;
+  }
+  return a === 192 && b === 168;
 }
 
 // Allowed values for `battery.mode` per HomeWizard API v2 (`zero`, `to_full`,

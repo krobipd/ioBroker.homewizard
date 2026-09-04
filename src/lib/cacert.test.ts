@@ -10,6 +10,7 @@ import {
   dropDeviceAgent,
   HOMEWIZARD_CA_CERT,
   HW_AGENT,
+  pinnedAgent,
 } from "./cacert";
 
 /**
@@ -138,5 +139,38 @@ describe("caDaysUntilExpiry (L18)", () => {
 
   it("goes negative once the CA has expired", () => {
     expect(caDaysUntilExpiry(CA_NOT_AFTER.getTime() + 86_400_000)).toBeLessThan(0);
+  });
+});
+
+describe("pinnedAgent — which identity check a connection gets", () => {
+  // The security core: a mistake here turns per-device pinning back into blanket
+  // accept, and nothing about the connection would look different. The mutation
+  // "always return undefined" has to fail these.
+  it("pins the exact CN when one was captured at pairing", () => {
+    const cn = "appliance/p1dongle/5c2faf19b76e";
+    const agent = pinnedAgent(cn, "5c2faf19b76e");
+    expect(agent).toBeDefined();
+    // Same memoized agent as asking for the CN directly — the exact-match pin.
+    expect(agent).toBe(createDeviceAgent(cn));
+  });
+
+  it("falls back to the serial-suffix pin when no CN is stored yet (M4)", () => {
+    const serial = "aabbccddeeff";
+    const agent = pinnedAgent(undefined, serial);
+    expect(agent).toBeDefined();
+    expect(agent).toBe(createDeviceAgentForSerial(serial));
+    // Not the blanket agent: a device upgrading from before v0.13.0 must not
+    // send its token under a CN-unchecked connection even once.
+    expect(agent).not.toBe(HW_AGENT);
+  });
+
+  it("prefers the stored CN over the serial when both are known", () => {
+    const cn = "appliance/p1dongle/aabbccddeeff";
+    expect(pinnedAgent(cn, "aabbccddeeff")).toBe(createDeviceAgent(cn));
+  });
+
+  it("returns undefined only while pairing, when the identity is genuinely unknown", () => {
+    expect(pinnedAgent(undefined, undefined)).toBeUndefined();
+    expect(pinnedAgent("", "")).toBeUndefined();
   });
 });

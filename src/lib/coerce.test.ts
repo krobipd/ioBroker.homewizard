@@ -5,6 +5,7 @@ import {
   coerceString,
   errText,
   isAssignableDeviceIpv4,
+  isLanDeviceIpv4,
   isPlainObject,
   isValidIpv4,
   parseBatteryPermissions,
@@ -325,5 +326,44 @@ describe("isAssignableDeviceIpv4 (S5-2 pairing IP guard)", () => {
     expect(isAssignableDeviceIpv4("fe80::1")).toBe(false);
     expect(isAssignableDeviceIpv4("192.168.1.300")).toBe(false);
     expect(isAssignableDeviceIpv4(undefined)).toBe(false);
+  });
+
+  it("still accepts a public address — a person typed it, and public home ranges exist", () => {
+    expect(isAssignableDeviceIpv4("203.0.113.5")).toBe(true);
+  });
+});
+
+describe("isLanDeviceIpv4 (mDNS address guard)", () => {
+  it("accepts the RFC-1918 private ranges", () => {
+    expect(isLanDeviceIpv4("192.168.1.42")).toBe(true);
+    expect(isLanDeviceIpv4("10.0.0.5")).toBe(true);
+    expect(isLanDeviceIpv4("172.16.3.9")).toBe(true);
+    expect(isLanDeviceIpv4("172.31.255.254")).toBe(true);
+  });
+
+  it("rejects every public address — a genuine device cannot announce one over mDNS", () => {
+    // The point of the guard: a hostile responder on the LAN must not be able to
+    // send the adapter off to an arbitrary internet host with a pairing request.
+    expect(isLanDeviceIpv4("203.0.113.5")).toBe(false);
+    expect(isLanDeviceIpv4("8.8.8.8")).toBe(false);
+    expect(isLanDeviceIpv4("1.1.1.1")).toBe(false);
+  });
+
+  it("rejects the ranges next to the private blocks, not just far-away ones", () => {
+    expect(isLanDeviceIpv4("172.15.0.1")).toBe(false);
+    expect(isLanDeviceIpv4("172.32.0.1")).toBe(false);
+    expect(isLanDeviceIpv4("192.169.1.1")).toBe(false);
+    expect(isLanDeviceIpv4("11.0.0.1")).toBe(false);
+    // Carrier-grade NAT lives on the router's WAN side, never on a LAN segment.
+    expect(isLanDeviceIpv4("100.64.0.1")).toBe(false);
+  });
+
+  it("still rejects everything the assignable check rejects", () => {
+    expect(isLanDeviceIpv4("127.0.0.1")).toBe(false);
+    expect(isLanDeviceIpv4("169.254.169.254")).toBe(false);
+    expect(isLanDeviceIpv4("0.0.0.0")).toBe(false);
+    expect(isLanDeviceIpv4("255.255.255.255")).toBe(false);
+    expect(isLanDeviceIpv4("fe80::1")).toBe(false);
+    expect(isLanDeviceIpv4(undefined)).toBe(false);
   });
 });

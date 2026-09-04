@@ -34,7 +34,8 @@ __export(cacert_exports, {
   caDaysUntilExpiry: () => caDaysUntilExpiry,
   createDeviceAgent: () => createDeviceAgent,
   createDeviceAgentForSerial: () => createDeviceAgentForSerial,
-  dropDeviceAgent: () => dropDeviceAgent
+  dropDeviceAgent: () => dropDeviceAgent,
+  pinnedAgent: () => pinnedAgent
 });
 module.exports = __toCommonJS(cacert_exports);
 var https = __toESM(require("node:https"));
@@ -111,6 +112,15 @@ function createDeviceAgentForSerial(serial) {
   }
   return agent;
 }
+function pinnedAgent(certCn, serial) {
+  if (certCn) {
+    return createDeviceAgent(certCn);
+  }
+  if (serial) {
+    return createDeviceAgentForSerial(serial);
+  }
+  return void 0;
+}
 function dropDeviceAgent(expectedCn, serial) {
   if (expectedCn) {
     const agent = deviceAgents.get(expectedCn);
@@ -135,6 +145,7 @@ function dropDeviceAgent(expectedCn, serial) {
   caDaysUntilExpiry,
   createDeviceAgent,
   createDeviceAgentForSerial,
-  dropDeviceAgent
+  dropDeviceAgent,
+  pinnedAgent
 });
 //# sourceMappingURL=cacert.js.map

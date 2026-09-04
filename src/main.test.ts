@@ -41,6 +41,7 @@ vi.mock("@iobroker/adapter-core", () => {
 });
 
 import { HomeWizard } from "./main";
+import { createDeviceAgent, createDeviceAgentForSerial, HW_AGENT } from "./lib/cacert";
 import { HomeWizardApiError } from "./lib/homewizard-client";
 import type { DeviceConnection, DiscoveredDevice } from "./lib/types";
 
@@ -116,6 +117,7 @@ function makeConn(overrides: Partial<DeviceConnection> = {}): DeviceConnection {
     ip: "192.168.1.5",
     wsClient: null,
     wsAuthenticated: false,
+    restHealthy: false,
     pollTimer: undefined,
     reconnectTimer: undefined,
     wsFailCount: 0,
@@ -141,6 +143,7 @@ interface FakeStateMgr {
   createDeviceStates: ReturnType<typeof vi.fn>;
   cleanupMovedStates: ReturnType<typeof vi.fn>;
   markLegacyCleanupDone: ReturnType<typeof vi.fn>;
+  removeBatteryStates: ReturnType<typeof vi.fn>;
 }
 
 /** Build a HomeWizard with fake client/ws/discovery factories + a fake stateManager + one registered conn. */
@@ -203,6 +206,7 @@ function setup(): {
     createDeviceStates: vi.fn(async () => {}),
     cleanupMovedStates: vi.fn(async () => {}),
     markLegacyCleanupDone: vi.fn(async () => {}),
+    removeBatteryStates: vi.fn(() => Promise.resolve(false)),
   };
   internal.stateManager = stateMgr;
   internal.connections.set("hwe-p1_aabb", conn);
@@ -583,6 +587,7 @@ function internalOf(hw: HomeWizard): {
     onWsConnected: (c: DeviceConnection) => void;
     onWsDisconnected: (c: DeviceConnection, e?: Error) => void;
     isUnstable: (c: DeviceConnection) => boolean;
+    isDeviceOnline: (c: DeviceConnection) => boolean;
     connectWebSocket: (c: DeviceConnection) => void;
     startRestFallback: (c: DeviceConnection) => void;
     pollSystemInfo: (c: DeviceConnection) => Promise<void>;
@@ -1301,16 +1306,46 @@ describe("v0.12.2 regressions", () => {
     });
   });
 
-  it("a failed reboot does NOT reset the button (warn instead)", async () => {
+  it("a failed reboot resets the button too, and still warns", async () => {
+    // A button left at `true, ack:false` shows as permanently pressed in Admin.
+    // The reset belongs in a finally around the device call — but only around
+    // that one call, see the LED/switch test below.
     const { hw, client } = setup();
     const i = internalOf(hw);
     client.reboot.mockRejectedValueOnce(new Error("boom"));
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.reboot", active(true));
-    expect(i.setStateAsync).not.toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", {
+    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", {
       val: false,
       ack: true,
     });
     expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("Failed to set"));
+  });
+
+  it("a failed identify resets its button too", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    client.identify.mockRejectedValueOnce(new Error("boom"));
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.identify", active(true));
+    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.identify", {
+      val: false,
+      ack: true,
+    });
+  });
+
+  it("the button reset does NOT bleed into the non-button branches", async () => {
+    // The reset must not sit in a finally around the whole handler: that would
+    // overwrite the LED percentage — and every switch ack — with `false`.
+    const { hw } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", active(40));
+    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", {
+      val: 40,
+      ack: true,
+    });
+    expect(i.setStateAsync).not.toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", {
+      val: false,
+      ack: true,
+    });
   });
 
   it("removeDevice drops the per-device warn/info cooldown stamps", async () => {
@@ -1405,6 +1440,79 @@ describe("HomeWizard startRestFallback (poll body)", () => {
     const after = i.setInterval.mock.calls.length;
     internalOf(hw).connectionManager.startRestFallback(conn);
     expect(i.setInterval.mock.calls.length).toBe(after);
+  });
+
+  // The reachability indicators must describe the DEVICE, not one transport.
+  // `indicator.reachable` is defined as "if a device is online" — a device that
+  // answers every fallback poll is online, whatever the WebSocket is doing.
+  it("a device answering the fallback counts as online — marker, summary and system poll", async () => {
+    const { hw, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+    conn.wsAuthenticated = false;
+    const poll = startAndCapture(hw, conn);
+    await poll();
+    await settle();
+
+    expect(conn.restHealthy).toBe(true);
+    expect(i.connectionManager.isDeviceOnline(conn)).toBe(true);
+    expect(stateMgr.setDeviceConnected).toHaveBeenCalledWith(conn.config, true);
+    expect(stateMgr.writeDeviceRollup).toHaveBeenCalledWith(1, 1);
+
+    // ...and it gets its system poll, so wifi_rssi_db/uptime_s do not freeze at
+    // the last WebSocket values while the device is on the fallback.
+    stateMgr.updateSystem.mockClear();
+    await i.pollAllSystemInfo();
+    expect(stateMgr.updateSystem).toHaveBeenCalledWith(conn.config, expect.anything(), expect.any(Function));
+  });
+
+  it("a failing fallback poll takes the device back offline", async () => {
+    const { hw, client, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+    conn.wsAuthenticated = false;
+    conn.recentDisconnects = 3; // unstable: keeps polling instead of stopping
+    const poll = startAndCapture(hw, conn);
+    await poll();
+    await settle();
+    expect(conn.restHealthy).toBe(true);
+
+    const err = new Error("connect EHOSTUNREACH") as NodeJS.ErrnoException;
+    err.code = "EHOSTUNREACH";
+    client.getMeasurement.mockRejectedValue(err);
+    stateMgr.setDeviceConnected.mockClear();
+    await poll();
+    await settle();
+
+    expect(conn.restHealthy).toBe(false);
+    expect(i.connectionManager.isDeviceOnline(conn)).toBe(false);
+    expect(stateMgr.setDeviceConnected).toHaveBeenCalledWith(conn.config, false);
+  });
+
+  it("writes the marker only when the fallback state actually flips", async () => {
+    const { hw, conn, stateMgr } = setup();
+    conn.wsAuthenticated = false;
+    const poll = startAndCapture(hw, conn);
+    await poll();
+    await settle();
+    const afterFirst = stateMgr.setDeviceConnected.mock.calls.length;
+    await poll();
+    await poll();
+    await settle();
+    expect(stateMgr.setDeviceConnected.mock.calls.length).toBe(afterFirst);
+  });
+
+  it("a reconnected WebSocket ends the fallback's claim on the online state", async () => {
+    const { hw, conn } = setup();
+    const i = internalOf(hw);
+    conn.wsAuthenticated = false;
+    const poll = startAndCapture(hw, conn);
+    await poll();
+    expect(conn.restHealthy).toBe(true);
+
+    i.connectionManager.onWsConnected(conn);
+    // The push is back and owns the state again; the stale fallback flag must
+    // not keep a dead device green after the socket drops.
+    expect(conn.restHealthy).toBe(false);
+    expect(i.connectionManager.isDeviceOnline(conn)).toBe(true);
   });
 });
 
@@ -1538,23 +1646,53 @@ describe("HomeWizard start-up marker", () => {
   });
 });
 
-describe("HomeWizard leftover stopInstance flag", () => {
-  it("clears the flag and stops the start-up when the instance object still carries it", async () => {
+describe("HomeWizard leftover supportedMessages key", () => {
+  it("deletes the whole key and stops the start-up when the instance object still carries stopInstance", async () => {
     const { hw } = setup();
     const i = internalOf(hw);
     i.getForeignObjectAsync.mockResolvedValue({ common: { supportedMessages: { stopInstance: true } } });
 
     await i.onReady();
 
+    // `supportedMessages` is a positive list: writing `{ stopInstance: false }`
+    // would leave the object behind and silently kill the messagebox. Only a
+    // null deletes the key.
     expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.homewizard.0", {
-      common: { supportedMessages: { stopInstance: false } },
+      common: { supportedMessages: null },
     });
     // The host restarts the instance on any object change — carrying on here
     // arms timers of a process that is already going down.
     expect(i.getAdapterObjectsAsync).not.toHaveBeenCalled();
   });
 
-  it("writes nothing and starts normally when the flag is absent", async () => {
+  it("deletes a leftover empty object written by the earlier correction", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    // What v0.16.0/v0.17.0 left behind: the flag is falsy, but the key exists
+    // and the empty positive list blocks every sendTo without logging anything.
+    i.getForeignObjectAsync.mockResolvedValue({ common: { supportedMessages: { stopInstance: false } } });
+
+    await i.onReady();
+
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.homewizard.0", {
+      common: { supportedMessages: null },
+    });
+    expect(i.getAdapterObjectsAsync).not.toHaveBeenCalled();
+  });
+
+  it("deletes the key even when it is an empty object", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.getForeignObjectAsync.mockResolvedValue({ common: { supportedMessages: {} } });
+
+    await i.onReady();
+
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.homewizard.0", {
+      common: { supportedMessages: null },
+    });
+  });
+
+  it("writes nothing and starts normally when the key is absent", async () => {
     const { hw } = setup();
     const i = internalOf(hw);
     i.getForeignObjectAsync.mockResolvedValue({ common: {} });
@@ -1565,5 +1703,363 @@ describe("HomeWizard leftover stopInstance flag", () => {
     // would be a restart loop.
     expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
     expect(i.getAdapterObjectsAsync).toHaveBeenCalled();
+  });
+});
+
+describe("device without a usable IP (silent-death guard)", () => {
+  it("warns and kicks off the mDNS search instead of leaving it dead", async () => {
+    const { hw, discovery } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    // A stored IP that fails validation is dropped on load, and the device then
+    // never reaches connectWebSocket — the only place that ever triggers IP
+    // recovery. Without this it stays dead until a restart or a re-pair, and
+    // nothing in the log says why.
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      "homewizard.0.hwe-p1_dev9": {
+        type: "device",
+        native: {
+          encryptedToken: "tok",
+          serial: "dev9",
+          productType: "HWE-P1",
+          productName: "Cellar meter",
+          ip: "not-an-ip",
+        },
+      },
+    });
+
+    await i.onReady();
+    await settle();
+
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("no usable IP address stored"));
+    expect(discovery.start).toHaveBeenCalled();
+  });
+
+  it("starts no mDNS search when every device has an IP", async () => {
+    const { hw, discovery } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      "homewizard.0.hwe-p1_dev1": {
+        type: "device",
+        native: {
+          encryptedToken: "tok",
+          serial: "dev1",
+          productType: "HWE-P1",
+          productName: "P1",
+          ip: "192.168.1.8",
+        },
+      },
+    });
+
+    await i.onReady();
+    await settle();
+
+    expect(discovery.start).not.toHaveBeenCalled();
+  });
+});
+
+describe("battery datapoints do not outlive the battery", () => {
+  it("removes the branch after two consecutive polls reporting no battery", async () => {
+    const { hw, client, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+    stateMgr.removeBatteryStates.mockResolvedValue(true);
+
+    client.getBatteries.mockResolvedValue({ battery_count: 0 });
+    await i.connectionManager.pollSystemInfo(conn);
+    // One frame could be a firmware hiccup — churning the tree on it would cut
+    // the history for nothing.
+    expect(stateMgr.removeBatteryStates).not.toHaveBeenCalled();
+
+    await i.connectionManager.pollSystemInfo(conn);
+    expect(stateMgr.removeBatteryStates).toHaveBeenCalledWith(conn.config);
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("no battery connected any more"));
+  });
+
+  it("a battery that answers again resets the count", async () => {
+    const { hw, client, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+
+    client.getBatteries.mockResolvedValue({ battery_count: 0 });
+    await i.connectionManager.pollSystemInfo(conn);
+    client.getBatteries.mockResolvedValue({ mode: "zero", battery_count: 2 });
+    await i.connectionManager.pollSystemInfo(conn);
+    client.getBatteries.mockResolvedValue({ battery_count: 0 });
+    await i.connectionManager.pollSystemInfo(conn);
+
+    expect(stateMgr.removeBatteryStates).not.toHaveBeenCalled();
+  });
+
+  it("leaves a device without battery support alone (404)", async () => {
+    const { hw, client, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+    client.getBatteries.mockRejectedValue(new HomeWizardApiError(404, "{}", "GET /api/batteries"));
+    await i.connectionManager.pollSystemInfo(conn);
+    await i.connectionManager.pollSystemInfo(conn);
+    await i.connectionManager.pollSystemInfo(conn);
+    expect(stateMgr.removeBatteryStates).not.toHaveBeenCalled();
+  });
+});
+
+describe("acks carry the value that was sent", () => {
+  it("battery.permissions acks the parsed list, not the raw text a script wrote", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.permissions", active('["a" ,  "b"]'));
+    expect(client.setBatteries).toHaveBeenCalledWith({ permissions: ["a", "b"] });
+    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.battery.permissions", {
+      val: '["a","b"]',
+      ack: true,
+    });
+  });
+
+  it("battery.mode acks the validated mode", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.mode", active("to_full"));
+    expect(client.setBatteries).toHaveBeenCalledWith({ mode: "to_full" });
+    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.battery.mode", {
+      val: "to_full",
+      ack: true,
+    });
+  });
+});
+
+describe("the adapter's default client/WebSocket factories really pin", () => {
+  // The factories are replaced by fakes in every other test, so their real
+  // bodies never ran anywhere — exactly where a lost `pinnedAgent` call would
+  // disable per-device TLS pinning without any visible change.
+  interface AgentCarrier {
+    agent: unknown;
+  }
+
+  it("makeClient hands the REST client the pinned agent for a stored CN", () => {
+    const hw = new HomeWizard();
+    const factory = hw as unknown as {
+      makeClient: (ip: string, token: string, certCn?: string, serial?: string) => unknown;
+    };
+    const cn = "appliance/p1dongle/aabbccddeeff";
+    const client = factory.makeClient("192.168.1.5", "tok", cn, "aabbccddeeff") as AgentCarrier;
+    expect(client.agent).toBe(createDeviceAgent(cn));
+  });
+
+  it("makeClient falls back to the serial pin, never to the blanket agent", () => {
+    const hw = new HomeWizard();
+    const factory = hw as unknown as {
+      makeClient: (ip: string, token: string, certCn?: string, serial?: string) => unknown;
+    };
+    const client = factory.makeClient("192.168.1.5", "tok", undefined, "aabbccddeeff") as AgentCarrier;
+    expect(client.agent).toBe(createDeviceAgentForSerial("aabbccddeeff"));
+    expect(client.agent).not.toBe(HW_AGENT);
+  });
+
+  it("makeClient uses the blanket agent only when nothing identifies the device (pairing)", () => {
+    const hw = new HomeWizard();
+    const factory = hw as unknown as {
+      makeClient: (ip: string, token: string, certCn?: string, serial?: string) => unknown;
+    };
+    const client = factory.makeClient("192.168.1.5", "") as AgentCarrier;
+    expect(client.agent).toBe(HW_AGENT);
+  });
+
+  it("makeWebSocket pins the same way", () => {
+    const hw = new HomeWizard();
+    const factory = hw as unknown as {
+      makeWebSocket: (
+        ip: string,
+        token: string,
+        callbacks: unknown,
+        timers: unknown,
+        certCn?: string,
+        serial?: string,
+      ) => unknown;
+    };
+    const callbacks = {
+      onMeasurement: (): void => {},
+      onConnected: (): void => {},
+      onDisconnected: (): void => {},
+      log: { debug: (): void => {}, warn: (): void => {} },
+    };
+    const timers = {
+      schedule: (): unknown => null,
+      cancel: (): void => {},
+      scheduleRepeating: (): unknown => null,
+      cancelRepeating: (): void => {},
+    };
+    const cn = "appliance/p1dongle/aabbccddeeff";
+    const ws = factory.makeWebSocket("192.168.1.5", "tok", callbacks, timers, cn, "aabbccddeeff");
+    expect((ws as AgentCarrier).agent).toBe(createDeviceAgent(cn));
+
+    const wsBySerial = factory.makeWebSocket("192.168.1.5", "tok", callbacks, timers, undefined, "aabbccddeeff");
+    expect((wsBySerial as AgentCarrier).agent).toBe(createDeviceAgentForSerial("aabbccddeeff"));
+
+    // Nothing known → the WebSocket client's own default, the blanket agent.
+    const wsPairing = factory.makeWebSocket("192.168.1.5", "", callbacks, timers);
+    expect((wsPairing as AgentCarrier).agent).toBe(HW_AGENT);
+  });
+});
+
+describe("timeout callbacks (the timers nobody drove before)", () => {
+  /**
+   * Grab the callback of the setTimeout call whose delay matches.
+   *
+   * @param i Internal adapter view
+   * @param ms Expected delay in milliseconds
+   */
+  function timeoutCallbackFor(i: ReturnType<typeof internalOf>, ms: number): () => void {
+    const call = i.setTimeout.mock.calls.find((c: unknown[]) => c[1] === ms);
+    expect(call, `no setTimeout scheduled for ${ms}ms`).toBeDefined();
+    return call![0] as () => void;
+  }
+
+  it("the 60s pairing timeout closes the window and says so", async () => {
+    const { hw, discovery } = setup();
+    const i = internalOf(hw);
+    await i.startPairing();
+    expect(discovery.start).toHaveBeenCalled();
+
+    timeoutCallbackFor(i, 60_000)();
+
+    expect(discovery.stop).toHaveBeenCalled();
+    expect(i.pairingPollTimer).toBeUndefined();
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("automatically disabled"));
+  });
+
+  it("the 60s IP-recovery timeout stops the browser and keeps the retry going quietly", () => {
+    const { hw, conn, discovery } = setup();
+    const i = internalOf(hw);
+    conn.wsAuthenticated = false;
+    conn.wsFailCount = 4;
+    i.startIpRecovery();
+    expect(discovery.start).toHaveBeenCalled();
+
+    timeoutCallbackFor(i, 60_000)();
+
+    // The browser goes; the WS reconnect carries on, and the user is not warned
+    // hourly about a device that is simply still offline.
+    expect(discovery.stop).toHaveBeenCalled();
+    expect(i.log.warn).not.toHaveBeenCalledWith(expect.stringContaining("will keep retrying every"));
+    expect(i.log.debug).toHaveBeenCalledWith(expect.stringContaining("will keep retrying every"));
+  });
+
+  it("the pairing poll timer runs a pairing pass", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await i.startPairing();
+    const pollCall = i.setInterval.mock.calls.find((c: unknown[]) => c[1] === 2_000);
+    expect(pollCall).toBeDefined();
+    i.discoveredDuringPairing.push({ ip: "192.168.1.9", productType: "HWE-P1", serial: "s1", name: "P1" });
+    (pollCall![0] as () => void)();
+    await settle();
+    expect(client.requestPairing).toHaveBeenCalled();
+  });
+
+  it("the system poll timer polls system info", async () => {
+    const { hw, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+    conn.wsAuthenticated = true;
+    await i.onReady();
+    const pollCall = i.setInterval.mock.calls.find((c: unknown[]) => c[1] === 60_000);
+    expect(pollCall).toBeDefined();
+    // onReady builds a real StateManager — put the fake back before driving the
+    // timer, otherwise the poll writes through the real one.
+    (hw as unknown as { stateManager: unknown }).stateManager = stateMgr;
+    stateMgr.updateSystem.mockClear();
+    i.connections.set("hwe-p1_aabb", conn);
+    (pollCall![0] as () => void)();
+    await settle();
+    expect(stateMgr.updateSystem).toHaveBeenCalled();
+  });
+});
+
+describe("manifest objects reach an existing installation", () => {
+  it("refreshes all seven of them in onReady, each with its own label", async () => {
+    // js-controller creates instanceObjects only where they are MISSING, so a
+    // changed name or description otherwise lands on fresh installs only. The
+    // labels must come from the same i18n keys sync-iopackage-from-i18n.py
+    // renders into the manifest, or the two drift apart silently.
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    await i.onReady();
+
+    const expected: Array<[string, string, string | undefined]> = [
+      ["info", "info", undefined],
+      ["info.connection", "infoConnection", "infoConnectionDesc"],
+      ["info.devicesTotal", "devicesTotal", "devicesTotalDesc"],
+      ["info.devicesOnline", "devicesOnline", "devicesOnlineDesc"],
+      ["info.devicesAllOnline", "devicesAllOnline", "devicesAllOnlineDesc"],
+      ["startPairing", "startPairing", "startPairingDesc"],
+      ["pairingIp", "pairingIp", "pairingIpDesc"],
+    ];
+    for (const [id, nameKey, descKey] of expected) {
+      const call = i.extendObjectAsync.mock.calls.find((c: unknown[]) => c[0] === id);
+      expect(call, `no extendObject for ${id}`).toBeDefined();
+      const common = (call![1] as { common: { name: unknown; desc?: unknown } }).common;
+      expect(common.name, `${id} carries the wrong label`).toEqual({ en: nameKey });
+      if (descKey) {
+        expect(common.desc, `${id} carries the wrong description`).toEqual({ en: descKey });
+      } else {
+        expect(common.desc).toBeUndefined();
+      }
+    }
+  });
+});
+
+describe("device-supplied strings never reach the log raw", () => {
+  it("strips CR/LF from an mDNS announcement before logging the find", () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    (hw as unknown as { onDeviceDiscovered: (d: DiscoveredDevice) => void }).onDeviceDiscovered({
+      ip: "192.168.1.9",
+      productType: "HWE-P1\n[error] forged",
+      serial: "s1",
+      name: "Meter\n[error] forged line",
+      // A hostile responder on the LAN picks these strings freely; without the
+      // strip they forge extra lines in the user's log.
+    });
+    const line = i.log.info.mock.calls.map((c: unknown[]) => String(c[0])).join("\n---\n");
+    expect(line).toContain("Found");
+    expect(i.log.info.mock.calls.some((c: unknown[]) => String(c[0]).includes("Meter\n"))).toBe(false);
+    expect(i.log.info.mock.calls.some((c: unknown[]) => String(c[0]).includes("HWE-P1\n"))).toBe(false);
+  });
+
+  it("strips CR/LF from the name in the successful-pairing line", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    client.requestPairing.mockResolvedValue({ token: "newtok" });
+    client.getDeviceInfo.mockResolvedValue({
+      product_type: "HWE-P1",
+      serial: "s2",
+      product_name: "P1",
+      firmware_version: "4.0",
+    });
+    i.discoveredDuringPairing.push({
+      ip: "192.168.1.9",
+      productType: "HWE-P1\n[error] forged",
+      serial: "s2",
+      name: "Meter\n[error] forged",
+    });
+    await i.pollPairing();
+    await settle();
+    expect(i.log.info.mock.calls.some((c: unknown[]) => String(c[0]).includes("Successfully paired"))).toBe(true);
+    expect(i.log.info.mock.calls.some((c: unknown[]) => String(c[0]).includes("forged\n"))).toBe(false);
+    expect(i.log.info.mock.calls.some((c: unknown[]) => String(c[0]).includes("Meter\n"))).toBe(false);
+  });
+});
+
+describe("the fallback claim does not survive a WebSocket drop", () => {
+  it("clears restHealthy when the socket goes down", () => {
+    const { hw, conn } = setup();
+    const i = internalOf(hw);
+    conn.restHealthy = true;
+    conn.wsAuthenticated = true;
+    i.connectionManager.onWsDisconnected(conn);
+    // Nothing has answered over the fallback since the drop — claiming the
+    // device is still reachable would be exactly the stale-green the whole
+    // marker chain exists to prevent.
+    expect(conn.restHealthy).toBe(false);
+    expect(i.connectionManager.isDeviceOnline(conn)).toBe(false);
   });
 });

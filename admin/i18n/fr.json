@@ -126,5 +126,13 @@
   "powerQuality": "Qualité du réseau",
   "devicesTotal": "Appareils au total",
   "devicesOnline": "Appareils en ligne",
-  "devicesAllOnline": "Tous les appareils en ligne"
+  "devicesAllOnline": "Tous les appareils en ligne",
+  "legacyMigrated": "Nettoyage des données anciennes terminé",
+  "legacyMigratedDesc": "Marqueur interne : la suppression unique des points de données des anciennes versions de l'adaptateur a été effectuée.",
+  "pairingIpDesc": "Adresse IP de l'appareil à appairer, pour les réseaux où la détection mDNS ne l'atteint pas. À renseigner avant de démarrer le mode d'appairage.",
+  "infoConnectionDesc": "Vrai tant qu'au moins un appareil appairé répond à l'adaptateur.",
+  "devicesTotalDesc": "Nombre d'appareils appairés à cette instance — la valeur est conservée à l'arrêt de l'adaptateur.",
+  "devicesOnlineDesc": "Combien des appareils appairés répondent en ce moment.",
+  "devicesAllOnlineDesc": "Vrai uniquement lorsque tous les appareils appairés répondent, et faux tant qu'aucun appareil n'est appairé.",
+  "connectedDesc": "Vrai tant que l'appareil répond à l'adaptateur, via la connexion temps réel ou via l'interrogation de secours."
 }

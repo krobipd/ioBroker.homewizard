@@ -443,6 +443,7 @@ const MOMENTARY_KEYS = /* @__PURE__ */ new Set([
   "power_factor_l2",
   "power_factor_l3"
 ]);
+const QUALITY_KEYS = MEASUREMENT_STATE_DEFS.filter((d) => d.id.startsWith("quality.")).map((d) => d.key);
 let tariffStatesCache = null;
 function tariffStates() {
   return tariffStatesCache != null ? tariffStatesCache : tariffStatesCache = {
@@ -505,15 +506,11 @@ class StateManager {
       },
       { preserve: { common: ["name"] } }
     );
-    await this.adapter.extendObjectAsync(
-      `${prefix}.info`,
-      {
-        type: "channel",
-        common: { name: (0, import_i18n.tName)("deviceInformation") },
-        native: {}
-      },
-      { preserve: { common: ["name"] } }
-    );
+    await this.adapter.extendObjectAsync(`${prefix}.info`, {
+      type: "channel",
+      common: { name: (0, import_i18n.tName)("deviceInformation") },
+      native: {}
+    });
     await this.createState({
       id: `${prefix}.info.productName`,
       name: (0, import_i18n.tName)("productName"),
@@ -530,6 +527,7 @@ class StateManager {
     await this.createState({
       id: `${prefix}.info.connected`,
       name: (0, import_i18n.tName)("connected"),
+      desc: (0, import_i18n.tName)("connectedDesc"),
       type: "boolean",
       role: "indicator.reachable"
     });
@@ -580,9 +578,7 @@ class StateManager {
       return;
     }
     const record = data;
-    const hasQuality = MEASUREMENT_STATE_DEFS.some(
-      (d) => d.id.startsWith("quality.") && (0, import_coerce.coerceFiniteNumber)(record[d.key]) !== null
-    );
+    const hasQuality = QUALITY_KEYS.some((key) => (0, import_coerce.coerceFiniteNumber)(record[key]) !== null);
     if (hasQuality) {
       await this.ensureChannel(`${mPrefix}.quality`, () => (0, import_i18n.tName)("powerQuality"));
     }
@@ -619,7 +615,12 @@ class StateManager {
         const timestamp = (0, import_coerce.coerceString)(rawExt.timestamp);
         await this.ensureChannel(`${mPrefix}.external`, () => (0, import_i18n.tName)("externalMeters"));
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
-        await this.ensureChannel(extId, (0, import_coerce.sanitizeForLog)(type));
+        await this.ensureChannel(
+          extId,
+          (0, import_coerce.sanitizeForLog)(type),
+          /* deviceOwnedName */
+          true
+        );
         const extWrites = [];
         if (value !== null) {
           extWrites.push(
@@ -913,6 +914,32 @@ class StateManager {
     this.adapter.log.debug(`state-manager: removeDevice ${prefix} done (dropped ${dropped} cached IDs)`);
   }
   /**
+   * Remove a device's whole `battery` branch — used when the meter reports that
+   * no batteries are connected any more.
+   *
+   * The datapoints would otherwise keep showing the last values of a battery that
+   * is gone, `battery_count` included: numbers that describe nothing. The adapter
+   * owns its datapoint inventory, so it clears them instead of leaving them to
+   * age. A battery that comes back re-creates the branch on the next poll.
+   *
+   * @param config Device configuration
+   * @returns `true` when a branch was actually removed, `false` when there was none
+   */
+  async removeBatteryStates(config) {
+    const prefix = this.devicePrefix(config);
+    const channel = `${prefix}.battery`;
+    if (!await this.adapter.getObjectAsync(channel)) {
+      return false;
+    }
+    await this.adapter.delObjectAsync(channel, { recursive: true });
+    for (const id of this.createdIds) {
+      if (id === channel || id.startsWith(`${channel}.`)) {
+        this.createdIds.delete(id);
+      }
+    }
+    return true;
+  }
+  /**
    * Remove obsolete states: pre-v0.4.0 device-root paths (now under measurement/) plus
    * states retired in later versions (v0.11.0: raw P1 telegram).
    *
@@ -942,14 +969,18 @@ class StateManager {
   /**
    * I6: mark the pre-v0.4.0/v0.11.0 legacy-state cleanup as complete so later
    * restarts skip the per-device scan. A write-once indicator state at the adapter
-   * root (fleet pattern, beszel L6). Idempotent — the object create is a no-op once
-   * it exists and the value only ever flips false→true.
+   * root. Idempotent — the value only ever flips false→true.
+   *
+   * `extendObject` + translated name/description: the state was created with a
+   * fixed English string in earlier versions, and a create-only write would leave
+   * that string standing on every installation that already has it.
    */
   async markLegacyCleanupDone() {
-    await this.adapter.setObjectNotExistsAsync("info.legacyMigrated", {
+    await this.adapter.extendObjectAsync("info.legacyMigrated", {
       type: "state",
       common: {
-        name: "Legacy state cleanup completed",
+        name: (0, import_i18n.tName)("legacyMigrated"),
+        desc: (0, import_i18n.tName)("legacyMigratedDesc"),
         type: "boolean",
         role: "indicator",
         read: true,
@@ -974,21 +1005,35 @@ class StateManager {
     return prefix;
   }
   /**
-   * Ensure a channel object exists. Skips the DB lookup once `id` is in the
-   * cache — channels are static after first creation per device.
+   * Ensure a channel object exists and carries the current name. Skips the DB
+   * write once `id` is in the cache — channels are static after first creation
+   * per device.
    *
-   * @param id   Full channel ID (`<prefix>.<channelName>`).
-   * @param name Display name (translation object or device-supplied string).
+   * `extendObject`, not `setObjectNotExists`: a create-only write freezes the
+   * name on every installation that already has the channel, so a renamed or
+   * newly translated channel would only ever reach fresh installations.
+   *
+   * @param id              Full channel ID (`<prefix>.<channelName>`).
+   * @param name            Display name (translation object or device-supplied string).
+   * @param deviceOwnedName `true` when the name comes from the device (external
+   *   meter type) — then the stored name is preserved, because a user may have
+   *   renamed it and the adapter does not own that text. Adapter-owned names
+   *   (everything translated) must NOT preserve.
    */
-  async ensureChannel(id, name) {
+  async ensureChannel(id, name, deviceOwnedName = false) {
     if (this.createdIds.has(id)) {
       return;
     }
-    await this.adapter.setObjectNotExistsAsync(id, {
+    const obj = {
       type: "channel",
       common: { name: typeof name === "function" ? name() : name },
       native: {}
-    });
+    };
+    if (deviceOwnedName) {
+      await this.adapter.extendObjectAsync(id, obj, { preserve: { common: ["name"] } });
+    } else {
+      await this.adapter.extendObjectAsync(id, obj);
+    }
     this.createdIds.add(id);
   }
   /**
@@ -1023,15 +1068,11 @@ class StateManager {
     if (def.states) {
       common.states = def.states;
     }
-    await this.adapter.extendObjectAsync(
-      def.id,
-      {
-        type: "state",
-        common,
-        native: {}
-      },
-      { preserve: { common: ["name"] } }
-    );
+    await this.adapter.extendObjectAsync(def.id, {
+      type: "state",
+      common,
+      native: {}
+    });
     if (def.states) {
       await this.repairCommonStatesIfBuggy(def.id, def.states);
     }
@@ -1087,7 +1128,7 @@ class StateManager {
     if (desc) {
       common.desc = desc;
     }
-    await this.adapter.setObjectNotExistsAsync(id, {
+    await this.adapter.extendObjectAsync(id, {
       type: "state",
       common,
       native: {}
