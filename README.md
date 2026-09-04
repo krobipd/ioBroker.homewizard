@@ -201,6 +201,11 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 0.18.1 (2026-09-04)
+
+- Fixed: corrected data point names now also reach devices that are currently offline — until now they waited for the device to answer again, which for a meter with a weak signal could mean never.
+- Changed: the object tree no longer holds the `info.legacyMigrated` data point, which never carried any information about your devices or their readings.
+
 ### 0.18.0 (2026-09-04)
 
 - Fixed: a device that keeps answering while its push connection is down is no longer shown as not connected — the status describes the device now, not one connection type.
@@ -231,11 +236,6 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 ### 0.15.1 (2026-08-22)
 
 - Improved: The adapter needs noticeably less processing power on installations whose devices send a new reading every second.
-
-### 0.15.0 (2026-07-13) — stable
-
-- A device that rejects the adapter's token now stops retrying and warns you to re-pair it, instead of quietly retrying in the background
-- When pairing a device that connects but cannot be added, the adapter now tells you once so you can try again, instead of silently retrying
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

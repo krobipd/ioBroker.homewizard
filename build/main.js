@@ -205,8 +205,43 @@ class HomeWizard extends utils.Adapter {
       native: {}
     });
   }
+  /**
+   * Bring existing objects to this version's labels, and clear the retired markers.
+   *
+   * Almost everything below a device is written only while the device sends data, so
+   * on an installation whose meter is silent — the weak-signal case this adapter is
+   * built for — a corrected label would wait for the device to come back, possibly
+   * forever. This walks the label table instead and refreshes what is already in the
+   * tree. Nothing is created: an object the device never reported stays absent.
+   *
+   * Runs on every start, without a marker state. It costs one object query (which the
+   * device load needs anyway) plus one write per existing object — far less than the
+   * adapter does in a second of normal operation, and the price for not parking
+   * adapter bookkeeping in a user's object tree.
+   *
+   * A failure is not fatal: labels stay as they are and the next start retries.
+   *
+   * @param devices     The devices loaded from their objects.
+   * @param existingIds Every id in this namespace, already fetched by the caller.
+   */
+  async refreshDeviceLabels(devices, existingIds) {
+    try {
+      const dropped = await this.stateManager.removeRetiredMarkers(existingIds);
+      for (const id of dropped) {
+        this.log.info(`Removed the obsolete internal data point ${id}`);
+      }
+      let refreshed = 0;
+      for (const device of devices) {
+        refreshed += await this.stateManager.refreshExistingNames(device, existingIds);
+      }
+      if (refreshed > 0) {
+        this.log.debug(`Refreshed the labels of ${refreshed} existing object(s)`);
+      }
+    } catch (err) {
+      this.log.debug(`Could not refresh the object labels: ${(0, import_coerce.errText)(err)}`);
+    }
+  }
   async onReady() {
-    var _a;
     try {
       if (await this.clearStopInstanceFlag()) {
         return;
@@ -237,12 +272,10 @@ class HomeWizard extends utils.Adapter {
         this.log.info(`No devices configured \u2014 set 'startPairing' to true to add a device`);
         await this.setStateChangedAsync("info.connection", { val: false, ack: true });
       }
-      const legacyCleanupDone = ((_a = await this.getStateAsync("info.legacyMigrated")) == null ? void 0 : _a.val) === true;
+      const existingIds = new Set(Object.keys(await this.getAdapterObjectsAsync()));
       for (const device of devices) {
         const key = this.stateManager.devicePrefix(device);
-        if (!legacyCleanupDone) {
-          await this.stateManager.cleanupMovedStates(device);
-        }
+        await this.stateManager.cleanupMovedStates(device, existingIds);
         await this.stateManager.createDeviceStates(device);
         await this.stateManager.setDeviceConnected(device, false);
         const conn = (0, import_connection_utils.createDeviceConnection)(device, device.ip || "");
@@ -254,14 +287,12 @@ class HomeWizard extends utils.Adapter {
           );
         }
       }
+      await this.refreshDeviceLabels(devices, existingIds);
       if (devices.some((device) => !device.ip)) {
         for (const device of devices.filter((d) => !d.ip)) {
           this.log.warn(`${device.productName}: no usable IP address stored \u2014 searching for the device via mDNS`);
         }
         this.startIpRecovery();
-      }
-      if (!legacyCleanupDone) {
-        await this.stateManager.markLegacyCleanupDone();
       }
       this.systemPollTimer = this.setInterval(() => {
         void this.pollAllSystemInfo();

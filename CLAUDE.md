@@ -134,6 +134,16 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     Werten zu altern. Ausgewertet wird am 60-s-Poll, nicht am 1-Hz-Push: ein einzelner Aussetzer würde
     sonst den Objektbaum durchwalken und die Historie zerschneiden.
 
+27. **Die Namen werden bei JEDEM Start aufgefrischt — ohne Merker** (seit v0.18.1). v0.18.0 machte die
+    Namen erreichbar, aber der Baum einer bestehenden Anlage trug sie trotzdem noch als feste Strings:
+    Objekte, die vor der Übersetzungs-Umstellung entstanden sind, werden von `extendObject` nur dann
+    berührt, wenn der Adapter sie in dieser Runde überhaupt anfasst. `refreshExistingNames()` läuft
+    deshalb über die vorhandene Objektliste und überschreibt das Namensfeld — es legt nichts an und
+    braucht keinen Merker im Baum. Ein Versions-Merker wäre sogar schädlich: er entscheidet über die
+    Auffrischung, altert still mit und ist ein Datenpunkt, den niemand bestellt hat. `removeRetiredMarkers()`
+    räumt die zwei Merker früherer Versuche (`info.legacyMigrated`, `info.labelsVersion`) bei
+    Bestandsanlagen ab.
+
 ## Error-Handling (seit v0.3.5)
 
 Folgt beszel/parcelapp Pattern:
@@ -182,7 +192,7 @@ P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630),
 
 **Außerhalb des Scope (final, nicht „noch nicht"):** Energy Socket (HWE-SKT), Watermeter (HWE-WTR), Energy Display (HWE-DSP). Diese Geräte sprechen nur die deprecated v1-API. Adapter ist v2-only — siehe Design-Entscheidung 5.
 
-## Tests (453 unit + 57 package = 510)
+## Tests (459 unit + 57 package = 516)
 
 ## Multi-Language (seit v0.7.0)
 

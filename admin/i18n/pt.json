@@ -127,8 +127,6 @@
   "devicesTotal": "Dispositivos no total",
   "devicesOnline": "Dispositivos online",
   "devicesAllOnline": "Todos os dispositivos online",
-  "legacyMigrated": "Limpeza de dados antigos concluída",
-  "legacyMigratedDesc": "Marcador interno: a remoção única de pontos de dados de versões anteriores do adaptador foi executada.",
   "pairingIpDesc": "Endereço IP do dispositivo a emparelhar, para redes onde a deteção mDNS não o alcança. Defina antes de iniciar o modo de emparelhamento.",
   "infoConnectionDesc": "Verdadeiro enquanto pelo menos um dispositivo emparelhado responder ao adaptador.",
   "devicesTotalDesc": "Quantos dispositivos estão emparelhados com esta instância — o valor mantém-se quando o adaptador é parado.",

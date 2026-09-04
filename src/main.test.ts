@@ -142,7 +142,8 @@ interface FakeStateMgr {
   updateBattery: ReturnType<typeof vi.fn>;
   createDeviceStates: ReturnType<typeof vi.fn>;
   cleanupMovedStates: ReturnType<typeof vi.fn>;
-  markLegacyCleanupDone: ReturnType<typeof vi.fn>;
+  removeRetiredMarkers: ReturnType<typeof vi.fn>;
+  refreshExistingNames: ReturnType<typeof vi.fn>;
   removeBatteryStates: ReturnType<typeof vi.fn>;
 }
 
@@ -205,7 +206,8 @@ function setup(): {
     updateBattery: vi.fn(async () => {}),
     createDeviceStates: vi.fn(async () => {}),
     cleanupMovedStates: vi.fn(async () => {}),
-    markLegacyCleanupDone: vi.fn(async () => {}),
+    removeRetiredMarkers: vi.fn(() => Promise.resolve([] as string[])),
+    refreshExistingNames: vi.fn(() => Promise.resolve(0)),
     removeBatteryStates: vi.fn(() => Promise.resolve(false)),
   };
   internal.stateManager = stateMgr;
@@ -1041,7 +1043,7 @@ describe("HomeWizard onReady", () => {
 
   // Note: onReady builds its own real StateManager (main.ts), so these assert on
   // the adapter's marker write, not on the injected fake stateMgr.
-  it("records the one-shot legacy marker when it is not yet set (I6)", async () => {
+  it("writes no legacy marker any more — the sweep works off the object list", async () => {
     const { hw } = setup();
     const i = internalOf(hw);
     i.connections.clear();
@@ -1051,11 +1053,15 @@ describe("HomeWizard onReady", () => {
         native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
       },
     });
-    // getStateAsync defaults to null → marker not set → cleanup runs + marker written
+
     await i.onReady();
     await settle();
 
-    expect(i.setStateAsync).toHaveBeenCalledWith("info.legacyMigrated", { val: true, ack: true });
+    // `info.legacyMigrated` existed only to skip ~62 getObject probes per device.
+    // The object list the device load fetches anyway does that job, so the marker
+    // is gone — adapter bookkeeping has no place in a user's object tree.
+    expect(i.setStateAsync).not.toHaveBeenCalledWith("info.legacyMigrated", expect.anything());
+    expect(i.setStateAsync).not.toHaveBeenCalledWith("info.labelsVersion", expect.anything());
   });
 
   it("does not re-write the legacy marker when it is already set (I6)", async () => {
@@ -2061,5 +2067,35 @@ describe("the fallback claim does not survive a WebSocket drop", () => {
     // marker chain exists to prevent.
     expect(conn.restHealthy).toBe(false);
     expect(i.connectionManager.isDeviceOnline(conn)).toBe(false);
+  });
+});
+
+describe("labels of existing objects are brought up to date at start", () => {
+  interface LabelHost {
+    refreshDeviceLabels: (devices: unknown[], ids: Set<string>) => Promise<void>;
+  }
+
+  it("clears the retired markers and refreshes every device's labels", async () => {
+    const { hw, conn, stateMgr } = setup();
+    stateMgr.removeRetiredMarkers.mockResolvedValue(["info.legacyMigrated"]);
+    stateMgr.refreshExistingNames.mockResolvedValue(7);
+    const ids = new Set(["homewizard.0.info.legacyMigrated"]);
+
+    await (hw as unknown as LabelHost).refreshDeviceLabels([conn.config], ids);
+
+    // Without this pass a corrected label waits for the device to send data —
+    // on a meter that is offline for days, that means it never arrives.
+    expect(stateMgr.removeRetiredMarkers).toHaveBeenCalledWith(ids);
+    expect(stateMgr.refreshExistingNames).toHaveBeenCalledWith(conn.config, ids);
+    expect(internalOf(hw).log.info).toHaveBeenCalledWith(expect.stringContaining("info.legacyMigrated"));
+  });
+
+  it("survives a failure without stopping the start-up", async () => {
+    const { hw, conn, stateMgr } = setup();
+    stateMgr.removeRetiredMarkers.mockRejectedValue(new Error("db down"));
+
+    await (hw as unknown as LabelHost).refreshDeviceLabels([conn.config], new Set());
+
+    expect(internalOf(hw).log.debug).toHaveBeenCalledWith(expect.stringContaining("Could not refresh"));
   });
 });

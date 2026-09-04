@@ -491,6 +491,92 @@ export const MOMENTARY_KEYS = new Set<string>([
   "power_factor_l3",
 ]);
 
+/** An object under a device prefix whose name and description the ADAPTER owns. */
+interface LabelledObject {
+  /** ID relative to the device prefix. */
+  id: string;
+  /** Object type — needed when `extendObject` has to create nothing but merge. */
+  kind: "channel" | "state";
+  /** Translation key for `common.name`. */
+  nameKey: I18nKey;
+  /** Optional translation key for `common.desc`. */
+  descKey?: I18nKey;
+}
+
+/**
+ * Every object under a device prefix that carries an adapter-owned label.
+ *
+ * This is what the name retrofit walks (see {@link StateManager.refreshExistingNames}).
+ * It exists because most of these objects are only ever written while device data
+ * flows: a meter that is offline — the P1 in a cellar hallway this adapter is built
+ * for — keeps the labels of whatever version created them, however correct the write
+ * path is. The retrofit reaches them without the device.
+ *
+ * The list is NOT a second copy of the naming: the measurement entries are derived
+ * from {@link MEASUREMENT_STATE_DEFS}, and `state-manager.test.ts` drives a full
+ * pass over every writing path and fails if it produces an object that is missing
+ * here. A new datapoint therefore cannot silently escape the retrofit.
+ *
+ * Deliberately absent: the device object itself and the external-meter channels —
+ * their names come from the device, not from this adapter (see the `preserve`
+ * argument of {@link StateManager.ensureChannel}).
+ */
+const DEVICE_LABELLED_OBJECTS: LabelledObject[] = [
+  { id: "info", kind: "channel", nameKey: "deviceInformation" },
+  { id: "info.productName", kind: "state", nameKey: "productName" },
+  { id: "info.productType", kind: "state", nameKey: "productType" },
+  { id: "info.firmware", kind: "state", nameKey: "firmware" },
+  { id: "info.connected", kind: "state", nameKey: "connected", descKey: "connectedDesc" },
+  { id: "info.wifi_ssid", kind: "state", nameKey: "wifiSsid" },
+  { id: "info.wifi_rssi_db", kind: "state", nameKey: "wifiRssi" },
+  { id: "info.uptime_s", kind: "state", nameKey: "uptime" },
+  { id: "remove", kind: "state", nameKey: "removeDevice", descKey: "removeDeviceDesc" },
+  { id: "measurement", kind: "channel", nameKey: "measurement" },
+  { id: "measurement.quality", kind: "channel", nameKey: "powerQuality" },
+  { id: "measurement.external", kind: "channel", nameKey: "externalMeters" },
+  ...MEASUREMENT_STATE_DEFS.map((d): LabelledObject => ({
+    id: `measurement.${d.id}`,
+    kind: "state",
+    nameKey: d.nameKey,
+    ...(d.descKey ? { descKey: d.descKey } : {}),
+  })),
+  { id: "system", kind: "channel", nameKey: "systemSettings" },
+  { id: "system.cloud_enabled", kind: "state", nameKey: "cloudEnabled" },
+  { id: "system.status_led_brightness_pct", kind: "state", nameKey: "ledBrightness" },
+  { id: "system.api_v1_enabled", kind: "state", nameKey: "apiV1Enabled" },
+  { id: "system.reboot", kind: "state", nameKey: "rebootDevice" },
+  { id: "system.identify", kind: "state", nameKey: "identify" },
+  { id: "battery", kind: "channel", nameKey: "batteryControl" },
+  { id: "battery.mode", kind: "state", nameKey: "batteryMode", descKey: "batteryModeDesc" },
+  { id: "battery.permissions", kind: "state", nameKey: "batteryPermissions" },
+  { id: "battery.charge_to_full", kind: "state", nameKey: "batteryChargeToFull" },
+  { id: "battery.battery_count", kind: "state", nameKey: "batteryCount" },
+  { id: "battery.power_w", kind: "state", nameKey: "batteryPower" },
+  { id: "battery.target_power_w", kind: "state", nameKey: "batteryTargetPower" },
+  { id: "battery.max_consumption_w", kind: "state", nameKey: "batteryMaxConsumption" },
+  { id: "battery.max_production_w", kind: "state", nameKey: "batteryMaxProduction" },
+];
+
+/** Exported for the drift test only — production code reaches it via the retrofit. */
+export const LABELLED_OBJECT_IDS: readonly string[] = DEVICE_LABELLED_OBJECTS.map(o => o.id);
+
+/**
+ * The three datapoints below an external meter (`measurement.external.<type>_<id>`).
+ *
+ * They cannot sit in {@link DEVICE_LABELLED_OBJECTS} because the channel segment
+ * between them and the prefix is device-supplied and only known at runtime — but
+ * the leaf labels are the adapter's own, so the retrofit has to reach them by
+ * pattern. The channel itself keeps its device-given name.
+ */
+const EXTERNAL_METER_LEAVES: Record<string, I18nKey> = {
+  value: "externalValue",
+  unit: "externalUnit",
+  timestamp: "externalTimestamp",
+};
+
+/** Exported for the drift test only. */
+export const EXTERNAL_METER_LEAF_KEYS: readonly string[] = Object.keys(EXTERNAL_METER_LEAVES);
+
 /**
  * The measurement keys that live under `measurement.quality`. Precomputed once:
  * deciding whether the quality channel is needed happens on every ~1 Hz push per
@@ -1054,6 +1140,83 @@ export class StateManager {
   }
 
   /**
+   * Bring the labels of ALREADY EXISTING device objects up to the current version,
+   * without waiting for the device to send anything.
+   *
+   * Nearly every object under a device prefix is written from `updateMeasurement`,
+   * `updateSystem` or `updateBattery` — paths that only run while data flows. On an
+   * installation whose meter is silent (the weak-signal case this adapter exists
+   * for) a corrected or newly translated label would therefore arrive whenever the
+   * device comes back, or never. The write paths are right; they are just not
+   * reached. This walks {@link DEVICE_LABELLED_OBJECTS} instead and refreshes what
+   * is already in the tree.
+   *
+   * Only name and description are written: role, type, unit and bounds keep coming
+   * from the regular create path, and nothing is CREATED here — an object the device
+   * never reported stays absent.
+   *
+   * @param config      Device configuration.
+   * @param existingIds Full ids currently in the adapter namespace (one object query
+   *   for all devices, instead of ~70 probes per device).
+   * @returns how many objects were refreshed
+   */
+  async refreshExistingNames(config: DeviceConfig, existingIds: ReadonlySet<string>): Promise<number> {
+    const prefix = this.devicePrefix(config);
+    let refreshed = 0;
+    for (const spec of DEVICE_LABELLED_OBJECTS) {
+      const id = `${prefix}.${spec.id}`;
+      if (!existingIds.has(`${this.adapter.namespace}.${id}`)) {
+        continue;
+      }
+      const common: Record<string, unknown> = { name: tName(spec.nameKey) };
+      if (spec.descKey) {
+        common.desc = tName(spec.descKey);
+      }
+      // No `preserve`: these labels are the adapter's own text. No createdIds entry
+      // either — the full create path (role/type/unit/min/max) must still run when
+      // the device reports the field.
+      if (spec.kind === "channel") {
+        await this.adapter.extendObjectAsync(id, {
+          type: "channel",
+          common: common,
+          native: {},
+        });
+      } else {
+        await this.adapter.extendObjectAsync(id, {
+          type: "state",
+          common: common,
+          native: {},
+        });
+      }
+      refreshed++;
+    }
+
+    // External meters: the channel segment is device-supplied, so these three
+    // leaves can only be reached by pattern (see EXTERNAL_METER_LEAVES).
+    const externalPrefix = `${this.adapter.namespace}.${prefix}.measurement.external.`;
+    for (const fullId of existingIds) {
+      if (!fullId.startsWith(externalPrefix)) {
+        continue;
+      }
+      const rest = fullId.slice(externalPrefix.length).split(".");
+      if (rest.length !== 2) {
+        continue;
+      }
+      const nameKey = EXTERNAL_METER_LEAVES[rest[1]];
+      if (!nameKey) {
+        continue;
+      }
+      await this.adapter.extendObjectAsync(fullId.slice(`${this.adapter.namespace}.`.length), {
+        type: "state",
+        common: { name: tName(nameKey) },
+        native: {},
+      });
+      refreshed++;
+    }
+    return refreshed;
+  }
+
+  /**
    * Remove a device's whole `battery` branch — used when the meter reports that
    * no batteries are connected any more.
    *
@@ -1084,11 +1247,12 @@ export class StateManager {
    * Remove obsolete states: pre-v0.4.0 device-root paths (now under measurement/) plus
    * states retired in later versions (v0.11.0: raw P1 telegram).
    *
-   * @param config Device configuration
+   * @param config      Device configuration
+   * @param existingIds Full ids currently in the adapter namespace — the sweep is a
+   *   set lookup instead of ~62 `getObject` probes per device.
    */
-  async cleanupMovedStates(config: DeviceConfig): Promise<void> {
+  async cleanupMovedStates(config: DeviceConfig, existingIds: ReadonlySet<string>): Promise<void> {
     const prefix = this.devicePrefix(config);
-    this.adapter.log.debug(`state-manager: cleanupMovedStates ${prefix} (scanning pre-v0.4.0 paths)`);
 
     // Old paths: states were at device root, now under measurement/
     const oldIds: string[] = [];
@@ -1100,13 +1264,19 @@ export class StateManager {
     // Retired in v0.11.0: raw P1 telegram (DSMR passthrough, not part of the v2 data model)
     oldIds.push(`${prefix}.measurement.telegram`);
 
+    // Decided against the object store: the caller already holds every id in this
+    // namespace, so the ~62 `getObject` probes this used to fire per device are a
+    // set lookup now. That is also what made the old `info.legacyMigrated` marker
+    // unnecessary — it existed only to skip those probes, and an internal marker
+    // has no business sitting in a user's object tree.
     let removed = 0;
     for (const id of oldIds) {
-      if (await this.adapter.getObjectAsync(id)) {
-        await this.adapter.delObjectAsync(id, { recursive: true });
-        this.adapter.log.debug(`Removed obsolete state: ${id}`);
-        removed++;
+      if (!existingIds.has(`${this.adapter.namespace}.${id}`)) {
+        continue;
       }
+      await this.adapter.delObjectAsync(id, { recursive: true });
+      this.adapter.log.debug(`Removed obsolete state: ${id}`);
+      removed++;
     }
     if (removed > 0) {
       this.adapter.log.debug(`state-manager: cleanupMovedStates ${prefix} done (removed ${removed} obsolete paths)`);
@@ -1114,29 +1284,27 @@ export class StateManager {
   }
 
   /**
-   * I6: mark the pre-v0.4.0/v0.11.0 legacy-state cleanup as complete so later
-   * restarts skip the per-device scan. A write-once indicator state at the adapter
-   * root. Idempotent — the value only ever flips false→true.
+   * Drop the retired internal markers.
    *
-   * `extendObject` + translated name/description: the state was created with a
-   * fixed English string in earlier versions, and a create-only write would leave
-   * that string standing on every installation that already has it.
+   * `info.legacyMigrated` noted that a one-off cleanup had run, `info.labelsVersion`
+   * which version the labels were brought to. Both were adapter bookkeeping in a
+   * USER's object tree, and neither is needed: the cleanup and the label retrofit
+   * both work off the object list the adapter already holds. The adapter owns its
+   * datapoint inventory, so it clears them instead of leaving them lying around.
+   *
+   * @param existingIds Full ids currently in the adapter namespace.
+   * @returns the ids that were actually removed
    */
-  async markLegacyCleanupDone(): Promise<void> {
-    await this.adapter.extendObjectAsync("info.legacyMigrated", {
-      type: "state",
-      common: {
-        name: tName("legacyMigrated"),
-        desc: tName("legacyMigratedDesc"),
-        type: "boolean",
-        role: "indicator",
-        read: true,
-        write: false,
-        def: false,
-      },
-      native: {},
-    });
-    await this.adapter.setStateAsync("info.legacyMigrated", { val: true, ack: true });
+  async removeRetiredMarkers(existingIds: ReadonlySet<string>): Promise<string[]> {
+    const removed: string[] = [];
+    for (const id of ["info.legacyMigrated", "info.labelsVersion"]) {
+      if (!existingIds.has(`${this.adapter.namespace}.${id}`)) {
+        continue;
+      }
+      await this.adapter.delObjectAsync(id);
+      removed.push(id);
+    }
+    return removed;
   }
 
   /**

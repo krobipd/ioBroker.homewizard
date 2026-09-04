@@ -127,8 +127,6 @@
   "devicesTotal": "Dispositivos en total",
   "devicesOnline": "Dispositivos en línea",
   "devicesAllOnline": "Todos los dispositivos en línea",
-  "legacyMigrated": "Limpieza de datos antiguos completada",
-  "legacyMigratedDesc": "Marcador interno: la eliminación única de puntos de datos de versiones anteriores del adaptador se ha ejecutado.",
   "pairingIpDesc": "Dirección IP del dispositivo que se va a emparejar, para redes donde la detección mDNS no lo alcanza. Configúrala antes de iniciar el modo de emparejamiento.",
   "infoConnectionDesc": "Verdadero mientras al menos un dispositivo emparejado responda al adaptador.",
   "devicesTotalDesc": "Cuántos dispositivos están emparejados con esta instancia — el valor se mantiene al detener el adaptador.",

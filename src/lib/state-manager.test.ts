@@ -23,7 +23,13 @@ vi.mock("@iobroker/adapter-core", () => {
 });
 
 import { I18n } from "@iobroker/adapter-core";
-import { MEASUREMENT_STATE_DEFS, MOMENTARY_KEYS, StateManager } from "./state-manager";
+import {
+  EXTERNAL_METER_LEAF_KEYS,
+  LABELLED_OBJECT_IDS,
+  MEASUREMENT_STATE_DEFS,
+  MOMENTARY_KEYS,
+  StateManager,
+} from "./state-manager";
 import type { DeviceConfig, Measurement, SystemInfo, BatteryControl } from "./types";
 
 interface CommonNameTranslated {
@@ -1218,7 +1224,6 @@ describe("name ownership — which objects may keep their stored name", () => {
       api_v1_enabled: false,
     });
     await manager.updateBattery(device, { mode: "zero", battery_count: 1, charge_to_full: false });
-    await manager.markLegacyCleanupDone();
 
     // `preserve: { common: ["name"] }` keeps whatever name is already stored. That
     // is right exactly where the adapter does not own the text — the device object
@@ -1245,7 +1250,6 @@ describe("name ownership — which objects may keep their stored name", () => {
       status_led_brightness_pct: 50,
     });
     await manager.updateBattery(device, { mode: "zero", battery_count: 1 });
-    await manager.markLegacyCleanupDone();
 
     // setObjectNotExists writes only when the object is missing, so a changed
     // name or description would land on fresh installations only. Channels,
@@ -1270,16 +1274,25 @@ describe("the legacy-cleanup marker and the quality channel", () => {
     manager = new StateManager(adapter as never);
   });
 
-  it("gives info.legacyMigrated a translated name and description, not a fixed string", async () => {
-    // The state-role gate rejects a plain string in common.name — and a fixed
-    // English label would be the only untranslated object in the whole tree.
-    await manager.markLegacyCleanupDone();
-    const obj = adapter.objects.get("info.legacyMigrated");
-    expect(obj).toBeDefined();
-    expect(typeof obj!.common.name).toBe("object");
-    expect(obj!.common.name).toEqual(expect.objectContaining({ en: expect.any(String), de: expect.any(String) }));
-    expect(typeof obj!.common.desc).toBe("object");
-    expect(adapter.states.get("info.legacyMigrated")?.val).toBe(true);
+  it("removes the retired internal markers instead of relabelling them", async () => {
+    // They were adapter bookkeeping in a USER's object tree: one noted that a
+    // one-off cleanup had run, the other which version the labels came from.
+    // Neither is needed — both jobs work off the object list — and neither was
+    // ever something a user asked for.
+    adapter.objects.set("info.legacyMigrated", { type: "state", common: { name: "x" }, native: {} });
+    adapter.objects.set("info.labelsVersion", { type: "state", common: { name: "y" }, native: {} });
+
+    const removed = await manager.removeRetiredMarkers(
+      new Set(["homewizard.0.info.legacyMigrated", "homewizard.0.info.labelsVersion"]),
+    );
+
+    expect(removed.sort()).toEqual(["info.labelsVersion", "info.legacyMigrated"]);
+    expect(adapter.objects.has("info.legacyMigrated")).toBe(false);
+    expect(adapter.objects.has("info.labelsVersion")).toBe(false);
+  });
+
+  it("reports nothing when the retired markers are not there", async () => {
+    expect(await manager.removeRetiredMarkers(new Set())).toEqual([]);
   });
 
   it("creates the quality channel before the power-quality counters live under it", async () => {
@@ -1302,5 +1315,112 @@ describe("the legacy-cleanup marker and the quality channel", () => {
   it("does not create the quality channel for a device that reports no counters", async () => {
     await manager.updateMeasurement(device, { power_w: 100 });
     expect(adapter.objects.has("hwe-p1_aabbccddeeff.measurement.quality")).toBe(false);
+  });
+});
+
+describe("the label retrofit covers every object the adapter names itself", () => {
+  let adapter: MockAdapter;
+  let manager: StateManager;
+
+  const device: DeviceConfig = {
+    token: "t",
+    productType: "HWE-P1",
+    serial: "aabbccddeeff",
+    productName: "P1 Meter",
+  };
+  const prefix = "hwe-p1_aabbccddeeff";
+
+  beforeEach(() => {
+    adapter = createMockAdapter();
+    manager = new StateManager(adapter as never);
+  });
+
+  /** Drive every writing path with a payload that produces all optional objects. */
+  async function fullPass(): Promise<void> {
+    await manager.createDeviceStates(device);
+    const measurement: Record<string, unknown> = {
+      external: [{ type: "gas_meter", unique_id: "g1", value: 12.5, unit: "m3", timestamp: "2026-09-04T09:00" }],
+    };
+    for (const def of MEASUREMENT_STATE_DEFS) {
+      measurement[def.key] = def.type === "number" ? 1 : "x";
+    }
+    await manager.updateMeasurement(device, measurement);
+    await manager.updateSystem(device, {
+      wifi_ssid: "net",
+      wifi_rssi_db: -50,
+      uptime_s: 10,
+      cloud_enabled: true,
+      status_led_brightness_pct: 50,
+      api_v1_enabled: false,
+    });
+    await manager.updateBattery(device, {
+      mode: "zero",
+      permissions: [],
+      charge_to_full: false,
+      battery_count: 1,
+      power_w: 10,
+      target_power_w: 20,
+      max_consumption_w: 30,
+      max_production_w: 40,
+    } as unknown as BatteryControl);
+  }
+
+  it("lists every adapter-named object a full pass creates", async () => {
+    await fullPass();
+
+    // Names that come from the DEVICE, not from this adapter — the device object
+    // and the external-meter channel — are deliberately not retrofitted.
+    const deviceOwned = new Set([prefix, `${prefix}.measurement.external.gas_meter_g1`]);
+    const created = [...adapter.objects.keys()]
+      .filter(id => id.startsWith(prefix) && !deviceOwned.has(id))
+      .map(id => id.slice(prefix.length + 1));
+
+    const covered = new Set(LABELLED_OBJECT_IDS);
+    // The three leaves below an external meter sit behind a device-supplied channel
+    // segment, so the retrofit reaches them by pattern instead of by fixed id.
+    const externalLeaf = /^measurement\.external\.[^.]+\.([^.]+)$/;
+    const missing = created.filter(id => {
+      if (covered.has(id)) {
+        return false;
+      }
+      const leaf = externalLeaf.exec(id);
+      return !(leaf && EXTERNAL_METER_LEAF_KEYS.includes(leaf[1]));
+    });
+    // A new datapoint that nobody adds to DEVICE_LABELLED_OBJECTS would silently
+    // keep the label of whatever version created it on every installation whose
+    // device is quiet. This list is the only thing that notices.
+    expect(missing, "objects created but not covered by the retrofit").toEqual([]);
+  });
+
+  it("refreshes exactly the objects that already exist, and creates none", async () => {
+    await fullPass();
+    // Simulate an upgraded installation: the tree holds the objects, but with the
+    // labels of an older version.
+    for (const [id, obj] of adapter.objects) {
+      if (id.startsWith(prefix)) {
+        obj.common.name = "old label";
+      }
+    }
+    const before = adapter.objects.size;
+    const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+
+    const refreshed = await manager.refreshExistingNames(device, existing);
+
+    expect(refreshed).toBeGreaterThan(20);
+    expect(adapter.objects.size, "the retrofit must not create objects").toBe(before);
+    expect(adapter.objects.get(`${prefix}.measurement.power_w`)!.common.name).toEqual(
+      expect.objectContaining({ en: expect.any(String) }),
+    );
+    expect(adapter.objects.get(`${prefix}.system.reboot`)!.common.name).toEqual(
+      expect.objectContaining({ en: expect.any(String) }),
+    );
+    // The device-supplied names stay as they are.
+    expect(adapter.objects.get(prefix)!.common.name).toBe("old label");
+  });
+
+  it("touches nothing for a device whose objects are not in the tree", async () => {
+    const refreshed = await manager.refreshExistingNames(device, new Set());
+    expect(refreshed).toBe(0);
+    expect(adapter.objects.size).toBe(0);
   });
 });

@@ -127,8 +127,6 @@
   "devicesTotal": "Dispositivi totali",
   "devicesOnline": "Dispositivi online",
   "devicesAllOnline": "Tutti i dispositivi online",
-  "legacyMigrated": "Pulizia dei dati obsoleti completata",
-  "legacyMigratedDesc": "Marcatore interno: la rimozione una tantum dei punti dati delle versioni precedenti dell'adattatore è stata eseguita.",
   "pairingIpDesc": "Indirizzo IP del dispositivo da accoppiare, per reti in cui la rilevazione mDNS non lo raggiunge. Impostalo prima di avviare la modalità di accoppiamento.",
   "infoConnectionDesc": "Vero finché almeno un dispositivo accoppiato risponde all'adattatore.",
   "devicesTotalDesc": "Quanti dispositivi sono accoppiati a questa istanza — il valore resta anche all'arresto dell'adattatore.",

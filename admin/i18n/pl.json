@@ -127,8 +127,6 @@
   "devicesTotal": "Urządzenia łącznie",
   "devicesOnline": "Urządzenia online",
   "devicesAllOnline": "Wszystkie urządzenia online",
-  "legacyMigrated": "Czyszczenie starych danych zakończone",
-  "legacyMigratedDesc": "Znacznik wewnętrzny: jednorazowe usunięcie punktów danych ze starszych wersji adaptera zostało wykonane.",
   "pairingIpDesc": "Adres IP urządzenia do sparowania, dla sieci, w których wykrywanie mDNS go nie osiąga. Ustaw przed uruchomieniem trybu parowania.",
   "infoConnectionDesc": "Prawda, dopóki co najmniej jedno sparowane urządzenie odpowiada adapterowi.",
   "devicesTotalDesc": "Ile urządzeń jest sparowanych z tą instancją — wartość pozostaje także po zatrzymaniu adaptera.",

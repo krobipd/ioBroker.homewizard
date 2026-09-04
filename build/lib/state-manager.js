@@ -18,6 +18,8 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var state_manager_exports = {};
 __export(state_manager_exports, {
+  EXTERNAL_METER_LEAF_KEYS: () => EXTERNAL_METER_LEAF_KEYS,
+  LABELLED_OBJECT_IDS: () => LABELLED_OBJECT_IDS,
   MEASUREMENT_STATE_DEFS: () => MEASUREMENT_STATE_DEFS,
   MOMENTARY_KEYS: () => MOMENTARY_KEYS,
   StateManager: () => StateManager
@@ -443,6 +445,48 @@ const MOMENTARY_KEYS = /* @__PURE__ */ new Set([
   "power_factor_l2",
   "power_factor_l3"
 ]);
+const DEVICE_LABELLED_OBJECTS = [
+  { id: "info", kind: "channel", nameKey: "deviceInformation" },
+  { id: "info.productName", kind: "state", nameKey: "productName" },
+  { id: "info.productType", kind: "state", nameKey: "productType" },
+  { id: "info.firmware", kind: "state", nameKey: "firmware" },
+  { id: "info.connected", kind: "state", nameKey: "connected", descKey: "connectedDesc" },
+  { id: "info.wifi_ssid", kind: "state", nameKey: "wifiSsid" },
+  { id: "info.wifi_rssi_db", kind: "state", nameKey: "wifiRssi" },
+  { id: "info.uptime_s", kind: "state", nameKey: "uptime" },
+  { id: "remove", kind: "state", nameKey: "removeDevice", descKey: "removeDeviceDesc" },
+  { id: "measurement", kind: "channel", nameKey: "measurement" },
+  { id: "measurement.quality", kind: "channel", nameKey: "powerQuality" },
+  { id: "measurement.external", kind: "channel", nameKey: "externalMeters" },
+  ...MEASUREMENT_STATE_DEFS.map((d) => ({
+    id: `measurement.${d.id}`,
+    kind: "state",
+    nameKey: d.nameKey,
+    ...d.descKey ? { descKey: d.descKey } : {}
+  })),
+  { id: "system", kind: "channel", nameKey: "systemSettings" },
+  { id: "system.cloud_enabled", kind: "state", nameKey: "cloudEnabled" },
+  { id: "system.status_led_brightness_pct", kind: "state", nameKey: "ledBrightness" },
+  { id: "system.api_v1_enabled", kind: "state", nameKey: "apiV1Enabled" },
+  { id: "system.reboot", kind: "state", nameKey: "rebootDevice" },
+  { id: "system.identify", kind: "state", nameKey: "identify" },
+  { id: "battery", kind: "channel", nameKey: "batteryControl" },
+  { id: "battery.mode", kind: "state", nameKey: "batteryMode", descKey: "batteryModeDesc" },
+  { id: "battery.permissions", kind: "state", nameKey: "batteryPermissions" },
+  { id: "battery.charge_to_full", kind: "state", nameKey: "batteryChargeToFull" },
+  { id: "battery.battery_count", kind: "state", nameKey: "batteryCount" },
+  { id: "battery.power_w", kind: "state", nameKey: "batteryPower" },
+  { id: "battery.target_power_w", kind: "state", nameKey: "batteryTargetPower" },
+  { id: "battery.max_consumption_w", kind: "state", nameKey: "batteryMaxConsumption" },
+  { id: "battery.max_production_w", kind: "state", nameKey: "batteryMaxProduction" }
+];
+const LABELLED_OBJECT_IDS = DEVICE_LABELLED_OBJECTS.map((o) => o.id);
+const EXTERNAL_METER_LEAVES = {
+  value: "externalValue",
+  unit: "externalUnit",
+  timestamp: "externalTimestamp"
+};
+const EXTERNAL_METER_LEAF_KEYS = Object.keys(EXTERNAL_METER_LEAVES);
 const QUALITY_KEYS = MEASUREMENT_STATE_DEFS.filter((d) => d.id.startsWith("quality.")).map((d) => d.key);
 let tariffStatesCache = null;
 function tariffStates() {
@@ -914,6 +958,76 @@ class StateManager {
     this.adapter.log.debug(`state-manager: removeDevice ${prefix} done (dropped ${dropped} cached IDs)`);
   }
   /**
+   * Bring the labels of ALREADY EXISTING device objects up to the current version,
+   * without waiting for the device to send anything.
+   *
+   * Nearly every object under a device prefix is written from `updateMeasurement`,
+   * `updateSystem` or `updateBattery` — paths that only run while data flows. On an
+   * installation whose meter is silent (the weak-signal case this adapter exists
+   * for) a corrected or newly translated label would therefore arrive whenever the
+   * device comes back, or never. The write paths are right; they are just not
+   * reached. This walks {@link DEVICE_LABELLED_OBJECTS} instead and refreshes what
+   * is already in the tree.
+   *
+   * Only name and description are written: role, type, unit and bounds keep coming
+   * from the regular create path, and nothing is CREATED here — an object the device
+   * never reported stays absent.
+   *
+   * @param config      Device configuration.
+   * @param existingIds Full ids currently in the adapter namespace (one object query
+   *   for all devices, instead of ~70 probes per device).
+   * @returns how many objects were refreshed
+   */
+  async refreshExistingNames(config, existingIds) {
+    const prefix = this.devicePrefix(config);
+    let refreshed = 0;
+    for (const spec of DEVICE_LABELLED_OBJECTS) {
+      const id = `${prefix}.${spec.id}`;
+      if (!existingIds.has(`${this.adapter.namespace}.${id}`)) {
+        continue;
+      }
+      const common = { name: (0, import_i18n.tName)(spec.nameKey) };
+      if (spec.descKey) {
+        common.desc = (0, import_i18n.tName)(spec.descKey);
+      }
+      if (spec.kind === "channel") {
+        await this.adapter.extendObjectAsync(id, {
+          type: "channel",
+          common,
+          native: {}
+        });
+      } else {
+        await this.adapter.extendObjectAsync(id, {
+          type: "state",
+          common,
+          native: {}
+        });
+      }
+      refreshed++;
+    }
+    const externalPrefix = `${this.adapter.namespace}.${prefix}.measurement.external.`;
+    for (const fullId of existingIds) {
+      if (!fullId.startsWith(externalPrefix)) {
+        continue;
+      }
+      const rest = fullId.slice(externalPrefix.length).split(".");
+      if (rest.length !== 2) {
+        continue;
+      }
+      const nameKey = EXTERNAL_METER_LEAVES[rest[1]];
+      if (!nameKey) {
+        continue;
+      }
+      await this.adapter.extendObjectAsync(fullId.slice(`${this.adapter.namespace}.`.length), {
+        type: "state",
+        common: { name: (0, import_i18n.tName)(nameKey) },
+        native: {}
+      });
+      refreshed++;
+    }
+    return refreshed;
+  }
+  /**
    * Remove a device's whole `battery` branch — used when the meter reports that
    * no batteries are connected any more.
    *
@@ -943,11 +1057,12 @@ class StateManager {
    * Remove obsolete states: pre-v0.4.0 device-root paths (now under measurement/) plus
    * states retired in later versions (v0.11.0: raw P1 telegram).
    *
-   * @param config Device configuration
+   * @param config      Device configuration
+   * @param existingIds Full ids currently in the adapter namespace — the sweep is a
+   *   set lookup instead of ~62 `getObject` probes per device.
    */
-  async cleanupMovedStates(config) {
+  async cleanupMovedStates(config, existingIds) {
     const prefix = this.devicePrefix(config);
-    this.adapter.log.debug(`state-manager: cleanupMovedStates ${prefix} (scanning pre-v0.4.0 paths)`);
     const oldIds = [];
     for (const def of MEASUREMENT_STATE_DEFS) {
       oldIds.push(`${prefix}.${def.id}`);
@@ -956,40 +1071,39 @@ class StateManager {
     oldIds.push(`${prefix}.measurement.telegram`);
     let removed = 0;
     for (const id of oldIds) {
-      if (await this.adapter.getObjectAsync(id)) {
-        await this.adapter.delObjectAsync(id, { recursive: true });
-        this.adapter.log.debug(`Removed obsolete state: ${id}`);
-        removed++;
+      if (!existingIds.has(`${this.adapter.namespace}.${id}`)) {
+        continue;
       }
+      await this.adapter.delObjectAsync(id, { recursive: true });
+      this.adapter.log.debug(`Removed obsolete state: ${id}`);
+      removed++;
     }
     if (removed > 0) {
       this.adapter.log.debug(`state-manager: cleanupMovedStates ${prefix} done (removed ${removed} obsolete paths)`);
     }
   }
   /**
-   * I6: mark the pre-v0.4.0/v0.11.0 legacy-state cleanup as complete so later
-   * restarts skip the per-device scan. A write-once indicator state at the adapter
-   * root. Idempotent — the value only ever flips false→true.
+   * Drop the retired internal markers.
    *
-   * `extendObject` + translated name/description: the state was created with a
-   * fixed English string in earlier versions, and a create-only write would leave
-   * that string standing on every installation that already has it.
+   * `info.legacyMigrated` noted that a one-off cleanup had run, `info.labelsVersion`
+   * which version the labels were brought to. Both were adapter bookkeeping in a
+   * USER's object tree, and neither is needed: the cleanup and the label retrofit
+   * both work off the object list the adapter already holds. The adapter owns its
+   * datapoint inventory, so it clears them instead of leaving them lying around.
+   *
+   * @param existingIds Full ids currently in the adapter namespace.
+   * @returns the ids that were actually removed
    */
-  async markLegacyCleanupDone() {
-    await this.adapter.extendObjectAsync("info.legacyMigrated", {
-      type: "state",
-      common: {
-        name: (0, import_i18n.tName)("legacyMigrated"),
-        desc: (0, import_i18n.tName)("legacyMigratedDesc"),
-        type: "boolean",
-        role: "indicator",
-        read: true,
-        write: false,
-        def: false
-      },
-      native: {}
-    });
-    await this.adapter.setStateAsync("info.legacyMigrated", { val: true, ack: true });
+  async removeRetiredMarkers(existingIds) {
+    const removed = [];
+    for (const id of ["info.legacyMigrated", "info.labelsVersion"]) {
+      if (!existingIds.has(`${this.adapter.namespace}.${id}`)) {
+        continue;
+      }
+      await this.adapter.delObjectAsync(id);
+      removed.push(id);
+    }
+    return removed;
   }
   /**
    * Get device object ID prefix
@@ -1195,6 +1309,8 @@ class StateManager {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  EXTERNAL_METER_LEAF_KEYS,
+  LABELLED_OBJECT_IDS,
   MEASUREMENT_STATE_DEFS,
   MOMENTARY_KEYS,
   StateManager

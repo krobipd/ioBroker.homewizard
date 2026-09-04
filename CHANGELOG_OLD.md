@@ -1,4 +1,9 @@
 # Older Changes
+## 0.15.0 (2026-07-13) — stable
+
+- A device that rejects the adapter's token now stops retrying and warns you to re-pair it, instead of quietly retrying in the background
+- When pairing a device that connects but cannot be added, the adapter now tells you once so you can try again, instead of silently retrying
+
 ## 0.14.0 (2026-07-07)
 
 - A brief WiFi dropout no longer makes the adapter wrongly treat a device as having a permanently unstable connection after a single outage

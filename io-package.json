@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.18.0",
+    "version": "0.18.1",
     "news": {
+      "0.18.1": {
+        "en": "Corrected data point names now also reach devices that are offline right now, instead of waiting for the device to answer again — which can take days on a weak signal.",
+        "de": "Korrigierte Datenpunkt-Namen erreichen jetzt auch Geräte, die gerade offline sind, statt auf deren Rückkehr zu warten — bei schwachem Empfang können das Tage sein.",
+        "ru": "Исправленные названия точек данных теперь доходят и до устройств, которые сейчас офлайн, а не ждут их возвращения — при слабом сигнале это могут быть дни.",
+        "pt": "Os nomes corrigidos dos pontos de dados chegam agora também a dispositivos offline, em vez de esperar pelo regresso do aparelho — com sinal fraco podem ser dias.",
+        "nl": "Gecorrigeerde namen van datapunten bereiken nu ook apparaten die offline zijn, in plaats van te wachten tot het apparaat terugkomt — bij zwak signaal kan dat dagen duren.",
+        "fr": "Les noms corrigés des points de données atteignent désormais aussi les appareils hors ligne, au lieu d'attendre leur retour — avec un signal faible, cela peut prendre des jours.",
+        "it": "I nomi corretti dei punti dati raggiungono ora anche i dispositivi offline, invece di attendere il loro ritorno — con segnale debole possono volerci giorni.",
+        "es": "Los nombres corregidos de los puntos de datos llegan ahora también a los dispositivos sin conexión, en lugar de esperar su regreso — con señal débil pueden ser días.",
+        "pl": "Poprawione nazwy punktów danych docierają teraz także do urządzeń offline, zamiast czekać na ich powrót — przy słabym sygnale może to potrwać wiele dni.",
+        "uk": "Виправлені назви точок даних тепер доходять і до пристроїв, які зараз офлайн, замість чекати на їхнє повернення — за слабкого сигналу це можуть бути дні.",
+        "zh-cn": "修正后的数据点名称现在也能到达当前离线的设备，而不必等待设备重新上线——信号弱时这可能需要好几天。"
+      },
       "0.18.0": {
         "en": "Honest connection status: a device answering over the fallback no longer shows as disconnected, corrected names now reach existing installations, and messages to the adapter work again.",
         "de": "Ehrlicher Verbindungsstatus: Ein Gerät, das über den Rückfall antwortet, gilt nicht mehr als getrennt, korrigierte Namen erreichen bestehende Anlagen, und Nachrichten an den Adapter kommen wieder an.",
@@ -80,19 +93,6 @@
         "pl": "Poprawka ponownego łączenia przy krótkich przerwach Wi-Fi, nowy folder measurement.quality oraz poprawione role i zakresy 0–100, które istniejące urządzenia przyjmują przy następnym starcie.",
         "uk": "Виправлення перепідключення під час коротких збоїв Wi-Fi, нова тека measurement.quality, а також виправлені ролі та межі 0–100, які наявні пристрої застосовують під час наступного запуску.",
         "zh-cn": "修复短暂 WiFi 断连后的重连问题，新增 measurement.quality 分组，并修正状态角色和 0–100 范围，现有设备在下次启动时自动应用。"
-      },
-      "0.13.0": {
-        "en": "Security: the adapter verifies each device's certificate and only talks to your real device, and manual-IP pairing leaves no leftover logins. Adds meter-ID and protocol-version states.",
-        "de": "Sicherheit: Der Adapter prüft das Geräte-Zertifikat und spricht nur mit deinem echten Gerät, und Pairing per manueller IP lässt keine Alt-Logins zurück. Neu: Zähler-ID, Protokollversion.",
-        "ru": "Безопасность: адаптер проверяет сертификат устройства и связывается только с вашим, а сопряжение по ручному IP не оставляет лишних входов. Новое: ID счётчика, версия протокола.",
-        "pt": "Segurança: o adaptador verifica o certificado do dispositivo e fala só com o seu, e o emparelhamento por IP manual não deixa logins extra. Novo: ID do contador e versão do protocolo.",
-        "nl": "Beveiliging: de adapter controleert het apparaat-certificaat en praat alleen met jouw apparaat, en handmatig-IP koppelen laat geen extra logins achter. Nieuw: meter-ID en protocolversie.",
-        "fr": "Sécurité : l'adaptateur vérifie le certificat de l'appareil et ne parle qu'au vôtre, et l'appairage par IP manuelle ne laisse aucun login résiduel. Nouveau : ID compteur et version protocole.",
-        "it": "Sicurezza: l'adattatore verifica il certificato del dispositivo e parla solo col tuo, e l'accoppiamento via IP manuale non lascia accessi residui. Novità: ID contatore e versione protocollo.",
-        "es": "Seguridad: el adaptador verifica el certificado del dispositivo y solo habla con el tuyo, y emparejar por IP manual no deja sesiones sobrantes. Nuevo: ID del medidor y versión de protocolo.",
-        "pl": "Bezpieczeństwo: adapter sprawdza certyfikat urządzenia i łączy się tylko z Twoim, a parowanie przez ręczny IP nie zostawia zbędnych logowań. Nowość: ID licznika i wersja protokołu.",
-        "uk": "Безпека: адаптер перевіряє сертифікат пристрою і зв'язується лише з вашим, а сполучення за ручним IP не лишає зайвих входів. Нове: ID лічильника і версія протоколу.",
-        "zh-cn": "安全性：适配器会检查每个设备的证书，只与你的真实设备通信，且通过手动 IP 配对不再残留多余登录。新增电表 ID 和协议版本状态。"
       }
     },
     "plugins": {

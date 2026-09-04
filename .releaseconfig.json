@@ -1,6 +1,11 @@
 {
   "plugins": ["iobroker", "license"],
   "exec": {
-    "before_commit": ["npm test", "npm run build", "npm run --if-present build:admin"]
+    "before_commit": [
+      "npm run --if-present format",
+      "npm test",
+      "npm run build",
+      "npm run --if-present build:admin"
+    ]
   }
 }

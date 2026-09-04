@@ -217,6 +217,43 @@ export class HomeWizard extends utils.Adapter {
     });
   }
 
+  /**
+   * Bring existing objects to this version's labels, and clear the retired markers.
+   *
+   * Almost everything below a device is written only while the device sends data, so
+   * on an installation whose meter is silent — the weak-signal case this adapter is
+   * built for — a corrected label would wait for the device to come back, possibly
+   * forever. This walks the label table instead and refreshes what is already in the
+   * tree. Nothing is created: an object the device never reported stays absent.
+   *
+   * Runs on every start, without a marker state. It costs one object query (which the
+   * device load needs anyway) plus one write per existing object — far less than the
+   * adapter does in a second of normal operation, and the price for not parking
+   * adapter bookkeeping in a user's object tree.
+   *
+   * A failure is not fatal: labels stay as they are and the next start retries.
+   *
+   * @param devices     The devices loaded from their objects.
+   * @param existingIds Every id in this namespace, already fetched by the caller.
+   */
+  private async refreshDeviceLabels(devices: readonly DeviceConfig[], existingIds: Set<string>): Promise<void> {
+    try {
+      const dropped = await this.stateManager.removeRetiredMarkers(existingIds);
+      for (const id of dropped) {
+        this.log.info(`Removed the obsolete internal data point ${id}`);
+      }
+      let refreshed = 0;
+      for (const device of devices) {
+        refreshed += await this.stateManager.refreshExistingNames(device, existingIds);
+      }
+      if (refreshed > 0) {
+        this.log.debug(`Refreshed the labels of ${refreshed} existing object(s)`);
+      }
+    } catch (err: unknown) {
+      this.log.debug(`Could not refresh the object labels: ${errText(err)}`);
+    }
+  }
+
   private async onReady(): Promise<void> {
     try {
       if (await this.clearStopInstanceFlag()) {
@@ -256,19 +293,16 @@ export class HomeWizard extends utils.Adapter {
         await this.setStateChangedAsync("info.connection", { val: false, ack: true });
       }
 
-      // I6: one-shot marker for the pre-v0.4.0/v0.11.0 legacy-state cleanup. Those
-      // orphan paths only exist on installs upgraded through those versions; once
-      // swept, the marker lets later restarts skip ~62 getObject probes per device.
-      // Fleet pattern (beszel L6). The marker is a write-once state, so getStateAsync
-      // is reliable here (the lgtv stale-snapshot bug was about concurrently-modified
-      // objects, not a value that only ever flips false→true once).
-      const legacyCleanupDone = (await this.getStateAsync("info.legacyMigrated"))?.val === true;
+      // One object query for everything that follows: the legacy sweep, the label
+      // retrofit and the retired-marker cleanup all need to know which objects
+      // exist. Reading them once replaced the `info.legacyMigrated` marker, whose
+      // only job was to skip ~62 `getObject` probes per device — adapter
+      // bookkeeping does not belong in a user's object tree.
+      const existingIds = new Set(Object.keys(await this.getAdapterObjectsAsync()));
 
       for (const device of devices) {
         const key = this.stateManager.devicePrefix(device);
-        if (!legacyCleanupDone) {
-          await this.stateManager.cleanupMovedStates(device);
-        }
+        await this.stateManager.cleanupMovedStates(device, existingIds);
         await this.stateManager.createDeviceStates(device);
         // Stamp before the first connection attempt: the previous run's value
         // survives in the database, so without this a device that was green when
@@ -286,6 +320,12 @@ export class HomeWizard extends utils.Adapter {
         }
       }
 
+      // Bring existing objects to this version's labels. Almost everything under a
+      // device lives behind `updateMeasurement`/`updateSystem`/`updateBattery`, which
+      // only run while the device sends data — on an installation whose meter is
+      // silent, a corrected label would otherwise never arrive.
+      await this.refreshDeviceLabels(devices, existingIds);
+
       // A device whose stored IP is missing or was discarded as invalid gets no
       // connection attempt at all — and IP recovery is only ever triggered from
       // connectWebSocket, which such a device never reaches. Left alone it would
@@ -296,11 +336,6 @@ export class HomeWizard extends utils.Adapter {
           this.log.warn(`${device.productName}: no usable IP address stored — searching for the device via mDNS`);
         }
         this.startIpRecovery();
-      }
-
-      // I6: record the cleanup as done so the next start skips the legacy scan.
-      if (!legacyCleanupDone) {
-        await this.stateManager.markLegacyCleanupDone();
       }
 
       this.systemPollTimer = this.setInterval(() => {
