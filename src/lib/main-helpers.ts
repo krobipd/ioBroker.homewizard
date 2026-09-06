@@ -67,19 +67,6 @@ export function shouldStartIpRecovery(failCount: number, beforeMdns: number, ret
 }
 
 /**
- * Pick the REST-fallback poll interval based on connection stability. Unstable
- * devices poll faster to keep the data flowing while WS reconnect is still
- * trying.
- *
- * @param unstable           Whether the device is currently in unstable mode.
- * @param stableIntervalMs   `REST_POLL_MS`.
- * @param unstableIntervalMs `REST_POLL_UNSTABLE_MS`.
- */
-export function pickRestPollInterval(unstable: boolean, stableIntervalMs: number, unstableIntervalMs: number): number {
-  return unstable ? unstableIntervalMs : stableIntervalMs;
-}
-
-/**
  * Strip the adapter namespace prefix from a state-ID. Only strips when the
  * prefix matches at the start — defensive against unexpected IDs.
  *

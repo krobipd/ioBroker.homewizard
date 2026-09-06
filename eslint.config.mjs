@@ -29,6 +29,10 @@ export default [
       // is this repo's own suite and gets linted like every other test.
       "test/integration.js",
       "test/package.js",
+      // Same class: the object-inventory harness and the fixture hook are mocha /
+      // plain-CJS files that run outside the adapter's tsconfig project.
+      "test/inventory.js",
+      "test/inventory-hook.cjs",
       "*.config.mjs",
       "build",
       // Generated coverage report (npm run coverage) — never lint it.

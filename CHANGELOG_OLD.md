@@ -1,4 +1,9 @@
 # Older Changes
+
+## 0.15.1 (2026-08-22)
+
+- Improved: The adapter needs noticeably less processing power on installations whose devices send a new reading every second.
+
 ## 0.15.0 (2026-07-13) — stable
 
 - A device that rejects the adapter's token now stops retrying and warns you to re-pair it, instead of quietly retrying in the background

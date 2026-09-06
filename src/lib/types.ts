@@ -29,10 +29,16 @@ export interface DeviceInfo {
   product_type: string;
   /** Device serial number */
   serial: string;
-  /** Firmware version string */
-  firmware_version: string;
-  /** API version string */
-  api_version: string;
+  /**
+   * Firmware version string. Optional on purpose: `getDeviceInfo()` validates the
+   * three fields it cannot work without (`product_type`, `serial`, `product_name`)
+   * and rejects a response that lacks them. This one is only ever displayed, so a
+   * device that omits it must not lose its connection over it — the type makes the
+   * guard at the write site mandatory instead.
+   */
+  firmware_version?: string;
+  /** API version string — reported by the device, not consumed by this adapter. */
+  api_version?: string;
 }
 
 /** Response from POST /api/user (pairing) */

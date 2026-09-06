@@ -29,8 +29,10 @@
 ## Architektur
 
 ```
-src/main.ts                  → Adapter (Lifecycle, Pairing, Multi-Device, State-Routing, mDNS-IP-Recovery)
+src/main.ts                  → Adapter (Lifecycle, Multi-Device, State-Routing, mDNS-IP-Recovery, Geräte-Persistenz)
 src/lib/connection-manager.ts → ConnectionManager: Reconnect/WS-Push/REST-Fallback/System-Poll/Auth-Stop-State-Machine + Connection-Registry (F5, aus main extrahiert; ConnectionManagerHost-Schnittstelle)
+src/lib/pairing-manager.ts   → PairingManager: das Kopplungs-Fenster (60-s-Timer, Fundliste, 2-s-Token-Poll) — aus main extrahiert; main behält den EINEN mDNS-Browser (IP-Recovery teilt ihn) und reicht ihn über PairingManagerHost durch
+src/lib/state-defs.ts        → die Deklarations-Tabellen (MEASUREMENT_STATE_DEFS, MOMENTARY_KEYS, DEVICE_LABELLED_OBJECTS, SYSTEM_INFO_FIELDS, EXTERNAL_METER_TYPE_NAMES …) — Daten, kein Verhalten
 src/lib/types.ts             → Interfaces
 src/lib/connection-utils.ts  → classifyError, isAuthError, createDeviceConnection (pure, testbar)
 src/lib/main-helpers.ts      → reine Entscheidungs-Helfer (Backoff, Unstable-Hysterese, Cooldown, State-ID-Lookup)
@@ -144,6 +146,61 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     räumt die zwei Merker früherer Versuche (`info.legacyMigrated`, `info.labelsVersion`) bei
     Bestandsanlagen ab.
 
+28. **Ein Gerät, das der Adapter nicht laden konnte, bleibt entfernbar** (seit v0.18.2). Ein
+    Geräte-Objekt ohne lesbaren Token wird beim Laden übersprungen — es hat damit keine
+    Verbindung, und die Entfernung ging bis dahin von genau dieser Verbindung aus: der `remove`-
+    Knopf tat wortlos nichts, der Baum blieb liegen, der Knopf blieb gedrückt. `removeUnloadedDevice`
+    leitet den Präfix aus der Knopf-ID ab, prüft, dass dort wirklich ein `device`-Objekt steht, und
+    löscht über `removeDeviceByPrefix`. Der Token kann dabei NICHT widerrufen werden — ihn zu lesen
+    ist ja das, was scheiterte —, und genau das sagt die Logzeile, statt eine saubere Entfernung
+    vorzutäuschen. Das Überspringen beim Laden meldet sich seitdem ebenfalls (vorher: nichts).
+29. **Name und Firmware folgen dem Gerät im laufenden Betrieb** (seit v0.18.2). `syncDeviceInfo`
+    ist die eine Stelle für beide Aufrufer (Erstverbindung + jeder zehnte System-Poll). Vorher
+    wurde bei einer Umbenennung nur die gespeicherte Konfiguration fortgeschrieben — der Datenpunkt
+    `info.productName` behielt den Namen vom letzten Adapterstart, und weil der sichtbare
+    Objektname bewusst dem Nutzer gehört (DD21), war der neue Name NIRGENDS zu sehen.
+    `info.firmware` wurde überhaupt nur beim Start geschrieben, obwohl der Poll die Antwort mit der
+    Version ohnehin holt: ein Gerät, das sich selbst aktualisiert, zeigte die alte Version bis zum
+    nächsten Neustart. `firmware_version` ist dabei optional getypt und wird am Schreibort geprüft —
+    ein Gerät, das ein reines Anzeigefeld weglässt, darf darüber nicht seine Verbindung verlieren.
+30. **`onStateChange` ist eine Tabelle, und der Knopf-Rückfall ist strukturell** (seit v0.18.2).
+    Aus acht `id.endsWith(...)`-Zweigen, die alle dasselbe sagten (prüfen → senden → das GESENDETE
+    bestätigen), wurde `deviceCommands`. Ein Eintrag ist entweder ein Knopf (Rückgabe `null`, wird
+    danach immer auf `false` zurückgestellt) oder ein Wert-Datenpunkt (bestätigt den gesendeten
+    Wert) — beides zugleich ist nicht darstellbar. Damit kann die Rückstellung eine Bestätigung
+    nicht mehr überschreiben; DD25 hängt nicht länger daran, dass an jeder Stelle genau der
+    richtige Aufruf im `finally` steht. Neu abgedeckt: der Knopf fällt auch dann zurück, wenn das
+    Gerät gar nicht erreichbar ist, und `startPairing` bei bereits offenem Fenster.
+31. **Der Label-Nachzug überspringt, was dieser Start schon geschrieben hat** (seit v0.18.2).
+    `refreshExistingNames` prüft `createdIds`: was `createDeviceStates` oder ein eingehender
+    Messwert in dieser Runde bereits angefasst hat, trägt das aktuelle Label per Definition. Auf
+    einem P1 sind das rund 40 Objekt-Schreibvorgänge weniger pro Start. ⚠️ Ein Bestand mit alten
+    Labels ist deshalb IMMER ein neuer Prozess: ein Test, der ihn im selben `StateManager`
+    nachstellt, misst den Cache statt den Nachzug.
+32. **Die `common.states`-Reparatur räumt einen übrig gebliebenen SCHLÜSSEL weg** (Begründung
+    korrigiert v0.18.2). Gemessen an der einzigen Merge-Stelle des Objektspeichers
+    (`node.extend(true, …)` in `objectsInRedisClient._extendObject`): ein einfacher String
+    ersetzt sehr wohl einen Objektwert. Was der Merge NICHT kann, ist einen Schlüssel entfernen,
+    den die neue Karte nicht mehr führt — und trägt der ein Übersetzungsobjekt, stirbt Admins
+    Auswahlliste an React-Fehler #31. Nur dafür ist der vollständige `setObjectAsync` da. Die
+    frühere Begründung („extendObject kann ein Objekt nicht durch einen String ersetzen") war nie
+    gegen js-controller gemessen, und der Test, der die Reparatur benannte, erreichte sie nie: die
+    Prüfvorrichtung merged `common` flach. Sie merged jetzt tief wie der Objektspeicher.
+
+33. **Der Kanalname eines externen Zählers ist übersetzt** (seit v0.18.2, ersetzt den Teil von
+    DD17, der ihn für gerätegegeben hielt). Der `type` kommt aus einer GESCHLOSSENEN Liste der API
+    (`gas_meter`, `water_meter`, `warm_water_meter`, `heat_meter`, `inlet_heat_meter` — genau die
+    Union in `types.ts`), ist also adapter-eigener Text und wird wie jedes andere Label übersetzt
+    und nachgezogen — ohne `preserve`. Nur ein Typ AUSSERHALB der Liste ist wirklich
+    gerätegegeben: der behält den Rohwert (mit CR/LF-Strip) und `preserve`. Gefunden hat das das
+    Objekt-Inventar-Gate beim allerersten Lauf.
+34. **Jeder Datenpunkt hat eine Beschreibung oder einen begründeten Verzicht** (seit v0.18.2).
+    `state-defs.test.ts` führt `SELF_EXPLAINING` — eine Zeile Begründung je Datenpunkt ohne
+    `desc` — und lässt keinen unentschieden durch; ein verwaister Eintrag fällt genauso auf wie ein
+    Datenpunkt, der beides hat. Neu erklärt werden dabei Schein-/Blindleistung, Ladezyklen, die
+    vier Batterie-Steuerwerte, Cloud- und v1-API-Schalter (letzterer mit der Sicherheitsfolge),
+    WLAN-Pegel, Laufzeit, Tarif, Messzeitpunkt, Zähler-Kennung und der externe Zählerstand.
+
 ## Error-Handling (seit v0.3.5)
 
 Folgt beszel/parcelapp Pattern:
@@ -192,7 +249,31 @@ P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630),
 
 **Außerhalb des Scope (final, nicht „noch nicht"):** Energy Socket (HWE-SKT), Watermeter (HWE-WTR), Energy Display (HWE-DSP). Diese Geräte sprechen nur die deprecated v1-API. Adapter ist v2-only — siehe Design-Entscheidung 5.
 
-## Tests (459 unit + 57 package = 516)
+## Tests (489 unit + 58 package = 547) + Objekt-Inventar + Mutationstabellen
+
+`npm run test:inventory` fährt den Adapter in einem Wegwerf-js-controller gegen vier Fixture-Geräte
+(P1, kWh 1-phasig, kWh 3-phasig, Battery) und schreibt `test/objects.inventory.json`. Die Geräte
+sind lokale TLS-Server, die `test/inventory-hook.cjs` per `NODE_OPTIONS=--require` IM
+ADAPTERPROZESS startet; umgelenkt wird an der einen Stelle, durch die HTTPS und WSS beide gehen
+(`tls.connect`). Die Zertifikatsprüfung bleibt AN — nur der Vertrauensanker ist die
+Wegwerf-CA des Laufs, weil ein lokaler Server kein von HomeWizard signiertes Zertifikat haben kann.
+⚠️ Der Lauf BAUT NICHT: `npm run build` gehört davor, sonst misst er einen alten Bau-Ausgang.
+
+**Mutationstabellen** (`Ressourcen/iobroker-entwicklung/mutation-testing/mutations_homewizard*.py`,
+sechs Stück; `_all` und `_regression_*` sind AGGREGAT-Module, die die zwei Basistabellen dynamisch
+laden — nie als statische Tabelle überschreiben). Gate D09 prüft trocken, dass jede Nadel noch genau
+einmal trifft. ⚠️ **Ein Umbau verwaist Nadeln, ohne dass ein Gate rot wird** — die Regel gilt dann
+still als geprüft. Beim v0.18.2-Umbau traf das 23 Nadeln (ausgelagerte Dateien, inline gezogene
+Hilfsfunktion, acht `endsWith`-Zweige zur Tabelle verschmolzen). Nachziehen heißt: gleiche Regel,
+neue Stelle — **niemals `build_mutations.py` blind neu laufen lassen**, es liest die Nadel
+zeilengenau aus der heutigen Quelle und schreibt grüne Nadeln auf falschen Code. `--check` grün
+beweist nur, dass die Nadel existiert; dass sie die Regel TRIFFT, beweist erst der echte Lauf.
+
+`plan_homewizard*.py` erzeugen die zwei Basistabellen (`build_mutations.py <plan> <tabelle>`,
+Round-Trip stabil). ⚠️ Die Zeilennummer im Plan zeigt auf die letzte Zeile, die sich zwischen Nadel
+und Ersatz UNTERSCHEIDET — der Generator ersetzt immer die letzte Nadelzeile, und wo die Änderung
+weiter oben sitzt (K17), entsteht sonst ein stiller No-op. Die zwei DATIERTEN Tabellen haben keinen
+Plan: ihre zeilen-entfernenden Mutationen kann der Generator nicht ausdrücken, sie sind handgepflegt.
 
 ## Multi-Language (seit v0.7.0)
 
@@ -210,4 +291,5 @@ npm run check        # tsc --noEmit type-check
 npm test             # vitest run + mocha package tests
 npm run coverage     # vitest --coverage
 npm run lint         # ESLint + Prettier
+npm run test:inventory  # Objekt-Inventar aus Fixtures (build davor!)
 ```

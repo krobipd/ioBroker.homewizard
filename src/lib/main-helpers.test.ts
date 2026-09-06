@@ -2,7 +2,6 @@ import {
   computeReconnectDelay,
   decideUnstableTransition,
   findConnectionForState,
-  pickRestPollInterval,
   shouldEmitAfterCooldown,
   shouldStartIpRecovery,
   stripNamespace,
@@ -99,16 +98,6 @@ describe("shouldStartIpRecovery", () => {
   it("true again after RETRY_EVERY more failures", () => {
     expect(shouldStartIpRecovery(15, BEFORE, RETRY_EVERY)).toBe(true); // 3 + 12
     expect(shouldStartIpRecovery(27, BEFORE, RETRY_EVERY)).toBe(true); // 3 + 24
-  });
-});
-
-describe("pickRestPollInterval", () => {
-  it("uses the stable interval when unstable=false", () => {
-    expect(pickRestPollInterval(false, 10_000, 30_000)).toBe(10_000);
-  });
-
-  it("uses the unstable interval when unstable=true", () => {
-    expect(pickRestPollInterval(true, 10_000, 30_000)).toBe(30_000);
   });
 });
 

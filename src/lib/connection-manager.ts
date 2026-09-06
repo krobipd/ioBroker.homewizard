@@ -1,17 +1,16 @@
 import type * as utils from "@iobroker/adapter-core";
 import { classifyError, isAuthError, UNSTABLE_DISCONNECT_THRESHOLD } from "./connection-utils";
-import { errText, sanitizeForLog } from "./coerce";
+import { coerceString, errText, sanitizeForLog } from "./coerce";
 import { HomeWizardApiError, type HomeWizardClient } from "./homewizard-client";
 import {
   computeReconnectDelay,
   decideUnstableTransition,
   findConnectionForState as resolveConnectionForState,
-  pickRestPollInterval,
   shouldEmitAfterCooldown,
   shouldStartIpRecovery,
 } from "./main-helpers";
 import type { StateManager } from "./state-manager";
-import type { BatteryControl, DeviceConfig, DeviceConnection, Measurement, SystemInfo } from "./types";
+import type { BatteryControl, DeviceConfig, DeviceConnection, DeviceInfo, Measurement, SystemInfo } from "./types";
 import type { HomeWizardWebSocket, TimerDeps, WsCallbacks } from "./websocket-client";
 
 /** WebSocket reconnect base delay in milliseconds */
@@ -42,6 +41,13 @@ const REST_POLL_UNSTABLE_MS = 30_000;
 const WARN_COOLDOWN_MS = 60 * 60 * 1000;
 /** Cooldown window for `connection restored` infos — analog to warn cooldown. */
 const INFO_COOLDOWN_MS = 60 * 60 * 1000;
+/**
+ * Re-read `GET /api` on every Nth system poll (~10 min at the 60 s cadence). It
+ * carries the device's name and firmware version, both of which can change while
+ * the adapter runs; the first poll right after `initDevice` is deliberately not
+ * one of them — that call already synced from its own response.
+ */
+const DEVICE_INFO_EVERY_N_POLLS = 10;
 /**
  * Consecutive system polls reporting `battery_count: 0` before the battery
  * branch is removed. Two (≈2 minutes) so a single odd frame from a firmware
@@ -254,10 +260,8 @@ export class ConnectionManager {
           configChanged = true;
         }
       }
-      const newName = sanitizeForLog(info.product_name);
-      if (info.product_name && newName !== conn.config.productName) {
-        this.adapter.log.info(`${conn.config.productName}: name changed to '${newName}' — updating object`);
-        conn.config.productName = newName;
+      // Name + firmware in one place, shared with the periodic poll.
+      if (await this.syncDeviceInfo(conn, info)) {
         configChanged = true;
       }
       if (configChanged) {
@@ -267,11 +271,6 @@ export class ConnectionManager {
             this.adapter.log.debug(`Failed to persist device config for ${conn.config.productName}: ${errText(err)}`),
           );
       }
-      const key = this.host.getStateManager().devicePrefix(conn.config);
-      await this.adapter.setStateAsync(`${key}.info.firmware`, {
-        val: info.firmware_version,
-        ack: true,
-      });
     } catch (err) {
       if (this.host.isUnloading()) {
         return;
@@ -284,6 +283,52 @@ export class ConnectionManager {
     }
     this.connectWebSocket(conn);
     void this.pollSystemInfo(conn);
+  }
+
+  /**
+   * Take over what a `GET /api` response says about the device's identity — its
+   * name and its firmware version.
+   *
+   * One place for both callers (the initial connect and the periodic poll), so the
+   * rule cannot drift apart between them.
+   *
+   * A rename needs three writes, not one, and only two of them happen here: the
+   * running config, so the next log line and every derived id are right, and the
+   * `info.productName` data point. That data point is the ONLY place the device's
+   * own name is still visible — the object's own name belongs to the user and is
+   * deliberately preserved (DD21), so leaving the state out meant the new name
+   * showed up nowhere until the next adapter restart. The third write, persisting
+   * the config, stays with the caller: `initDevice` folds it into the one persist
+   * it does anyway for the certificate CN.
+   *
+   * The firmware is written on every call, not only on a rename — a device updates
+   * itself, and `setStateChanged` makes an unchanged version free.
+   * `firmware_version` is guarded here rather than rejected in `getDeviceInfo`: a
+   * device that omits a field the adapter only displays must not lose its
+   * connection over it.
+   *
+   * @param conn Device connection.
+   * @param info Device info exactly as the device returned it.
+   * @returns `true` when the stored config changed and the caller must persist it.
+   */
+  private async syncDeviceInfo(conn: DeviceConnection, info: DeviceInfo): Promise<boolean> {
+    const stateManager = this.host.getStateManager();
+    const firmware = coerceString(info.firmware_version);
+    if (firmware) {
+      await stateManager.setFirmware(conn.config, firmware);
+    }
+
+    const newName = sanitizeForLog(info.product_name);
+    if (!info.product_name || newName === conn.config.productName) {
+      return false;
+    }
+    this.adapter.log.info(
+      `${conn.config.productName}: the device is now called '${newName}' — data point updated ` +
+        `(the object's own name in the tree stays as you set it)`,
+    );
+    conn.config.productName = newName;
+    await stateManager.setProductName(conn.config);
+    return true;
   }
 
   /**
@@ -458,21 +503,20 @@ export class ConnectionManager {
     conn.authFailCount = 0;
     conn.lastConnectedAt = Date.now();
     conn.recovering = false;
-    this.host
-      .getStateManager()
-      .setDeviceConnected(conn.config, true)
-      .catch((err: unknown) =>
-        this.adapter.log.debug(`setDeviceConnected(true) failed for ${conn.config.productName}: ${errText(err)}`),
-      );
-    this.updateGlobalConnection();
 
     // Stop REST fallback if active — the push is back, so the fallback's own
     // health says nothing any more (the WebSocket now carries the online state).
+    // Both flags are settled BEFORE the marker is written, so the single place
+    // that derives it sees the final picture.
     if (conn.pollTimer) {
       this.adapter.clearInterval(conn.pollTimer);
       conn.pollTimer = undefined;
     }
     conn.restHealthy = false;
+
+    // The marker and the summary are derived in exactly ONE place (DD20) — here
+    // too. Writing the pair by hand was that second derivation site.
+    this.refreshDeviceOnline(conn);
 
     // Main owns the mDNS browser — it stops IP recovery once all devices are connected.
     this.host.onDeviceConnected();
@@ -586,7 +630,7 @@ export class ConnectionManager {
     }
 
     const unstable = this.isUnstable(conn);
-    const interval = pickRestPollInterval(unstable, REST_POLL_MS, REST_POLL_UNSTABLE_MS);
+    const interval = unstable ? REST_POLL_UNSTABLE_MS : REST_POLL_MS;
     const client = this.host.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
 
     conn.pollTimer = this.adapter.setInterval(async () => {
@@ -676,25 +720,23 @@ export class ConnectionManager {
         .getStateManager()
         .updateSystem(conn.config, system, () => conn.removed || this.host.isUnloading());
 
-      // Sync productName drift: if the user renamed the device in the HomeWizard app
-      // (or a firmware update changed product_name), pick up the new value instead of
-      // staying stale until re-pair. I7/F3: the downtime-rename is already caught in
-      // initDevice from its getDeviceInfo, so the poll only needs to catch renames that
-      // happen WHILE running — every 10th poll (~10 min) is plenty and avoids a
-      // redundant getDeviceInfo on the very first poll right after initDevice.
+      // Pick up identity drift while running: the user renames the device in the
+      // HomeWizard app, or the device updates its own firmware. I7/F3: the
+      // downtime-rename is already caught in initDevice from its getDeviceInfo, so
+      // the poll only needs the running case — every Nth poll (~10 min) is plenty
+      // and avoids a redundant getDeviceInfo on the first poll after initDevice.
       conn.systemPollCount = (conn.systemPollCount ?? 0) + 1;
-      if (conn.systemPollCount % 10 === 0) {
+      if (conn.systemPollCount % DEVICE_INFO_EVERY_N_POLLS === 0) {
         try {
           const info = await client.getDeviceInfo();
-          const newName = sanitizeForLog(info.product_name);
-          if (!conn.removed && !this.host.isUnloading() && info.product_name && newName !== conn.config.productName) {
-            this.adapter.log.info(`${conn.config.productName}: name changed to '${newName}' — updating object`);
-            conn.config.productName = newName;
+          if (!conn.removed && !this.host.isUnloading() && (await this.syncDeviceInfo(conn, info))) {
             await this.host.saveDeviceToObject(conn.config);
           }
-        } catch {
-          // device-info is best-effort here; the system-poll log already
-          // surfaces real connectivity issues.
+        } catch (err) {
+          // Best-effort — the system poll's own logging already surfaces real
+          // connectivity trouble. Still say it: a fully silent catch hides a name
+          // and firmware sync that may have been failing for weeks.
+          this.adapter.log.debug(`${conn.config.productName} device-info refresh: ${errText(err)}`);
         }
       }
 

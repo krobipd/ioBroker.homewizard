@@ -4,7 +4,6 @@ import { join } from "node:path";
 import {
   coerceFiniteNumber,
   errText,
-  isAssignableDeviceIpv4,
   isValidIpv4,
   parseBatteryPermissions,
   sanitizeForLog,
@@ -13,21 +12,53 @@ import {
 import { createDeviceConnection } from "./lib/connection-utils";
 import { ConnectionManager, WS_RECONNECT_MAX_MS, type ConnectionManagerHost } from "./lib/connection-manager";
 import { HomeWizardDiscovery } from "./lib/discovery";
+import { stripNamespace } from "./lib/main-helpers";
+import { PairingManager, type PairingManagerHost } from "./lib/pairing-manager";
 import { CA_NOT_AFTER, caDaysUntilExpiry, dropDeviceAgent, pinnedAgent } from "./lib/cacert";
-import { HomeWizardApiError, HomeWizardClient } from "./lib/homewizard-client";
+import { HomeWizardClient } from "./lib/homewizard-client";
 import { tName } from "./lib/i18n";
 import { StateManager } from "./lib/state-manager";
-import type { DeviceConfig, DeviceConnection, DiscoveredDevice } from "./lib/types";
+import type { DeviceConfig, DeviceConnection } from "./lib/types";
 import { HomeWizardWebSocket, type TimerDeps, type WsCallbacks } from "./lib/websocket-client";
 
-/** Pairing timeout in milliseconds (60 seconds) */
-const PAIRING_TIMEOUT_MS = 60_000;
-/** Pairing poll interval in milliseconds */
-const PAIRING_POLL_MS = 2_000;
 /** System info poll interval in milliseconds */
 const SYSTEM_POLL_MS = 60_000;
 /** mDNS IP recovery timeout in milliseconds */
 const IP_RECOVERY_TIMEOUT_MS = 60_000;
+
+/** What a control-state handler needs in order to talk to its device. */
+interface CommandContext {
+  /** REST client, already pinned to this device's TLS identity. */
+  client: HomeWizardClient;
+  /** The state exactly as the user wrote it (never acked, never null). */
+  state: ioBroker.State;
+  /** The device the state belongs to. */
+  conn: DeviceConnection;
+}
+
+/** One writable control state and what writing it does on the device. */
+interface DeviceCommand {
+  /** State-ID suffix this entry owns (matched with `endsWith`). */
+  suffix: string;
+  /**
+   * Momentary button. It is put back to `false, ack:true` afterwards — whether the
+   * call succeeded, failed, or never happened because the device is unreachable.
+   * A button left at `true, ack:false` cannot be clicked again in Admin (DD25).
+   *
+   * A button never returns an ack value and a value state is never a button, so
+   * the reset can no longer overwrite an acknowledged value — the rule that used
+   * to depend on wrapping exactly the right call in `finally` is now structural.
+   */
+  button?: boolean;
+  /**
+   * Send the write to the device.
+   *
+   * @returns the value to acknowledge — the value that was actually SENT, not the
+   *   raw write (DD16) — or `null` when the input was rejected and nothing went
+   *   out. In that case the handler has already said why.
+   */
+  send(ctx: CommandContext): Promise<ioBroker.StateValue | null>;
+}
 
 /**
  * HomeWizard adapter — manages multiple devices over API v2 (HTTPS + WebSocket):
@@ -45,24 +76,17 @@ export class HomeWizard extends utils.Adapter {
    * pairing, persistence and mDNS IP-recovery stay here (they own the browser).
    */
   private readonly connectionManager: ConnectionManager;
+  /**
+   * Owns the pairing window (60 s timer, discovery queue, token poll). Main keeps
+   * the single mDNS browser — IP recovery shares it — and hands it out.
+   */
+  private readonly pairingManager: PairingManager;
   /** Device connections — the registry lives in the connection manager. */
   private get connections(): Map<string, DeviceConnection> {
     return this.connectionManager.connections;
   }
-  private pairingTimer: ioBroker.Timeout | undefined = undefined;
-  private pairingPollTimer: ioBroker.Interval | undefined = undefined;
   private systemPollTimer: ioBroker.Interval | undefined = undefined;
   private ipRecoveryTimer: ioBroker.Timeout | undefined = undefined;
-  private isPairing = false;
-  /**
-   * In-flight guard for {@link pollPairing}: the poll runs every 2 s, but a
-   * single device's requestPairing can hang up to the 10 s HTTP timeout —
-   * without the guard, overlapping polls would fire concurrent POST /api/user
-   * against the same device.
-   */
-  private pairingPollBusy = false;
-  private pairingManualIp = "";
-  private discoveredDuringPairing: DiscoveredDevice[] = [];
   /** Set during onUnload — async paths bail before further setStateAsync calls. */
   private unloading = false;
   /**
@@ -113,6 +137,29 @@ export class HomeWizard extends utils.Adapter {
       onDeviceConnected: () => this.onDeviceConnected(),
     };
     this.connectionManager = new ConnectionManager(this, host);
+
+    const pairingHost: PairingManagerHost = {
+      getStateManager: () => this.stateManager,
+      makeClient: (ip, token) => this.makeClient(ip, token),
+      knownSerials: () => Array.from(this.connections.values(), c => c.config.serial),
+      startDiscovery: onDiscovered => {
+        if (!this.discovery) {
+          this.discovery = this.makeDiscovery();
+        }
+        this.discovery.start(onDiscovered);
+      },
+      stopDiscovery: () => {
+        if (this.discovery) {
+          this.discovery.stop();
+          this.discovery = null;
+        }
+      },
+      stopIpRecovery: () => this.stopIpRecovery(),
+      saveDeviceToObject: config => this.saveDeviceToObject(config),
+      adoptPairedDevice: (config, ip) => this.adoptPairedDevice(config, ip),
+      resetButton: id => this.resetButton(id),
+    };
+    this.pairingManager = new PairingManager(this, pairingHost);
 
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
@@ -287,18 +334,24 @@ export class HomeWizard extends utils.Adapter {
       await this.subscribeStatesAsync("*.battery.charge_to_full");
       await this.subscribeStatesAsync("*.remove");
 
-      const devices = await this.loadDevicesFromObjects();
+      // ONE object query for everything that follows: loading the devices, the
+      // legacy sweep, the label retrofit and the retired-marker cleanup all work
+      // off the same list. Reading it once also replaced the `info.legacyMigrated`
+      // marker, whose only job was to skip ~62 `getObject` probes per device —
+      // adapter bookkeeping does not belong in a user's object tree.
+      //
+      // The one path that changes the list while it is held is the v0.2 legacy
+      // migration, which creates device objects. That is harmless: none of the
+      // three consumers below asks about a device object, and a device migrated
+      // just now has no states to sweep or relabel yet.
+      const objects = await this.getAdapterObjectsAsync();
+      const existingIds = new Set(Object.keys(objects));
+
+      const devices = await this.loadDevicesFromObjects(objects);
       if (devices.length === 0) {
         this.log.info(`No devices configured — set 'startPairing' to true to add a device`);
         await this.setStateChangedAsync("info.connection", { val: false, ack: true });
       }
-
-      // One object query for everything that follows: the legacy sweep, the label
-      // retrofit and the retired-marker cleanup all need to know which objects
-      // exist. Reading them once replaced the `info.legacyMigrated` marker, whose
-      // only job was to skip ~62 `getObject` probes per device — adapter
-      // bookkeeping does not belong in a user's object tree.
-      const existingIds = new Set(Object.keys(await this.getAdapterObjectsAsync()));
 
       for (const device of devices) {
         const key = this.stateManager.devicePrefix(device);
@@ -314,9 +367,11 @@ export class HomeWizard extends utils.Adapter {
 
         if (conn.ip) {
           this.log.debug(`Using stored IP ${conn.ip} for ${device.productName}`);
-          void this.initDevice(conn).catch((err: unknown) =>
-            this.log.error(`initDevice failed for ${conn.config.productName}: ${errText(err)}`),
-          );
+          void this.connectionManager
+            .initDevice(conn)
+            .catch((err: unknown) =>
+              this.log.error(`initDevice failed for ${conn.config.productName}: ${errText(err)}`),
+            );
         }
       }
 
@@ -339,7 +394,7 @@ export class HomeWizard extends utils.Adapter {
       }
 
       this.systemPollTimer = this.setInterval(() => {
-        void this.pollAllSystemInfo();
+        void this.connectionManager.pollAllSystemInfo();
       }, SYSTEM_POLL_MS);
 
       this.connectionManager.updateGlobalConnection();
@@ -349,10 +404,13 @@ export class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Load device configs from existing device objects
-   * Tokens are stored encrypted in device object native
+   * Load device configs from existing device objects.
+   * Tokens are stored encrypted in device object native.
+   *
+   * @param objects Every object in this namespace — already fetched by the caller,
+   *   so this does not query the object store a second time.
    */
-  private async loadDevicesFromObjects(): Promise<DeviceConfig[]> {
+  private async loadDevicesFromObjects(objects: Record<string, ioBroker.Object>): Promise<DeviceConfig[]> {
     const devices: DeviceConfig[] = [];
 
     // One-shot legacy migration: v0.1/0.2 stored devices in adapter `native.devices`;
@@ -388,24 +446,31 @@ export class HomeWizard extends utils.Adapter {
     // Read device objects from our namespace. A corrupted encryptedToken
     // (e.g. after secret rotation, crypto-lib changes, manual DB edits) must
     // not take down the whole adapter — skip the broken device, keep the rest.
-    const objects = await this.getAdapterObjectsAsync();
     for (const [id, obj] of Object.entries(objects)) {
       if (obj.type !== "device") {
         continue;
       }
+      const localId = id.replace(`${this.namespace}.`, "");
       const native = obj.native as Record<string, string> | undefined;
       if (!native?.encryptedToken || !native.serial) {
+        // Every device object this adapter writes carries both fields, so one
+        // without them is damaged (a hand-edited database, an interrupted write).
+        // Say so: the device silently disappears from the adapter otherwise, and
+        // the user is left with a folder full of data points that never update.
+        this.log.warn(
+          `${localId}: device entry is incomplete (no stored token or serial) — it is skipped. ` +
+            `Set its 'remove' data point to true to delete it, then pair the device again.`,
+        );
         continue;
       }
-      const localId = id.replace(`${this.namespace}.`, "");
       this.log.debug(`Loading device from object: ${localId}`);
       let token: string;
       try {
         token = this.decrypt(native.encryptedToken);
       } catch (err) {
         this.log.warn(
-          `Cannot decrypt token for ${localId} — re-pair the device. ` +
-            `(${errText(err)}). Other devices remain unaffected.`,
+          `Cannot decrypt token for ${localId} — pair the device again, or set its 'remove' data point ` +
+            `to true to delete it. (${errText(err)}). Other devices remain unaffected.`,
         );
         continue;
       }
@@ -451,39 +516,6 @@ export class HomeWizard extends utils.Adapter {
   }
 
   /**
-   * Handle a discovered device from mDNS (only active during pairing)
-   *
-   * @param discovered Discovered device info
-   */
-  private onDeviceDiscovered(discovered: DiscoveredDevice): void {
-    // Skip already paired devices
-    const existing = Array.from(this.connections.values()).find(c => c.config.serial === discovered.serial);
-    if (existing) {
-      return;
-    }
-
-    // Skip duplicates
-    if (this.discoveredDuringPairing.find(d => d.serial === discovered.serial)) {
-      return;
-    }
-
-    // Cap the list — a flood of spoofed mDNS announcements (unique serials defeat
-    // the dedup above) could otherwise grow it unbounded for the 60s pairing window.
-    if (this.discoveredDuringPairing.length >= 50) {
-      this.log.debug(`mDNS: discovery list full (50) — ignoring ${sanitizeForLog(discovered.name)}`);
-      return;
-    }
-    this.discoveredDuringPairing.push(discovered);
-    // L9/DD17: name and product type come straight from an mDNS TXT record, so
-    // any host on the LAN picks them. Without the CR/LF strip a crafted
-    // announcement forges additional log lines. (The IP is already validated.)
-    this.log.info(
-      `Found ${sanitizeForLog(discovered.name)} (${sanitizeForLog(discovered.productType)}) at ${discovered.ip} — ` +
-        `press the button on the device to pair`,
-    );
-  }
-
-  /**
    * Adapter stopping.
    *
    * Timers and sockets go down synchronously, but the last writes are awaited:
@@ -503,14 +535,7 @@ export class HomeWizard extends utils.Adapter {
     // and bail out before further setStateAsync on a tearing-down adapter.
     this.unloading = true;
     try {
-      if (this.pairingTimer) {
-        this.clearTimeout(this.pairingTimer);
-        this.pairingTimer = undefined;
-      }
-      if (this.pairingPollTimer) {
-        this.clearInterval(this.pairingPollTimer);
-        this.pairingPollTimer = undefined;
-      }
+      this.pairingManager.stop();
       if (this.systemPollTimer) {
         this.clearInterval(this.systemPollTimer);
         this.systemPollTimer = undefined;
@@ -571,6 +596,114 @@ export class HomeWizard extends utils.Adapter {
     }
   }
 
+  /**
+   * Every writable control state, and what writing it does on the device.
+   *
+   * A table instead of a chain of `id.endsWith(...)` branches: the branches all
+   * said the same three things — validate, send, acknowledge what was sent — and
+   * repeated the button rule by hand at each button. Here the rule is stated once
+   * in {@link onStateChange}, and a new control state is one entry.
+   *
+   * Order does not matter: the suffixes are mutually exclusive.
+   */
+  private readonly deviceCommands: DeviceCommand[] = [
+    {
+      suffix: ".system.reboot",
+      button: true,
+      send: async ({ client, conn }) => {
+        this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
+        await client.reboot();
+        return null;
+      },
+    },
+    {
+      suffix: ".system.identify",
+      button: true,
+      send: async ({ client }) => {
+        await client.identify();
+        return null;
+      },
+    },
+    {
+      suffix: ".system.cloud_enabled",
+      // Ack the value that was actually sent (a script may write "true" or 1 into
+      // the boolean state) — the ack must not carry the raw write (DD16).
+      send: async ({ client, state }) => {
+        const enabled = !!state.val;
+        await client.setSystem({ cloud_enabled: enabled });
+        return enabled;
+      },
+    },
+    {
+      suffix: ".system.status_led_brightness_pct",
+      send: async ({ client, state }) => {
+        const pct = coerceFiniteNumber(state.val);
+        if (pct === null || pct < 0 || pct > 100) {
+          this.log.warn(`Invalid status_led_brightness_pct '${String(state.val)}' — expected a number 0-100`);
+          return null;
+        }
+        await client.setSystem({ status_led_brightness_pct: pct });
+        return pct;
+      },
+    },
+    {
+      suffix: ".system.api_v1_enabled",
+      send: async ({ client, state, conn }) => {
+        if (state.val) {
+          this.log.warn(
+            `${conn.config.productName}: enabling the legacy v1 API — it has no TLS and no token, so any ` +
+              `host on the LAN can then read and control this device without authentication.`,
+          );
+        }
+        const v1Enabled = !!state.val;
+        await client.setSystem({ api_v1_enabled: v1Enabled });
+        return v1Enabled;
+      },
+    },
+    {
+      suffix: ".battery.mode",
+      // The validated mode, not the raw write. (The two cannot differ today,
+      // because validateBatteryMode only lets the four exact strings through;
+      // acking the sent value keeps it right if a normalisation step is ever added.)
+      send: async ({ client, state }) => {
+        const mode = validateBatteryMode(String(state.val));
+        if (!mode) {
+          this.log.warn(
+            `Invalid battery.mode value: '${String(state.val)}' — expected one of: zero, to_full, standby, predictive`,
+          );
+          return null;
+        }
+        await client.setBatteries({ mode });
+        return mode;
+      },
+    },
+    {
+      suffix: ".battery.permissions",
+      // Ack the list that actually went to the device, not the raw text a script
+      // wrote — otherwise its spacing stays in the data point while the device
+      // holds the parsed value.
+      send: async ({ client, state }) => {
+        const result = parseBatteryPermissions(String(state.val));
+        if (!result.ok) {
+          this.log.warn(
+            `Invalid JSON for battery.permissions: ${result.reason} — expected array, got: ${result.sample}`,
+          );
+          return null;
+        }
+        await client.setBatteries({ permissions: result.perms });
+        return JSON.stringify(result.perms);
+      },
+    },
+    {
+      suffix: ".battery.charge_to_full",
+      send: async ({ client, state }) => {
+        const chargeToFull = !!state.val;
+        await client.setBatteries({ charge_to_full: chargeToFull });
+        return chargeToFull;
+      },
+    },
+  ];
+
   private async onStateChange(id: string, state: ioBroker.State | null | undefined): Promise<void> {
     try {
       if (!state || state.ack || this.unloading) {
@@ -579,7 +712,7 @@ export class HomeWizard extends utils.Adapter {
 
       if (id.endsWith(".startPairing")) {
         if (state.val) {
-          await this.startPairing();
+          await this.pairingManager.start();
         }
         return;
       }
@@ -591,322 +724,51 @@ export class HomeWizard extends utils.Adapter {
         return;
       }
 
+      const command = this.deviceCommands.find(c => id.endsWith(c.suffix));
+      if (!command) {
+        this.log.debug(`stateChange ${id}: no control state of this adapter — ignored`);
+        return;
+      }
+
       const conn = this.connectionManager.findConnectionForState(id);
       if (!conn || !conn.ip) {
         // Orphaned state (device removed but state written) or device without
         // IP yet — surface at debug so a user-side diagnosis is possible.
         this.log.debug(`stateChange ${id}: no matching connected device — ignored`);
+        // The button still has to fall back, or it stays pressed for good on a
+        // device that never comes back.
+        if (command.button) {
+          await this.resetButton(id);
+        }
         return;
       }
 
       const client = this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
 
       try {
-        if (id.endsWith(".system.reboot")) {
-          this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
-          // Reset the button whatever the outcome, so it is clickable again in
-          // Admin (fleet pattern — a button must not stay `true, ack=false`).
-          // The `finally` wraps ONLY this device call: put around the whole
-          // handler it would overwrite the LED percentage and every switch ack
-          // with `false`. A failing reset must not replace the original error
-          // either, hence its own catch.
-          try {
-            await client.reboot();
-          } finally {
-            await this.resetButton(id);
-          }
-        } else if (id.endsWith(".system.identify")) {
-          try {
-            await client.identify();
-          } finally {
-            await this.resetButton(id);
-          }
-        } else if (id.endsWith(".system.cloud_enabled")) {
-          // Ack the value that was actually sent (a script may write "true" or 1
-          // into the boolean state) — the ack must not carry the raw write.
-          const enabled = !!state.val;
-          await client.setSystem({ cloud_enabled: enabled });
-          await this.setStateAsync(id, { val: enabled, ack: true });
-        } else if (id.endsWith(".system.status_led_brightness_pct")) {
-          const pct = coerceFiniteNumber(state.val);
-          if (pct === null || pct < 0 || pct > 100) {
-            this.log.warn(`Invalid status_led_brightness_pct '${String(state.val)}' — expected a number 0-100`);
-            return;
-          }
-          await client.setSystem({ status_led_brightness_pct: pct });
-          await this.setStateAsync(id, { val: pct, ack: true });
-        } else if (id.endsWith(".system.api_v1_enabled")) {
-          if (state.val) {
-            this.log.warn(
-              `${conn.config.productName}: enabling the legacy v1 API — it has no TLS and no token, so any ` +
-                `host on the LAN can then read and control this device without authentication.`,
-            );
-          }
-          const v1Enabled = !!state.val;
-          await client.setSystem({ api_v1_enabled: v1Enabled });
-          await this.setStateAsync(id, { val: v1Enabled, ack: true });
-        } else if (id.endsWith(".battery.mode")) {
-          const mode = validateBatteryMode(String(state.val));
-          if (!mode) {
-            this.log.warn(
-              `Invalid battery.mode value: '${String(state.val)}' — expected one of: zero, to_full, standby, predictive`,
-            );
-            return;
-          }
-          await client.setBatteries({ mode });
-          // The validated mode, not the raw write — same rule as above. (These
-          // two cannot differ today, because validateBatteryMode only lets the
-          // four exact strings through; acking the sent value keeps it that way
-          // if the validation ever gains a normalisation step.)
-          await this.setStateAsync(id, { val: mode, ack: true });
-        } else if (id.endsWith(".battery.permissions")) {
-          const result = parseBatteryPermissions(String(state.val));
-          if (!result.ok) {
-            this.log.warn(
-              `Invalid JSON for battery.permissions: ${result.reason} — expected array, got: ${result.sample}`,
-            );
-            return;
-          }
-          await client.setBatteries({ permissions: result.perms });
-          // Ack the list that actually went to the device, not the raw text a
-          // script wrote — otherwise its spacing stays in the datapoint while
-          // the device holds the parsed value (same rule as the switches, DD16).
-          await this.setStateAsync(id, { val: JSON.stringify(result.perms), ack: true });
-        } else if (id.endsWith(".battery.charge_to_full")) {
-          const chargeToFull = !!state.val;
-          await client.setBatteries({ charge_to_full: chargeToFull });
-          await this.setStateAsync(id, { val: chargeToFull, ack: true });
+        const ack = await command.send({ client, state, conn });
+        if (ack !== null) {
+          await this.setStateAsync(id, { val: ack, ack: true });
         }
       } catch (err) {
         this.log.warn(`Failed to set ${id}: ${errText(err)}`);
+      } finally {
+        // Whatever happened above, a momentary button goes back to false. It can
+        // never collide with an acknowledged value: an entry is either a button
+        // (ack `null`) or a value state (never `button`).
+        if (command.button) {
+          await this.resetButton(id);
+        }
       }
     } catch (err: unknown) {
       this.log.error(`stateChange failed: ${errText(err)}`);
     }
   }
 
-  /** Start pairing mode — discover devices and attempt to pair */
-  private async startPairing(): Promise<void> {
-    if (this.isPairing) {
-      this.log.debug("Pairing already active");
-      return;
-    }
-
-    // Reset startPairing immediately so it doesn't survive a restart
-    await this.setStateAsync("startPairing", { val: false, ack: true });
-
-    // I9: stop IP recovery BEFORE setting isPairing — stopIpRecovery only tears
-    // down the discovery browser when !isPairing, so doing it after the flag would
-    // leave the recovery browser running alongside the pairing one.
-    this.stopIpRecovery();
-
-    this.isPairing = true;
-    this.discoveredDuringPairing = [];
-
-    // Check if manual IP is set, then clear pairingIp immediately
-    const ipState = await this.getStateAsync("pairingIp");
-    this.pairingManualIp = ipState?.val ? String(ipState.val).trim() : "";
-    await this.setStateAsync("pairingIp", { val: "", ack: true });
-
-    if (this.pairingManualIp) {
-      // Validate manual-IP up front — better to fail fast than wait 60s while
-      // requestPairing keeps timing out against a malformed input.
-      if (!isAssignableDeviceIpv4(this.pairingManualIp)) {
-        this.log.warn(
-          `Invalid pairing IP '${this.pairingManualIp}' — expected a LAN IPv4 (e.g. 192.168.1.42), ` +
-            `not loopback/link-local/broadcast`,
-        );
-        this.isPairing = false;
-        this.pairingManualIp = "";
-        return;
-      }
-      this.log.info(
-        `Pairing mode enabled for ${this.pairingManualIp} — press the button on your HomeWizard device now (60 seconds timeout)`,
-      );
-      // Add as discovered device immediately
-      this.discoveredDuringPairing.push({
-        ip: this.pairingManualIp,
-        productType: "unknown",
-        serial: "unknown",
-        name: this.pairingManualIp,
-      });
-    } else {
-      this.log.info(
-        `Pairing mode enabled — searching for devices via mDNS, press the button on your HomeWizard device now (60 seconds timeout)`,
-      );
-      // Restart mDNS browser to trigger fresh query — already-cached devices
-      // won't be re-announced otherwise and pairing would never find them
-      if (!this.discovery) {
-        this.discovery = this.makeDiscovery();
-      }
-      this.discovery.start(discovered => {
-        this.onDeviceDiscovered(discovered);
-      });
-    }
-
-    // Poll discovered devices for pairing
-    this.pairingPollTimer = this.setInterval(() => {
-      this.pollPairing().catch((err: unknown) => this.log.debug(`pollPairing failed: ${errText(err)}`));
-    }, PAIRING_POLL_MS);
-
-    // Timeout pairing
-    this.pairingTimer = this.setTimeout(() => {
-      this.stopPairing();
-      this.log.info(`Pairing mode automatically disabled after 60 seconds timeout`);
-    }, PAIRING_TIMEOUT_MS);
-  }
-
-  /** Poll all discovered devices to attempt pairing */
-  private async pollPairing(): Promise<void> {
-    if (this.pairingPollBusy) {
-      return;
-    }
-    this.pairingPollBusy = true;
-    try {
-      await this.pollPairingDevices();
-    } finally {
-      this.pairingPollBusy = false;
-    }
-  }
-
-  /** One pairing-poll pass over all discovered devices. */
-  private async pollPairingDevices(): Promise<void> {
-    for (const device of this.discoveredDuringPairing) {
-      let issuedToken: string | undefined;
-      try {
-        const client = this.makeClient(device.ip, "");
-        const result = await client.requestPairing();
-        issuedToken = result.token;
-
-        // Success! Button was pressed. Name and product type are the mDNS-supplied
-        // values — same CR/LF strip as the error path below (L9/DD17).
-        this.log.info(
-          `Successfully paired with ${sanitizeForLog(device.name)} (${sanitizeForLog(device.productType)}) ` +
-            `at ${device.ip} — connecting...`,
-        );
-
-        // Get device info + capture the device's TLS cert CN to pin its identity on future connects
-        const authedClient = this.makeClient(device.ip, result.token);
-        const info = await authedClient.getDeviceInfo();
-        const certCn = authedClient.getServerCertCn();
-
-        // I10: cross-check the pinned CN (`appliance/<type>/<serial>`) against the
-        // serial the device reports over the authenticated channel. A mismatch means
-        // the identity we are about to pin and the device's self-report disagree —
-        // warn (not block: CN formats vary across firmware and a hard reject could
-        // break a legitimate pairing), then pin the CN as captured.
-        if (certCn && !certCn.includes(info.serial)) {
-          this.log.warn(
-            `${sanitizeForLog(info.product_name)}: paired certificate CN "${sanitizeForLog(certCn)}" does not ` +
-              `contain the reported serial "${sanitizeForLog(info.serial)}" — verify this is the intended device.`,
-          );
-        }
-
-        const deviceConfig: DeviceConfig = {
-          token: result.token,
-          productType: info.product_type,
-          serial: info.serial,
-          // L9: productName is device-supplied and becomes the object's common.name
-          // AND prefixes almost every device log line — strip CR/LF so a hostile
-          // device can't inject newlines into the object tree or forge log lines.
-          // (serial/productType stay raw: they feed the sanitized object ID and the
-          // HWE-BAT comparison, never a raw log except the one wrapped call site.)
-          productName: sanitizeForLog(info.product_name),
-          ip: device.ip,
-          ...(certCn ? { certCn } : {}),
-        };
-
-        // Save to device object (no adapter restart!)
-        await this.saveDeviceToObject(deviceConfig);
-        await this.stateManager.createDeviceStates(deviceConfig);
-        // Same stamp as at start-up, and it matters most on a RE-pair: the old
-        // connection is torn down below, and tearing down deliberately suppresses
-        // the WebSocket's disconnect handler — without this the device would keep
-        // its stale `true` until the new connection authenticates.
-        await this.stateManager.setDeviceConnected(deviceConfig, false);
-
-        // Re-pair of an existing device (e.g. after factory reset): close the
-        // old connection's wsClient + timers before overwriting the map entry,
-        // otherwise the old WS keeps running as a zombie until restart.
-        const key = this.stateManager.devicePrefix(deviceConfig);
-        const previous = this.connections.get(key);
-        if (previous) {
-          this.log.debug(`Re-pair: closing previous connection for ${deviceConfig.productName}`);
-          this.connectionManager.teardownConnection(previous);
-        }
-
-        // Create connection and connect
-        const conn = createDeviceConnection(deviceConfig, device.ip);
-        this.connections.set(key, conn);
-        void this.initDevice(conn).catch((err: unknown) =>
-          this.log.error(`initDevice failed for ${conn.config.productName}: ${errText(err)}`),
-        );
-
-        // Remove the just-paired entry by identity (not by serial — the manual-IP
-        // placeholder carries serial "unknown" and would never match info.serial,
-        // so it would be re-POSTed every 2s and mint orphaned tokens). Keep the
-        // window open so the user can button-press more devices this session.
-        this.discoveredDuringPairing = this.discoveredDuringPairing.filter(d => d !== device);
-
-        this.connectionManager.updateGlobalConnection();
-        // Do NOT call stopPairing() here — pairingTimer (60 s) closes the
-        // window naturally; meanwhile the user can pair more devices.
-        continue;
-      } catch (err) {
-        // 403 = button not pressed yet — expected, keep polling
-        if (err instanceof HomeWizardApiError && err.statusCode === 403) {
-          continue;
-        }
-        // A token WAS issued this round (button was pressed) but device-info/setup
-        // failed (e.g. a malformed GET /api). Revoke the orphaned token AND drop this
-        // device from the pairing queue: a persistently-malformed device would otherwise
-        // re-mint + revoke a token every 2 s for the rest of the 60 s window (F4). The
-        // 403 path above still keeps polling — only an issued-but-failed pairing gives up.
-        // Surfaced as warn since the user pressed the button and expects a result.
-        if (issuedToken) {
-          this.makeClient(device.ip, issuedToken)
-            .deleteUser()
-            .catch(() => {
-              /* best-effort revoke */
-            });
-          this.discoveredDuringPairing = this.discoveredDuringPairing.filter(d => d !== device);
-          this.log.warn(
-            `${sanitizeForLog(device.name)}: paired but could not read device info — token revoked, ` +
-              `please retry pairing. (${errText(err)})`,
-          );
-          continue;
-        }
-        this.log.debug(`Pairing poll error for ${device.ip}: ${errText(err)}`);
-      }
-    }
-  }
-
-  /** Stop pairing mode */
-  private stopPairing(): void {
-    this.isPairing = false;
-    this.pairingManualIp = "";
-    this.discoveredDuringPairing = [];
-
-    // Stop mDNS — only needed during pairing
-    if (this.discovery) {
-      this.discovery.stop();
-      this.discovery = null;
-    }
-
-    if (this.pairingPollTimer) {
-      this.clearInterval(this.pairingPollTimer);
-      this.pairingPollTimer = undefined;
-    }
-    if (this.pairingTimer) {
-      this.clearTimeout(this.pairingTimer);
-      this.pairingTimer = undefined;
-    }
-  }
-
   /** Start mDNS to find devices that changed IP */
   private startIpRecovery(): void {
     // Don't start if already running or pairing
-    if (this.discovery || this.isPairing) {
+    if (this.discovery || this.pairingManager.active) {
       return;
     }
 
@@ -954,7 +816,7 @@ export class HomeWizard extends utils.Adapter {
           this.clearInterval(conn.pollTimer);
           conn.pollTimer = undefined;
         }
-        this.connectWebSocket(conn);
+        this.connectionManager.connectWebSocket(conn);
         return;
       }
     });
@@ -984,19 +846,15 @@ export class HomeWizard extends utils.Adapter {
       this.clearTimeout(this.ipRecoveryTimer);
       this.ipRecoveryTimer = undefined;
     }
-    if (this.discovery && !this.isPairing) {
+    if (this.discovery && !this.pairingManager.active) {
       this.discovery.stop();
       this.discovery = null;
     }
   }
 
-  // --- Connection-lifecycle delegators → ConnectionManager (owns the registry +
-  // reconnect/error state machine, F5). Kept so the orchestration unit tests can
-  // drive the handlers directly on the adapter. ---
-
   /** Stop mDNS IP-recovery once every device is connected (main owns the discovery browser). */
   private onDeviceConnected(): void {
-    if (this.discovery && !this.isPairing) {
+    if (this.discovery && !this.pairingManager.active) {
       const allConnected = Array.from(this.connections.values()).every(c => c.wsAuthenticated);
       if (allConnected) {
         this.stopIpRecovery();
@@ -1004,16 +862,74 @@ export class HomeWizard extends utils.Adapter {
     }
   }
 
-  private initDevice(conn: DeviceConnection): Promise<void> {
-    return this.connectionManager.initDevice(conn);
+  /**
+   * Take a freshly paired device into operation.
+   *
+   * Stays in main because the connection registry does: on a RE-pair (a device
+   * that was factory-reset and paired again) the old connection has to be torn
+   * down before the map entry is overwritten, or its WebSocket keeps running as a
+   * zombie until the next restart.
+   *
+   * @param config The device configuration just written.
+   * @param ip     The address the device was reached at.
+   */
+  private adoptPairedDevice(config: DeviceConfig, ip: string): void {
+    const key = this.stateManager.devicePrefix(config);
+    const previous = this.connections.get(key);
+    if (previous) {
+      this.log.debug(`Re-pair: closing previous connection for ${config.productName}`);
+      this.connectionManager.teardownConnection(previous);
+    }
+
+    const conn = createDeviceConnection(config, ip);
+    this.connections.set(key, conn);
+    void this.connectionManager
+      .initDevice(conn)
+      .catch((err: unknown) => this.log.error(`initDevice failed for ${conn.config.productName}: ${errText(err)}`));
+    this.connectionManager.updateGlobalConnection();
   }
 
-  private connectWebSocket(conn: DeviceConnection): void {
-    this.connectionManager.connectWebSocket(conn);
-  }
+  /**
+   * Remove a device the adapter never loaded.
+   *
+   * A device object whose stored token is missing or cannot be decrypted is
+   * skipped while loading, so it has no connection — and the regular removal path
+   * above, which starts from the connection, silently did nothing for it. Its data
+   * points stayed in the tree, the button stayed pressed and no line was logged.
+   * That was the one device a user actually needed to get rid of. The object's own
+   * id is all that is left of it, and that is enough to delete it.
+   *
+   * The token cannot be revoked here — reading it is exactly what failed — so the
+   * access may survive on the device itself. Say that, rather than pretend a clean
+   * removal.
+   *
+   * @param stateId Full state ID of the `remove` button that was pressed.
+   */
+  private async removeUnloadedDevice(stateId: string): Promise<void> {
+    const suffix = ".remove";
+    const localId = stripNamespace(stateId, this.namespace);
+    // A device prefix is `<productType>_<serial>` — one segment, never nested.
+    const prefix = localId.endsWith(suffix) ? localId.slice(0, -suffix.length) : "";
+    if (!prefix || prefix.includes(".")) {
+      this.log.debug(`remove ${stateId}: not a device-level remove button — ignored`);
+      await this.resetButton(stateId);
+      return;
+    }
 
-  private pollAllSystemInfo(): Promise<void> {
-    return this.connectionManager.pollAllSystemInfo();
+    const obj = await this.getObjectAsync(prefix);
+    if (obj?.type !== "device") {
+      this.log.debug(`remove ${stateId}: no device object '${prefix}' to remove — ignored`);
+      await this.resetButton(stateId);
+      return;
+    }
+
+    this.log.info(
+      `Removing ${prefix} — this device could not be used by the adapter (no readable token), so its ` +
+        `access on the device itself cannot be revoked. Remove it in the HomeWizard app if you no longer want it.`,
+    );
+    await this.stateManager.removeDeviceByPrefix(prefix);
+    // No `updateGlobalConnection()` here on purpose: the summary counts
+    // connections, and this device never had one — nothing changed for it.
   }
 
   /**
@@ -1024,6 +940,7 @@ export class HomeWizard extends utils.Adapter {
   private async removeDevice(stateId: string): Promise<void> {
     const conn = this.connectionManager.findConnectionForState(stateId);
     if (!conn) {
+      await this.removeUnloadedDevice(stateId);
       return;
     }
 

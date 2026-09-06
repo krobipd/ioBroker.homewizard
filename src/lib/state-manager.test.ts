@@ -23,13 +23,8 @@ vi.mock("@iobroker/adapter-core", () => {
 });
 
 import { I18n } from "@iobroker/adapter-core";
-import {
-  EXTERNAL_METER_LEAF_KEYS,
-  LABELLED_OBJECT_IDS,
-  MEASUREMENT_STATE_DEFS,
-  MOMENTARY_KEYS,
-  StateManager,
-} from "./state-manager";
+import { EXTERNAL_METER_LEAF_KEYS, LABELLED_OBJECT_IDS, MEASUREMENT_STATE_DEFS, MOMENTARY_KEYS } from "./state-defs";
+import { StateManager } from "./state-manager";
 import type { DeviceConfig, Measurement, SystemInfo, BatteryControl } from "./types";
 
 interface CommonNameTranslated {
@@ -78,6 +73,82 @@ interface MockAdapter {
   delObjectAsync: (id: string, opts?: { recursive: boolean }) => Promise<void>;
 }
 
+/**
+ * Plain object in the sense node.extend uses (`is.hash`): not null, not an array.
+ *
+ * @param value The value to classify.
+ */
+function isHash(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * `node.extend(true, target, source)` — the exact merge js-controller performs on
+ * an `extendObject` (`objectsInRedisClient._extendObject`, the single merge site of
+ * the object store).
+ *
+ * This is NOT the same as a spread of `common`, which is what this mock used to do.
+ * Two differences decide real defects:
+ *   • a key that exists only in the OLD object SURVIVES — a spread drops it, so a
+ *     leftover entry in `common.states` was invisible here while it stays in a real
+ *     tree forever (that is what `repairCommonStatesIfBuggy` is actually for);
+ *   • an object value is merged key by key, not replaced wholesale.
+ * A plain value (string, number, boolean) DOES overwrite an object — measured
+ * against node.extend, contrary to what the repair's comment used to claim.
+ *
+ * @param target The stored object — merged into and returned.
+ * @param source The update.
+ */
+function extendDeep(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+  for (const [name, copy] of Object.entries(source)) {
+    if (copy === target) {
+      continue; // never-ending loop guard, as in node.extend
+    }
+    if (isHash(copy)) {
+      const src = target[name];
+      target[name] = extendDeep(isHash(src) ? src : {}, copy);
+    } else if (Array.isArray(copy)) {
+      // node.extend merges arrays BY INDEX; it does not replace them.
+      const src = target[name];
+      target[name] = extendDeep(
+        (Array.isArray(src) ? src : []) as unknown as Record<string, unknown>,
+        copy as unknown as Record<string, unknown>,
+      );
+    } else if (copy !== undefined) {
+      target[name] = copy;
+    }
+  }
+  return target;
+}
+
+/**
+ * `tools.removePreservedProperties` — js-controller strips the preserved keys from
+ * the UPDATE before merging, and only where the key exists on both sides.
+ *
+ * @param preserve The `preserve` option as passed to extendObject.
+ * @param preserve.common The `common` keys whose stored value must survive.
+ * @param oldObj   The stored object.
+ * @param newObj   The update, modified in place.
+ */
+function removePreserved(
+  preserve: { common?: string[] },
+  oldObj: Record<string, unknown>,
+  newObj: Record<string, unknown>,
+): void {
+  for (const [prop, rmProps] of Object.entries(preserve)) {
+    const oldProp = oldObj[prop];
+    const newProp = newObj[prop];
+    if (!Array.isArray(rmProps) || !isHash(oldProp) || !isHash(newProp)) {
+      continue;
+    }
+    for (const rmProp of rmProps) {
+      if (oldProp[rmProp] !== undefined && newProp[rmProp] !== undefined) {
+        delete newProp[rmProp];
+      }
+    }
+  }
+}
+
 function createMockAdapter(): MockAdapter {
   const objects = new Map<string, ObjectDef>();
   const states = new Map<string, StateValue>();
@@ -101,20 +172,23 @@ function createMockAdapter(): MockAdapter {
       if (options?.preserve?.common?.length) {
         preservedIds.push(id);
       }
-      const existing = objects.get(id) || { type: "", common: {}, native: {} };
-      const newCommon: Record<string, unknown> = { ...existing.common, ...(obj.common || {}) };
-      if (options?.preserve?.common && objects.has(id)) {
-        for (const key of options.preserve.common) {
-          if (key in existing.common) {
-            newCommon[key] = existing.common[key];
-          }
-        }
+      const existing = objects.get(id);
+      // Same order as js-controller: clone the update, strip the preserved keys,
+      // then deep-merge into the stored object — or, when there is none, store the
+      // update as-is ("if old object is not existing, we behave like setObject").
+      const update = structuredClone(obj) as Record<string, unknown>;
+      if (!existing) {
+        objects.set(id, {
+          type: (update.type as string) || "",
+          common: (update.common as Record<string, unknown>) || {},
+          native: (update.native as Record<string, unknown>) || {},
+        });
+        return Promise.resolve();
       }
-      objects.set(id, {
-        type: obj.type || existing.type,
-        common: newCommon,
-        native: { ...existing.native, ...(obj.native || {}) },
-      });
+      if (options?.preserve) {
+        removePreserved(options.preserve, existing as unknown as Record<string, unknown>, update);
+      }
+      objects.set(id, extendDeep(existing as unknown as Record<string, unknown>, update) as unknown as ObjectDef);
       return Promise.resolve();
     },
     setObjectNotExistsAsync: (id: string, obj: Partial<ObjectDef>): Promise<void> => {
@@ -315,7 +389,11 @@ describe("StateManager", () => {
       // `preserve` here would freeze it forever and let the change reach fresh
       // installations only.
       obj.common.name = "Device Information";
-      await manager.createDeviceStates(testDevice);
+      // An installation that carries an old label is one the adapter STARTS on —
+      // a new process with an empty per-run cache. Driving the second pass through
+      // the same manager would instead test the cache, which by design skips what
+      // it has already written in this very run.
+      await new StateManager(adapter as never).createDeviceStates(testDevice);
       const after = adapter.objects.get("hwe-p1_aabbccddeeff.info")!;
       expect(after.common.name).toEqual(expect.objectContaining({ en: expect.any(String) }));
       expect(after.common.name).not.toBe("Device Information");
@@ -757,6 +835,62 @@ describe("StateManager", () => {
       }
     });
 
+    it("a leftover states key from an older version is thrown out, not merged along", async () => {
+      // The case the repair actually exists for, and the one a deep merge cannot
+      // fix by itself: a key the CURRENT map no longer carries. It survives every
+      // extendObject forever, and while it holds a translation object, opening the
+      // dropdown in Admin dies with React error #31.
+      adapter.objects.set("hwe-p1_aabbccddeeff.measurement.tariff", {
+        type: "state",
+        common: {
+          name: "Tariff",
+          type: "number",
+          role: "value",
+          read: true,
+          write: false,
+          states: {
+            1: { en: "Tariff 1", de: "Tarif 1" } as unknown as string,
+            T1: { en: "Tariff 1", de: "Tarif 1" } as unknown as string,
+          },
+        },
+        native: {},
+      });
+
+      await manager.updateMeasurement(testDevice, { tariff: 1 });
+
+      const states = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.tariff")!.common.states as Record<
+        string,
+        unknown
+      >;
+      expect(Object.keys(states).sort()).toEqual(["1", "2", "3", "4"]);
+      for (const v of Object.values(states)) {
+        expect(typeof v).toBe("string");
+      }
+    });
+
+    it("a states key the new map also carries is replaced by the merge itself", async () => {
+      // Measured against node.extend(true, …): a plain string DOES overwrite an
+      // object value. Held here so the repair above is never justified with a
+      // mechanism that does not exist.
+      adapter.objects.set("hwe-p1_aabbccddeeff.measurement.tariff", {
+        type: "state",
+        common: {
+          name: "Tariff",
+          type: "number",
+          role: "value",
+          read: true,
+          write: false,
+          states: { 1: { en: "Tariff 1" } as unknown as string },
+        },
+        native: {},
+      });
+
+      await manager.updateMeasurement(testDevice, { tariff: 1 });
+
+      const obj = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.tariff")!;
+      expect(typeof (obj.common.states as Record<string, unknown>)["1"]).toBe("string");
+    });
+
     it("repairs existing object that has translation-object VALUES in common.states", async () => {
       // Seed object with the buggy shape that v0.7.0-v0.7.5 wrote
       adapter.objects.set("hwe-p1_aabbccddeeff.measurement.tariff", {
@@ -958,6 +1092,72 @@ describe("StateManager", () => {
       for (const key of adapter.states.keys()) {
         expect(key.startsWith("hwe-p1_aabbccddeeff")).toBe(false);
       }
+    });
+  });
+
+  describe("cleanupMovedStates", () => {
+    it("deletes the pre-v0.4.0 device-root paths and the retired telegram state", async () => {
+      // What an installation from before the measurement/ channel carries: the
+      // values sat directly under the device, plus the raw P1 telegram that
+      // v0.11.0 retired.
+      const prefix = "hwe-p1_aabbccddeeff";
+      for (const id of [`${prefix}.power_w`, `${prefix}.external`, `${prefix}.measurement.telegram`]) {
+        adapter.objects.set(id, { type: "state", common: {}, native: {} });
+      }
+      // …and one that must survive: the current location of the same value.
+      adapter.objects.set(`${prefix}.measurement.power_w`, { type: "state", common: {}, native: {} });
+      const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+
+      await manager.cleanupMovedStates(testDevice, existing);
+
+      expect(adapter.objects.has(`${prefix}.power_w`)).toBe(false);
+      expect(adapter.objects.has(`${prefix}.external`)).toBe(false);
+      expect(adapter.objects.has(`${prefix}.measurement.telegram`)).toBe(false);
+      expect(adapter.objects.has(`${prefix}.measurement.power_w`)).toBe(true);
+    });
+
+    it("deletes nothing when the tree holds none of the old paths", async () => {
+      adapter.objects.set("hwe-p1_aabbccddeeff.measurement.power_w", { type: "state", common: {}, native: {} });
+      const before = adapter.objects.size;
+
+      await manager.cleanupMovedStates(testDevice, new Set(["homewizard.0.hwe-p1_aabbccddeeff.measurement.power_w"]));
+
+      expect(adapter.objects.size).toBe(before);
+    });
+  });
+
+  describe("removeBatteryStates", () => {
+    it("removes the whole battery branch and reports that it did", async () => {
+      await manager.createDeviceStates(testDevice);
+      await manager.updateBattery(testDevice, {
+        mode: "zero",
+        battery_count: 1,
+        power_w: 10,
+      } as unknown as BatteryControl);
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff.battery.power_w")).toBe(true);
+
+      const removed = await manager.removeBatteryStates(testDevice);
+
+      expect(removed).toBe(true);
+      expect([...adapter.objects.keys()].filter(id => id.includes(".battery"))).toEqual([]);
+      // The rest of the device is untouched — this removes a branch, not a device.
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff")).toBe(true);
+    });
+
+    it("reports false when there is no battery branch — the caller must not log a removal", async () => {
+      expect(await manager.removeBatteryStates(testDevice)).toBe(false);
+    });
+
+    it("drops the branch from the created-ids cache so a returning battery is rebuilt", async () => {
+      await manager.updateBattery(testDevice, { mode: "zero", battery_count: 1 } as unknown as BatteryControl);
+      await manager.removeBatteryStates(testDevice);
+
+      // Without the cache eviction this second pass would write nothing at all and
+      // the battery would come back as an empty branch.
+      await manager.updateBattery(testDevice, { mode: "zero", battery_count: 2 } as unknown as BatteryControl);
+
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff.battery")).toBe(true);
+      expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.battery_count")?.val).toBe(2);
     });
   });
 
@@ -1226,17 +1426,29 @@ describe("name ownership — which objects may keep their stored name", () => {
     await manager.updateBattery(device, { mode: "zero", battery_count: 1, charge_to_full: false });
 
     // `preserve: { common: ["name"] }` keeps whatever name is already stored. That
-    // is right exactly where the adapter does not own the text — the device object
-    // (its name is the device-supplied product name a user may have renamed) and
-    // the external-meter channel (named after the device-supplied meter type).
-    // Everywhere else the name is this adapter's own translation, and preserving
-    // it would mean a corrected label never reaches an existing installation
-    // (reference_preserve_name_verhindert_umbenennung). No gate catches that, so
-    // this list is the guard.
-    expect([...new Set(adapter.preservedIds)].sort()).toEqual([
-      "hwe-p1_aabbccddeeff",
-      "hwe-p1_aabbccddeeff.measurement.external.gas_meter_g1",
-    ]);
+    // is right exactly where the adapter does not own the text — here only the
+    // device object, whose name is the device-supplied product name a user may
+    // have renamed. Everywhere else the name is this adapter's own translation,
+    // and preserving it would mean a corrected label never reaches an existing
+    // installation (reference_preserve_name_verhindert_umbenennung). No gate
+    // catches that, so this list is the guard.
+    //
+    // The external-meter channel is NOT in the list any more: `gas_meter` comes
+    // from a closed list in the API, so its label is translated like every other.
+    expect([...new Set(adapter.preservedIds)].sort()).toEqual(["hwe-p1_aabbccddeeff"]);
+
+    const channel = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.external.gas_meter_g1")!;
+    expect(channel.common.name).toEqual(expect.objectContaining({ en: "Gas meter" }));
+  });
+
+  it("an external meter type the API does not document keeps its raw name — that one IS the device's", async () => {
+    await manager.updateMeasurement(device, {
+      external: [{ type: "future_meter", unique_id: "f1", value: 1, unit: "x", timestamp: "2026-09-06T09:00:00" }],
+    } as unknown as Measurement);
+
+    const channel = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.external.future_meter_f1")!;
+    expect(channel.common.name).toBe("future_meter");
+    expect(adapter.preservedIds).toContain("hwe-p1_aabbccddeeff.measurement.external.future_meter_f1");
   });
 
   it("creates no object through a create-only write — every path must reach existing installs", async () => {
@@ -1404,7 +1616,11 @@ describe("the label retrofit covers every object the adapter names itself", () =
     const before = adapter.objects.size;
     const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
 
-    const refreshed = await manager.refreshExistingNames(device, existing);
+    // A tree with old labels means the adapter is STARTING on it — a fresh process
+    // with an empty per-run cache, which is what the retrofit runs in. Reusing the
+    // manager that just wrote every one of these objects would measure the cache,
+    // not the retrofit.
+    const refreshed = await new StateManager(adapter as never).refreshExistingNames(device, existing);
 
     expect(refreshed).toBeGreaterThan(20);
     expect(adapter.objects.size, "the retrofit must not create objects").toBe(before);
@@ -1422,5 +1638,20 @@ describe("the label retrofit covers every object the adapter names itself", () =
     const refreshed = await manager.refreshExistingNames(device, new Set());
     expect(refreshed).toBe(0);
     expect(adapter.objects.size).toBe(0);
+  });
+
+  it("does not write again what this very start-up already wrote", async () => {
+    await fullPass();
+    const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+    const writesBefore = adapter.metrics.extendObjectCalls;
+
+    // Same manager = same adapter run: createDeviceStates and the data paths have
+    // just written every one of these labels with the current text. Refreshing
+    // them is a second object write per object, for nothing — on a P1 that is
+    // ~40 writes on every single start.
+    const refreshed = await manager.refreshExistingNames(device, existing);
+
+    expect(refreshed).toBe(0);
+    expect(adapter.metrics.extendObjectCalls).toBe(writesBefore);
   });
 });

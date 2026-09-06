@@ -2,28 +2,17 @@ import type * as utils from "@iobroker/adapter-core";
 import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject, sanitizeForLog } from "./coerce";
 import type { I18nKey } from "./i18n";
 import { resolveLabel, tName } from "./i18n";
+import type { MeasurementStateDef } from "./state-defs";
+import {
+  DEVICE_LABELLED_OBJECTS,
+  EXTERNAL_METER_LEAVES,
+  EXTERNAL_METER_TYPE_NAMES,
+  MEASUREMENT_STATE_DEFS,
+  MOMENTARY_KEYS,
+  QUALITY_KEYS,
+  SYSTEM_INFO_FIELDS,
+} from "./state-defs";
 import type { BatteryControl, DeviceConfig, Measurement, SystemInfo } from "./types";
-
-/** Measurement field to state definition mapping */
-interface MeasurementStateDef {
-  /** Measurement field key */
-  key: string;
-  /** ioBroker state ID suffix */
-  id: string;
-  /** Translation key for `common.name` (resolved via {@link tName}) */
-  nameKey: I18nKey;
-  /** Optional translation key for `common.desc` (resolved via {@link tName}) */
-  descKey?: I18nKey;
-  /** State value type */
-  type: ioBroker.CommonType;
-  /** ioBroker role */
-  role: string;
-  /** Unit string */
-  unit?: string;
-  /** Optional numeric min/max (I2: percentages 0–100). */
-  min?: number;
-  max?: number;
-}
 
 /** Options for {@link StateManager.createState} (avoids long positional argument lists). */
 interface StateDef {
@@ -65,525 +54,6 @@ interface StateSet extends StateDef {
 function sanitize(str: string): string {
   return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
 }
-
-// Exported for unit-tests only (invariant lock: every MOMENTARY_KEYS entry must
-// reference an existing def key — a typo would silently demote the field to
-// changed-only writes). Production code uses these via StateManager methods.
-export const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
-  // Power
-  { key: "power_w", id: "power_w", nameKey: "powerTotal", type: "number", role: "value.power", unit: "W" },
-  { key: "power_l1_w", id: "power_l1_w", nameKey: "powerL1", type: "number", role: "value.power", unit: "W" },
-  { key: "power_l2_w", id: "power_l2_w", nameKey: "powerL2", type: "number", role: "value.power", unit: "W" },
-  { key: "power_l3_w", id: "power_l3_w", nameKey: "powerL3", type: "number", role: "value.power", unit: "W" },
-  // Voltage
-  { key: "voltage_v", id: "voltage_v", nameKey: "voltage", type: "number", role: "value.voltage", unit: "V" },
-  { key: "voltage_l1_v", id: "voltage_l1_v", nameKey: "voltageL1", type: "number", role: "value.voltage", unit: "V" },
-  { key: "voltage_l2_v", id: "voltage_l2_v", nameKey: "voltageL2", type: "number", role: "value.voltage", unit: "V" },
-  { key: "voltage_l3_v", id: "voltage_l3_v", nameKey: "voltageL3", type: "number", role: "value.voltage", unit: "V" },
-  // Current
-  { key: "current_a", id: "current_a", nameKey: "current", type: "number", role: "value.current", unit: "A" },
-  { key: "current_l1_a", id: "current_l1_a", nameKey: "currentL1", type: "number", role: "value.current", unit: "A" },
-  { key: "current_l2_a", id: "current_l2_a", nameKey: "currentL2", type: "number", role: "value.current", unit: "A" },
-  { key: "current_l3_a", id: "current_l3_a", nameKey: "currentL3", type: "number", role: "value.current", unit: "A" },
-  // Frequency
-  {
-    key: "frequency_hz",
-    id: "frequency_hz",
-    nameKey: "frequency",
-    type: "number",
-    role: "value.frequency",
-    unit: "Hz",
-  },
-  // Energy import
-  {
-    key: "energy_import_kwh",
-    id: "energy_import_kwh",
-    nameKey: "energyImportTotal",
-    type: "number",
-    role: "value.energy",
-    unit: "kWh",
-  },
-  {
-    key: "energy_import_t1_kwh",
-    id: "energy_import_t1_kwh",
-    nameKey: "energyImportT1",
-    type: "number",
-    role: "value.energy",
-    unit: "kWh",
-  },
-  {
-    key: "energy_import_t2_kwh",
-    id: "energy_import_t2_kwh",
-    nameKey: "energyImportT2",
-    type: "number",
-    role: "value.energy",
-    unit: "kWh",
-  },
-  {
-    key: "energy_import_t3_kwh",
-    id: "energy_import_t3_kwh",
-    nameKey: "energyImportT3",
-    type: "number",
-    role: "value.energy",
-    unit: "kWh",
-  },
-  {
-    key: "energy_import_t4_kwh",
-    id: "energy_import_t4_kwh",
-    nameKey: "energyImportT4",
-    type: "number",
-    role: "value.energy",
-    unit: "kWh",
-  },
-  // Energy export
-  {
-    key: "energy_export_kwh",
-    id: "energy_export_kwh",
-    nameKey: "energyExportTotal",
-    type: "number",
-    role: "value.energy",
-    unit: "kWh",
-  },
-  {
-    key: "energy_export_t1_kwh",
-    id: "energy_export_t1_kwh",
-    nameKey: "energyExportT1",
-    type: "number",
-    role: "value.energy",
-    unit: "kWh",
-  },
-  {
-    key: "energy_export_t2_kwh",
-    id: "energy_export_t2_kwh",
-    nameKey: "energyExportT2",
-    type: "number",
-    role: "value.energy",
-    unit: "kWh",
-  },
-  {
-    key: "energy_export_t3_kwh",
-    id: "energy_export_t3_kwh",
-    nameKey: "energyExportT3",
-    type: "number",
-    role: "value.energy",
-    unit: "kWh",
-  },
-  {
-    key: "energy_export_t4_kwh",
-    id: "energy_export_t4_kwh",
-    nameKey: "energyExportT4",
-    type: "number",
-    role: "value.energy",
-    unit: "kWh",
-  },
-  // Tariff (common.states applied separately in updateMeasurement for translation labels)
-  { key: "tariff", id: "tariff", nameKey: "tariff", type: "number", role: "value" },
-  // Power quality
-  {
-    key: "voltage_sag_l1_count",
-    id: "quality.voltage_sag_l1_count",
-    nameKey: "voltageSagL1",
-    descKey: "voltageSag",
-    type: "number",
-    role: "value",
-  },
-  {
-    key: "voltage_sag_l2_count",
-    id: "quality.voltage_sag_l2_count",
-    nameKey: "voltageSagL2",
-    descKey: "voltageSag",
-    type: "number",
-    role: "value",
-  },
-  {
-    key: "voltage_sag_l3_count",
-    id: "quality.voltage_sag_l3_count",
-    nameKey: "voltageSagL3",
-    descKey: "voltageSag",
-    type: "number",
-    role: "value",
-  },
-  {
-    key: "voltage_swell_l1_count",
-    id: "quality.voltage_swell_l1_count",
-    nameKey: "voltageSwellL1",
-    descKey: "voltageSwell",
-    type: "number",
-    role: "value",
-  },
-  {
-    key: "voltage_swell_l2_count",
-    id: "quality.voltage_swell_l2_count",
-    nameKey: "voltageSwellL2",
-    descKey: "voltageSwell",
-    type: "number",
-    role: "value",
-  },
-  {
-    key: "voltage_swell_l3_count",
-    id: "quality.voltage_swell_l3_count",
-    nameKey: "voltageSwellL3",
-    descKey: "voltageSwell",
-    type: "number",
-    role: "value",
-  },
-  {
-    key: "any_power_fail_count",
-    id: "quality.power_fail_count",
-    nameKey: "powerFailCount",
-    descKey: "powerFailCountDesc",
-    type: "number",
-    role: "value",
-  },
-  {
-    key: "long_power_fail_count",
-    id: "quality.long_power_fail_count",
-    nameKey: "longPowerFailCount",
-    descKey: "longPowerFailCountDesc",
-    type: "number",
-    role: "value",
-  },
-  // Capacity tariff (Belgium)
-  {
-    key: "average_power_15m_w",
-    id: "average_power_15m_w",
-    nameKey: "avgPower15m",
-    descKey: "belgiumCapacityTariff",
-    type: "number",
-    role: "value.power",
-    unit: "W",
-  },
-  {
-    key: "monthly_power_peak_w",
-    id: "monthly_power_peak_w",
-    nameKey: "monthlyPowerPeak",
-    descKey: "belgiumCapacityTariff",
-    type: "number",
-    role: "value.power",
-    unit: "W",
-  },
-  {
-    key: "monthly_power_peak_timestamp",
-    id: "monthly_power_peak_timestamp",
-    nameKey: "monthlyPowerPeakTimestamp",
-    descKey: "belgiumCapacityTariff",
-    type: "string",
-    role: "date",
-  },
-  // kWh meter specifics — apparent / reactive
-  {
-    key: "apparent_current_a",
-    id: "apparent_current_a",
-    nameKey: "apparentCurrent",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "apparent_current_l1_a",
-    id: "apparent_current_l1_a",
-    nameKey: "apparentCurrentL1",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "apparent_current_l2_a",
-    id: "apparent_current_l2_a",
-    nameKey: "apparentCurrentL2",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "apparent_current_l3_a",
-    id: "apparent_current_l3_a",
-    nameKey: "apparentCurrentL3",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "reactive_current_a",
-    id: "reactive_current_a",
-    nameKey: "reactiveCurrent",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "reactive_current_l1_a",
-    id: "reactive_current_l1_a",
-    nameKey: "reactiveCurrentL1",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "reactive_current_l2_a",
-    id: "reactive_current_l2_a",
-    nameKey: "reactiveCurrentL2",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "reactive_current_l3_a",
-    id: "reactive_current_l3_a",
-    nameKey: "reactiveCurrentL3",
-    type: "number",
-    role: "value.current",
-    unit: "A",
-  },
-  {
-    key: "apparent_power_va",
-    id: "apparent_power_va",
-    nameKey: "apparentPower",
-    type: "number",
-    role: "value.power",
-    unit: "VA",
-  },
-  {
-    key: "apparent_power_l1_va",
-    id: "apparent_power_l1_va",
-    nameKey: "apparentPowerL1",
-    type: "number",
-    role: "value.power",
-    unit: "VA",
-  },
-  {
-    key: "apparent_power_l2_va",
-    id: "apparent_power_l2_va",
-    nameKey: "apparentPowerL2",
-    type: "number",
-    role: "value.power",
-    unit: "VA",
-  },
-  {
-    key: "apparent_power_l3_va",
-    id: "apparent_power_l3_va",
-    nameKey: "apparentPowerL3",
-    type: "number",
-    role: "value.power",
-    unit: "VA",
-  },
-  {
-    key: "reactive_power_var",
-    id: "reactive_power_var",
-    nameKey: "reactivePower",
-    type: "number",
-    role: "value.power.reactive",
-    unit: "var",
-  },
-  {
-    key: "reactive_power_l1_var",
-    id: "reactive_power_l1_var",
-    nameKey: "reactivePowerL1",
-    type: "number",
-    role: "value.power.reactive",
-    unit: "var",
-  },
-  {
-    key: "reactive_power_l2_var",
-    id: "reactive_power_l2_var",
-    nameKey: "reactivePowerL2",
-    type: "number",
-    role: "value.power.reactive",
-    unit: "var",
-  },
-  {
-    key: "reactive_power_l3_var",
-    id: "reactive_power_l3_var",
-    nameKey: "reactivePowerL3",
-    type: "number",
-    role: "value.power.reactive",
-    unit: "var",
-  },
-  {
-    key: "power_factor",
-    id: "power_factor",
-    nameKey: "powerFactor",
-    descKey: "powerFactorDesc",
-    type: "number",
-    role: "value",
-  },
-  {
-    key: "power_factor_l1",
-    id: "power_factor_l1",
-    nameKey: "powerFactorL1",
-    descKey: "powerFactorDesc",
-    type: "number",
-    role: "value",
-  },
-  {
-    key: "power_factor_l2",
-    id: "power_factor_l2",
-    nameKey: "powerFactorL2",
-    descKey: "powerFactorDesc",
-    type: "number",
-    role: "value",
-  },
-  {
-    key: "power_factor_l3",
-    id: "power_factor_l3",
-    nameKey: "powerFactorL3",
-    descKey: "powerFactorDesc",
-    type: "number",
-    role: "value",
-  },
-  // Battery specifics
-  {
-    key: "state_of_charge_pct",
-    id: "state_of_charge_pct",
-    nameKey: "stateOfCharge",
-    type: "number",
-    role: "value.battery",
-    min: 0,
-    max: 100,
-    unit: "%",
-  },
-  { key: "cycles", id: "cycles", nameKey: "cycles", type: "number", role: "value" },
-  // Metadata
-  { key: "meter_model", id: "meter_model", nameKey: "meterModel", type: "string", role: "text" },
-  { key: "unique_id", id: "unique_id", nameKey: "meterIdentifier", type: "string", role: "text" },
-  { key: "protocol_version", id: "protocol_version", nameKey: "protocolVersion", type: "number", role: "value" },
-  { key: "timestamp", id: "timestamp", nameKey: "measurementTimestamp", type: "string", role: "date" },
-];
-
-// Instantaneous electrical values — change on (almost) every ~1/s push, so a setStateChanged
-// read-compare buys nothing. These stay on setStateAsync; every other measurement field
-// (energy totals, tariff, power-quality counts, capacity tariff, SoC/cycles, model/timestamp)
-// is slow/static and uses setStateChangedAsync to skip redundant 1/s writes.
-// Exported for unit-tests only (subset-invariant against MEASUREMENT_STATE_DEFS).
-export const MOMENTARY_KEYS = new Set<string>([
-  "power_w",
-  "power_l1_w",
-  "power_l2_w",
-  "power_l3_w",
-  "voltage_v",
-  "voltage_l1_v",
-  "voltage_l2_v",
-  "voltage_l3_v",
-  "current_a",
-  "current_l1_a",
-  "current_l2_a",
-  "current_l3_a",
-  "frequency_hz",
-  "apparent_current_a",
-  "apparent_current_l1_a",
-  "apparent_current_l2_a",
-  "apparent_current_l3_a",
-  "reactive_current_a",
-  "reactive_current_l1_a",
-  "reactive_current_l2_a",
-  "reactive_current_l3_a",
-  "apparent_power_va",
-  "apparent_power_l1_va",
-  "apparent_power_l2_va",
-  "apparent_power_l3_va",
-  "reactive_power_var",
-  "reactive_power_l1_var",
-  "reactive_power_l2_var",
-  "reactive_power_l3_var",
-  "power_factor",
-  "power_factor_l1",
-  "power_factor_l2",
-  "power_factor_l3",
-]);
-
-/** An object under a device prefix whose name and description the ADAPTER owns. */
-interface LabelledObject {
-  /** ID relative to the device prefix. */
-  id: string;
-  /** Object type — needed when `extendObject` has to create nothing but merge. */
-  kind: "channel" | "state";
-  /** Translation key for `common.name`. */
-  nameKey: I18nKey;
-  /** Optional translation key for `common.desc`. */
-  descKey?: I18nKey;
-}
-
-/**
- * Every object under a device prefix that carries an adapter-owned label.
- *
- * This is what the name retrofit walks (see {@link StateManager.refreshExistingNames}).
- * It exists because most of these objects are only ever written while device data
- * flows: a meter that is offline — the P1 in a cellar hallway this adapter is built
- * for — keeps the labels of whatever version created them, however correct the write
- * path is. The retrofit reaches them without the device.
- *
- * The list is NOT a second copy of the naming: the measurement entries are derived
- * from {@link MEASUREMENT_STATE_DEFS}, and `state-manager.test.ts` drives a full
- * pass over every writing path and fails if it produces an object that is missing
- * here. A new datapoint therefore cannot silently escape the retrofit.
- *
- * Deliberately absent: the device object itself and the external-meter channels —
- * their names come from the device, not from this adapter (see the `preserve`
- * argument of {@link StateManager.ensureChannel}).
- */
-const DEVICE_LABELLED_OBJECTS: LabelledObject[] = [
-  { id: "info", kind: "channel", nameKey: "deviceInformation" },
-  { id: "info.productName", kind: "state", nameKey: "productName" },
-  { id: "info.productType", kind: "state", nameKey: "productType" },
-  { id: "info.firmware", kind: "state", nameKey: "firmware" },
-  { id: "info.connected", kind: "state", nameKey: "connected", descKey: "connectedDesc" },
-  { id: "info.wifi_ssid", kind: "state", nameKey: "wifiSsid" },
-  { id: "info.wifi_rssi_db", kind: "state", nameKey: "wifiRssi" },
-  { id: "info.uptime_s", kind: "state", nameKey: "uptime" },
-  { id: "remove", kind: "state", nameKey: "removeDevice", descKey: "removeDeviceDesc" },
-  { id: "measurement", kind: "channel", nameKey: "measurement" },
-  { id: "measurement.quality", kind: "channel", nameKey: "powerQuality" },
-  { id: "measurement.external", kind: "channel", nameKey: "externalMeters" },
-  ...MEASUREMENT_STATE_DEFS.map((d): LabelledObject => ({
-    id: `measurement.${d.id}`,
-    kind: "state",
-    nameKey: d.nameKey,
-    ...(d.descKey ? { descKey: d.descKey } : {}),
-  })),
-  { id: "system", kind: "channel", nameKey: "systemSettings" },
-  { id: "system.cloud_enabled", kind: "state", nameKey: "cloudEnabled" },
-  { id: "system.status_led_brightness_pct", kind: "state", nameKey: "ledBrightness" },
-  { id: "system.api_v1_enabled", kind: "state", nameKey: "apiV1Enabled" },
-  { id: "system.reboot", kind: "state", nameKey: "rebootDevice" },
-  { id: "system.identify", kind: "state", nameKey: "identify" },
-  { id: "battery", kind: "channel", nameKey: "batteryControl" },
-  { id: "battery.mode", kind: "state", nameKey: "batteryMode", descKey: "batteryModeDesc" },
-  { id: "battery.permissions", kind: "state", nameKey: "batteryPermissions" },
-  { id: "battery.charge_to_full", kind: "state", nameKey: "batteryChargeToFull" },
-  { id: "battery.battery_count", kind: "state", nameKey: "batteryCount" },
-  { id: "battery.power_w", kind: "state", nameKey: "batteryPower" },
-  { id: "battery.target_power_w", kind: "state", nameKey: "batteryTargetPower" },
-  { id: "battery.max_consumption_w", kind: "state", nameKey: "batteryMaxConsumption" },
-  { id: "battery.max_production_w", kind: "state", nameKey: "batteryMaxProduction" },
-];
-
-/** Exported for the drift test only — production code reaches it via the retrofit. */
-export const LABELLED_OBJECT_IDS: readonly string[] = DEVICE_LABELLED_OBJECTS.map(o => o.id);
-
-/**
- * The three datapoints below an external meter (`measurement.external.<type>_<id>`).
- *
- * They cannot sit in {@link DEVICE_LABELLED_OBJECTS} because the channel segment
- * between them and the prefix is device-supplied and only known at runtime — but
- * the leaf labels are the adapter's own, so the retrofit has to reach them by
- * pattern. The channel itself keeps its device-given name.
- */
-const EXTERNAL_METER_LEAVES: Record<string, I18nKey> = {
-  value: "externalValue",
-  unit: "externalUnit",
-  timestamp: "externalTimestamp",
-};
-
-/** Exported for the drift test only. */
-export const EXTERNAL_METER_LEAF_KEYS: readonly string[] = Object.keys(EXTERNAL_METER_LEAVES);
-
-/**
- * The measurement keys that live under `measurement.quality`. Precomputed once:
- * deciding whether the quality channel is needed happens on every ~1 Hz push per
- * device, and scanning all ~66 definitions there is work thrown away on a P1 that
- * reports no power-quality counters at all.
- */
-const QUALITY_KEYS: string[] = MEASUREMENT_STATE_DEFS.filter(d => d.id.startsWith("quality.")).map(d => d.key);
 
 /**
  * Build a `common.states` map for tariff (T1-T4) with plain-string labels.
@@ -672,14 +142,13 @@ export class StateManager {
       { preserve: { common: ["name"] } },
     );
 
-    // No `preserve` here: the channel name is the adapter's own translated text,
-    // so preserving the existing one would freeze it on every upgraded install
-    // and a renamed channel would only ever reach fresh installations.
-    await this.adapter.extendObjectAsync(`${prefix}.info`, {
-      type: "channel",
-      common: { name: tName("deviceInformation") },
-      native: {},
-    });
+    // No `preserve` (ensureChannel only preserves for a device-owned name): the
+    // channel name is the adapter's own translated text, so preserving the existing
+    // one would freeze it on every upgraded install and a renamed channel would
+    // only ever reach fresh installations. Going through `ensureChannel` also puts
+    // the id into `createdIds`, which is what keeps the label retrofit from writing
+    // this very name a second time in the same start-up.
+    await this.ensureChannel(`${prefix}.info`, () => tName("deviceInformation"));
 
     await this.createState({
       id: `${prefix}.info.productName`,
@@ -705,6 +174,7 @@ export class StateManager {
     await this.createState({
       id: `${prefix}.info.wifi_rssi_db`,
       name: tName("wifiRssi"),
+      desc: tName("wifiRssiDesc"),
       type: "number",
       role: "value",
       unit: "dBm",
@@ -712,6 +182,7 @@ export class StateManager {
     await this.createState({
       id: `${prefix}.info.uptime_s`,
       name: tName("uptime"),
+      desc: tName("uptimeDesc"),
       type: "number",
       role: "value",
       unit: "s",
@@ -720,13 +191,47 @@ export class StateManager {
     // Remove device button
     await this.createButton(`${prefix}.remove`, tName("removeDevice"), tName("removeDeviceDesc"));
 
-    // Set initial info values
-    await this.adapter.setStateAsync(`${prefix}.info.productName`, {
+    // Set initial info values. `setStateChanged`: both are device identifiers that
+    // change at most on a rename, so a restart must not churn them.
+    await this.setProductName(config);
+    await this.adapter.setStateChangedAsync(`${prefix}.info.productType`, {
+      val: config.productType,
+      ack: true,
+    });
+  }
+
+  /**
+   * Write the device's own product name into its data point.
+   *
+   * Its own method because it has TWO callers: the start-up/pairing path above and
+   * every rename the adapter picks up while running. Without the second one the
+   * data point kept the name from the last adapter start — the object's visible
+   * name legitimately stays whatever the user set (`preserve`), so this state was
+   * the only place the device's current name could still show up, and it was
+   * frozen.
+   *
+   * @param config Device configuration (already carrying the current name).
+   */
+  async setProductName(config: DeviceConfig): Promise<void> {
+    await this.adapter.setStateChangedAsync(`${this.devicePrefix(config)}.info.productName`, {
       val: config.productName,
       ack: true,
     });
-    await this.adapter.setStateAsync(`${prefix}.info.productType`, {
-      val: config.productType,
+  }
+
+  /**
+   * Write the device's firmware version.
+   *
+   * Called from the initial connect AND from the periodic device-info fetch: a
+   * HomeWizard device updates its firmware on its own, so a value written only at
+   * adapter start is stale from the next update until the next restart.
+   *
+   * @param config   Device configuration.
+   * @param firmware Firmware version string (already type-guarded by the caller).
+   */
+  async setFirmware(config: DeviceConfig, firmware: string): Promise<void> {
+    await this.adapter.setStateChangedAsync(`${this.devicePrefix(config)}.info.firmware`, {
+      val: firmware,
       ack: true,
     });
   }
@@ -812,11 +317,19 @@ export class StateManager {
         await this.ensureChannel(`${mPrefix}.external`, () => tName("externalMeters"));
 
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
-        // External meter channel keeps the device-supplied type (e.g. "gas_meter")
-        // as channel name — identifies the physical meter, not localizable. Same
-        // CR/LF strip as the product name (L9): a device string becomes an object
-        // name, and a hostile one must not carry line breaks into the object tree.
-        await this.ensureChannel(extId, sanitizeForLog(type), /* deviceOwnedName */ true);
+        // The meter TYPE comes from a closed list in the API (gas, water, warm
+        // water, heat, inlet heat), so its channel name is the adapter's own
+        // translated text and must reach existing installations like every other
+        // label. Only a type outside that list is genuinely device-supplied: it
+        // keeps the raw value — with the same CR/LF strip as the product name
+        // (L9), because a device string must not carry line breaks into the tree —
+        // and keeps `preserve`, because the adapter does not own that text.
+        const typeNameKey = EXTERNAL_METER_TYPE_NAMES[type];
+        await this.ensureChannel(
+          extId,
+          () => (typeNameKey ? tName(typeNameKey) : sanitizeForLog(type)),
+          /* deviceOwnedName */ !typeNameKey,
+        );
 
         const extWrites: Promise<void>[] = [];
         if (value !== null) {
@@ -824,6 +337,7 @@ export class StateManager {
             this.ensureAndSet({
               id: `${extId}.value`,
               name: tName("externalValue"),
+              desc: tName("externalValueDesc"),
               type: "number",
               role: "value",
               value,
@@ -877,45 +391,28 @@ export class StateManager {
     const prefix = this.devicePrefix(config);
     const record = system as Record<string, unknown>;
 
-    // WiFi SSID/RSSI + uptime in info channel — slow-changing → changedOnly.
-    const ssid = coerceString(record.wifi_ssid);
-    if (ssid !== null) {
+    // WiFi SSID/RSSI + uptime in the info channel — slow-changing → changedOnly.
+    // One table instead of three hand-written blocks that differed only in key,
+    // type and unit (same form as the battery number fields below).
+    for (const field of SYSTEM_INFO_FIELDS) {
+      const value = field.type === "number" ? coerceFiniteNumber(record[field.key]) : coerceString(record[field.key]);
+      if (value === null) {
+        continue;
+      }
       await this.ensureAndSet({
-        id: `${prefix}.info.wifi_ssid`,
-        name: tName("wifiSsid"),
-        type: "string",
-        role: "text",
-        value: ssid,
-        changedOnly: true,
-      });
-    }
-    const rssi = coerceFiniteNumber(record.wifi_rssi_db);
-    if (rssi !== null) {
-      await this.ensureAndSet({
-        id: `${prefix}.info.wifi_rssi_db`,
-        name: tName("wifiRssi"),
-        type: "number",
-        role: "value",
-        value: rssi,
-        unit: "dBm",
-        changedOnly: true,
-      });
-    }
-    const uptime = coerceFiniteNumber(record.uptime_s);
-    if (uptime !== null) {
-      await this.ensureAndSet({
-        id: `${prefix}.info.uptime_s`,
-        name: tName("uptime"),
-        type: "number",
-        role: "value",
-        value: uptime,
-        unit: "s",
+        id: `${prefix}.info.${field.key}`,
+        name: tName(field.nameKey),
+        desc: field.descKey ? tName(field.descKey) : undefined,
+        type: field.type,
+        role: field.role,
+        value,
+        unit: field.unit,
         changedOnly: true,
       });
     }
 
     // System control channel (cached after first call per device)
-    await this.ensureChannel(`${prefix}.system`, tName("systemSettings"));
+    await this.ensureChannel(`${prefix}.system`, () => tName("systemSettings"));
     if (isStale?.()) {
       return;
     }
@@ -928,6 +425,7 @@ export class StateManager {
       await this.ensureAndSet({
         id: `${prefix}.system.cloud_enabled`,
         name: tName("cloudEnabled"),
+        desc: tName("cloudEnabledDesc"),
         type: "boolean",
         // M3: switch requires write:true (repochecker E1011). On HWE-BAT the field
         // is read-only (always true) → indicator, not switch.
@@ -958,6 +456,7 @@ export class StateManager {
       await this.ensureAndSet({
         id: `${prefix}.system.api_v1_enabled`,
         name: tName("apiV1Enabled"),
+        desc: tName("apiV1EnabledDesc"),
         type: "boolean",
         role: "switch",
         value: apiV1,
@@ -986,7 +485,7 @@ export class StateManager {
     const prefix = this.devicePrefix(config);
     const record = battery as Record<string, unknown>;
 
-    await this.ensureChannel(`${prefix}.battery`, tName("batteryControl"));
+    await this.ensureChannel(`${prefix}.battery`, () => tName("batteryControl"));
 
     const mode = coerceString(record.mode);
     if (mode) {
@@ -1006,6 +505,7 @@ export class StateManager {
       await this.ensureAndSet({
         id: `${prefix}.battery.permissions`,
         name: tName("batteryPermissions"),
+        desc: tName("batteryPermissionsDesc"),
         type: "string",
         role: "json",
         value: JSON.stringify(record.permissions),
@@ -1019,6 +519,7 @@ export class StateManager {
       await this.ensureAndSet({
         id: `${prefix}.battery.charge_to_full`,
         name: tName("batteryChargeToFull"),
+        desc: tName("batteryChargeToFullDesc"),
         type: "boolean",
         role: "switch",
         value: chargeToFull,
@@ -1031,16 +532,25 @@ export class StateManager {
       key: string;
       id: string;
       nameKey: I18nKey;
+      descKey?: I18nKey;
       role: string;
       unit?: string;
     }> = [
       { key: "battery_count", id: "battery_count", nameKey: "batteryCount", role: "value" },
       { key: "power_w", id: "power_w", nameKey: "batteryPower", role: "value.power", unit: "W" },
-      { key: "target_power_w", id: "target_power_w", nameKey: "batteryTargetPower", role: "value.power", unit: "W" },
+      {
+        key: "target_power_w",
+        id: "target_power_w",
+        nameKey: "batteryTargetPower",
+        descKey: "batteryTargetPowerDesc",
+        role: "value.power",
+        unit: "W",
+      },
       {
         key: "max_consumption_w",
         id: "max_consumption_w",
         nameKey: "batteryMaxConsumption",
+        descKey: "batteryLimitDesc",
         role: "value.power",
         unit: "W",
       },
@@ -1048,6 +558,7 @@ export class StateManager {
         key: "max_production_w",
         id: "max_production_w",
         nameKey: "batteryMaxProduction",
+        descKey: "batteryLimitDesc",
         role: "value.power",
         unit: "W",
       },
@@ -1058,6 +569,7 @@ export class StateManager {
         await this.ensureAndSet({
           id: `${prefix}.battery.${field.id}`,
           name: tName(field.nameKey),
+          desc: field.descKey ? tName(field.descKey) : undefined,
           type: "number",
           role: field.role,
           value: coerced,
@@ -1124,7 +636,21 @@ export class StateManager {
    * @param config Device configuration
    */
   async removeDevice(config: DeviceConfig): Promise<void> {
-    const prefix = this.devicePrefix(config);
+    await this.removeDeviceByPrefix(this.devicePrefix(config));
+  }
+
+  /**
+   * Remove a device branch addressed by its object-ID prefix instead of its config.
+   *
+   * A device whose stored token cannot be read (secret rotation, a hand-edited
+   * database) never becomes a `DeviceConfig` — it is skipped while loading, so it
+   * has no connection and no config. That is precisely the device a user wants to
+   * get rid of, and the config-based path above could not touch it. The prefix is
+   * the one thing that still exists for it: it is the object's own id.
+   *
+   * @param prefix Device object-ID prefix (`<productType>_<serial>`).
+   */
+  async removeDeviceByPrefix(prefix: string): Promise<void> {
     this.adapter.log.debug(`state-manager: removeDevice ${prefix}`);
     await this.adapter.delObjectAsync(prefix, { recursive: true });
     // Drop cache entries belonging to this device — re-pairing the same
@@ -1168,6 +694,12 @@ export class StateManager {
       if (!existingIds.has(`${this.adapter.namespace}.${id}`)) {
         continue;
       }
+      // Already written in this very start-up (createDeviceStates, or a create
+      // triggered by incoming data): those objects carry the current label by
+      // definition, so refreshing them again is a second write for nothing.
+      if (this.createdIds.has(id)) {
+        continue;
+      }
       const common: Record<string, unknown> = { name: tName(spec.nameKey) };
       if (spec.descKey) {
         common.desc = tName(spec.descKey);
@@ -1202,13 +734,21 @@ export class StateManager {
       if (rest.length !== 2) {
         continue;
       }
-      const nameKey = EXTERNAL_METER_LEAVES[rest[1]];
-      if (!nameKey) {
+      const leaf = EXTERNAL_METER_LEAVES[rest[1]];
+      if (!leaf) {
         continue;
+      }
+      // Same rule as the fixed ids above: skip what this run already wrote.
+      if (this.createdIds.has(fullId.slice(`${this.adapter.namespace}.`.length))) {
+        continue;
+      }
+      const leafCommon: Record<string, unknown> = { name: tName(leaf.nameKey) };
+      if (leaf.descKey) {
+        leafCommon.desc = tName(leaf.descKey);
       }
       await this.adapter.extendObjectAsync(fullId.slice(`${this.adapter.namespace}.`.length), {
         type: "state",
-        common: { name: tName(nameKey) },
+        common: leafCommon,
         native: {},
       });
       refreshed++;
@@ -1331,7 +871,8 @@ export class StateManager {
    * newly translated channel would only ever reach fresh installations.
    *
    * @param id              Full channel ID (`<prefix>.<channelName>`).
-   * @param name            Display name (translation object or device-supplied string).
+   * @param name            Thunk returning the display name (translation object or
+   *   device-supplied string).
    * @param deviceOwnedName `true` when the name comes from the device (external
    *   meter type) — then the stored name is preserved, because a user may have
    *   renamed it and the adapter does not own that text. Adapter-owned names
@@ -1339,20 +880,22 @@ export class StateManager {
    */
   private async ensureChannel(
     id: string,
-    name: ioBroker.StringOrTranslated | (() => ioBroker.StringOrTranslated),
+    name: () => ioBroker.StringOrTranslated,
     deviceOwnedName = false,
   ): Promise<void> {
     if (this.createdIds.has(id)) {
       return;
     }
-    // The name may be passed as a thunk so the caller's `tName(...)` — which
-    // builds an 11-language object — only runs when the channel is really
-    // written. The measurement channel is ensured on EVERY ~1 Hz push, so the
-    // eager form threw that object away once per second per device (same waste
-    // the cold-path/hot-path split removed for the per-field names in L14).
+    // The name is always a thunk so the caller's `tName(...)` — which builds an
+    // 11-language object — only runs when the channel is really written. The
+    // measurement channel is ensured on EVERY ~1 Hz push, so an eager argument
+    // threw that object away once per second per device (same waste the
+    // cold-path/hot-path split removed for the per-field names in L14). One form
+    // instead of two: the value overload existed for three call sites that had no
+    // reason to differ from the fourth.
     const obj = {
       type: "channel" as const,
-      common: { name: typeof name === "function" ? name() : name },
+      common: { name: name() },
       native: {},
     };
     if (deviceOwnedName) {
@@ -1426,11 +969,20 @@ export class StateManager {
   /**
    * If the persisted object at `id` has `common.states` values that are not
    * plain-string (= translation objects from older releases), replace
-   * `common.states` with the fresh map via `setObjectAsync`. Otherwise no-op.
+   * `common.states` wholesale via `setObjectAsync`. Otherwise no-op.
    *
-   * `extendObjectAsync` deep-merges and CANNOT replace an object-value with
-   * a string — only a full `setObjectAsync` replaces. Pattern proven in
-   * hassemu v1.27.2 (URL-dropdown) and v1.28.4 (mode-dropdown).
+   * Why a full write is needed, measured against the object store's only merge
+   * site (`node.extend(true, …)` in `objectsInRedisClient._extendObject`): a
+   * KEY THAT THE NEW MAP NO LONGER CARRIES SURVIVES THE MERGE, forever. If such a
+   * leftover key holds a translation object — which is what v0.7.0–v0.7.5 wrote —
+   * Admin renders it as a React child and the dropdown dies with React error #31
+   * ("Error in GUI"). Only replacing the whole object gets rid of it.
+   *
+   * What this does NOT have to fix, contrary to what this comment claimed until
+   * the v0.18.2 audit: a key that IS in the new map. A plain string overwrites an
+   * object value just fine in a deep merge — the earlier claim was never measured
+   * against js-controller, and the one test that named this repair reached it only
+   * because the test double merged `common` with a shallow spread.
    *
    * @param id    State ID to repair.
    * @param fresh Plain-string `common.states` map to write.

@@ -36,6 +36,8 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 - **ioBroker Admin >= 8.0.11**
 - **HomeWizard device with API v2 support** (firmware 4.x+ with local API enabled)
 
+> The adapter CANNOT be installed via GitHub: The adapter must be installed via the ioBroker repository (stable or latest).
+
 ---
 
 ## Supported Devices
@@ -201,6 +203,15 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### 0.18.2 (2026-09-06)
+
+- Fixed: a device the adapter could not read the stored token for can be removed again — its `remove` data point did nothing at all, and the device stayed in the tree for good.
+- Fixed: renaming a device in the HomeWizard app now updates its `info.productName` data point; until now the new name showed up nowhere until the adapter was restarted.
+- Fixed: the firmware version keeps up with a device that updates itself, instead of showing the version from the last adapter start.
+- Fixed: a button falls back to "not pressed" even when the device cannot be reached, so it stays clickable instead of staying stuck.
+- Changed: a device entry that is damaged or unreadable is now reported in the log instead of disappearing without a word.
+
 ### 0.18.1 (2026-09-04)
 
 - Fixed: corrected data point names now also reach devices that are currently offline — until now they waited for the device to answer again, which for a meter with a weak signal could mean never.
@@ -232,10 +243,6 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 - Fixed: stopping the adapter no longer leaves every device showing as connected — the device markers and the connection status are now reset before the adapter goes down.
 - Fixed: after a crash, a power cut or a restart, a device that was reachable before no longer stays green until it reconnects — every device starts out as not connected.
 - New: three data points show at a glance how many devices are set up, how many are answering right now, and whether all of them are.
-
-### 0.15.1 (2026-08-22)
-
-- Improved: The adapter needs noticeably less processing power on installations whose devices send a new reading every second.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

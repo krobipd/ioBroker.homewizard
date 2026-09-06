@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.18.1",
+    "version": "0.18.2",
     "news": {
+      "0.18.2": {
+        "en": "A device entry the adapter could not read can be removed again, and a device's name and firmware version now follow changes made on the device itself.",
+        "de": "Ein Geräte-Eintrag, den der Adapter nicht lesen konnte, lässt sich wieder entfernen, und Name sowie Firmware-Version folgen jetzt Änderungen am Gerät selbst.",
+        "ru": "Запись устройства, которую адаптер не смог прочитать, снова можно удалить, а имя и версия прошивки теперь следуют за изменениями на самом устройстве.",
+        "pt": "Uma entrada de dispositivo que o adaptador não conseguia ler pode ser removida de novo, e o nome e a versão de firmware seguem agora as alterações no próprio dispositivo.",
+        "nl": "Een apparaatvermelding die de adapter niet kon lezen, kan weer worden verwijderd, en naam en firmwareversie volgen nu wijzigingen op het apparaat zelf.",
+        "fr": "Une entrée d'appareil que l'adaptateur ne pouvait pas lire peut être supprimée à nouveau, et le nom et la version du micrologiciel suivent les modifications faites sur l'appareil.",
+        "it": "Una voce di dispositivo che l'adattatore non riusciva a leggere può essere rimossa di nuovo, e nome e versione del firmware seguono ora le modifiche fatte sul dispositivo stesso.",
+        "es": "Una entrada de dispositivo que el adaptador no podía leer se puede eliminar de nuevo, y el nombre y la versión de firmware siguen ahora los cambios hechos en el propio dispositivo.",
+        "pl": "Wpis urządzenia, którego adapter nie mógł odczytać, można ponownie usunąć, a nazwa i wersja oprogramowania układowego podążają teraz za zmianami na samym urządzeniu.",
+        "uk": "Запис пристрою, який адаптер не міг прочитати, можна знову видалити, а назва та версія прошивки тепер стежать за змінами на самому пристрої.",
+        "zh-cn": "适配器无法读取的设备条目现在可以再次删除，设备名称和固件版本也会跟随设备本身的更改。"
+      },
       "0.18.1": {
         "en": "Corrected data point names now also reach devices that are offline right now, instead of waiting for the device to answer again — which can take days on a weak signal.",
         "de": "Korrigierte Datenpunkt-Namen erreichen jetzt auch Geräte, die gerade offline sind, statt auf deren Rückkehr zu warten — bei schwachem Empfang können das Tage sein.",
@@ -80,19 +93,6 @@
         "pl": "Urządzenie, które odrzuca token adaptera, przestaje ponawiać próby i prosi o ponowne sparowanie; parowanie nie żąda też logowań od nieczytelnego urządzenia.",
         "uk": "Пристрій, який відхиляє токен адаптера, припиняє повторні спроби й пропонує повторне сполучення; сполучення також не запитує входи в нечитабельного пристрою.",
         "zh-cn": "当设备拒绝适配器令牌时，适配器会停止重试并提示您重新配对；配对也不再向无法读取的设备反复请求登录。"
-      },
-      "0.14.0": {
-        "en": "Reconnect fix for brief WiFi dropouts, a new measurement.quality folder, and corrected state roles and 0–100 bounds that existing devices adopt automatically on the next start.",
-        "de": "Reconnect-Fix bei kurzen WLAN-Ausfällen, neuer measurement.quality-Ordner sowie korrigierte Rollen und 0–100-Grenzen, die Bestandsgeräte beim nächsten Start automatisch übernehmen.",
-        "ru": "Исправление переподключения при коротких сбоях Wi-Fi, новая папка measurement.quality, а также исправленные роли и границы 0–100, которые устройства применяют при следующем запуске.",
-        "pt": "Correção de reconexão em quedas breves de Wi-Fi, nova pasta measurement.quality e papéis de estado corrigidos com limites 0–100 que os dispositivos existentes adotam no próximo arranque.",
-        "nl": "Herverbindingsfix bij korte wifi-onderbrekingen, een nieuwe measurement.quality-map en gecorrigeerde rollen en 0–100-grenzen die bestaande apparaten bij de volgende start overnemen.",
-        "fr": "Correction de reconnexion lors de brèves coupures Wi-Fi, un nouveau dossier measurement.quality, et des rôles et bornes 0–100 corrigés que les appareils existants adoptent au prochain démarrage.",
-        "it": "Correzione della riconnessione per brevi cadute Wi-Fi, una nuova cartella measurement.quality e ruoli e limiti 0–100 corretti che i dispositivi esistenti adottano al prossimo avvio.",
-        "es": "Corrección de reconexión para cortes breves de Wi-Fi, una nueva carpeta measurement.quality y roles y límites 0–100 corregidos que los dispositivos existentes adoptan en el próximo inicio.",
-        "pl": "Poprawka ponownego łączenia przy krótkich przerwach Wi-Fi, nowy folder measurement.quality oraz poprawione role i zakresy 0–100, które istniejące urządzenia przyjmują przy następnym starcie.",
-        "uk": "Виправлення перепідключення під час коротких збоїв Wi-Fi, нова тека measurement.quality, а також виправлені ролі та межі 0–100, які наявні пристрої застосовують під час наступного запуску.",
-        "zh-cn": "修复短暂 WiFi 断连后的重连问题，新增 measurement.quality 分组，并修正状态角色和 0–100 范围，现有设备在下次启动时自动应用。"
       }
     },
     "plugins": {
@@ -174,7 +174,8 @@
       {
         "admin": ">=8.0.11"
       }
-    ]
+    ],
+    "nogit": true
   },
   "encryptedNative": [],
   "protectedNative": [],
