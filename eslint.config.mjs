@@ -7,9 +7,10 @@ export default [
       parserOptions: {
         projectService: {
           // test/standards is this repo's own suite and gets linted; it sits
-          // outside the tsconfig `include` (which stays on src/**, fleet master),
-          // so the default project has to accept it.
-          allowDefaultProject: ["*.mjs", "vitest.config.mts", "test/standards/*.test.ts"],
+          // test/** is covered by the tsconfig `include` (fleet master), so the
+          // standards test must NOT be listed here: typescript-eslint refuses a file
+          // that is both in allowDefaultProject and in the project service.
+          allowDefaultProject: ["*.mjs", "vitest.config.mts"],
         },
         tsconfigRootDir: import.meta.dirname,
       },
