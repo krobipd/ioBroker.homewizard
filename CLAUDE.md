@@ -194,12 +194,21 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     und nachgezogen — ohne `preserve`. Nur ein Typ AUSSERHALB der Liste ist wirklich
     gerätegegeben: der behält den Rohwert (mit CR/LF-Strip) und `preserve`. Gefunden hat das das
     Objekt-Inventar-Gate beim allerersten Lauf.
-34. **Jeder Datenpunkt hat eine Beschreibung oder einen begründeten Verzicht** (seit v0.18.2).
-    `state-defs.test.ts` führt `SELF_EXPLAINING` — eine Zeile Begründung je Datenpunkt ohne
-    `desc` — und lässt keinen unentschieden durch; ein verwaister Eintrag fällt genauso auf wie ein
-    Datenpunkt, der beides hat. Neu erklärt werden dabei Schein-/Blindleistung, Ladezyklen, die
-    vier Batterie-Steuerwerte, Cloud- und v1-API-Schalter (letzterer mit der Sicherheitsfolge),
-    WLAN-Pegel, Laufzeit, Tarif, Messzeitpunkt, Zähler-Kennung und der externe Zählerstand.
+34. **Jeder Datenpunkt hat eine Beschreibung oder einen begründeten Verzicht** (seit v0.18.2;
+    Entscheidungs-Ablage seit 2026-09-07 in `test/self-explaining.json`). Erklärt sind
+    Schein-/Blindleistung, Leistungsfaktor, Ladezyklen, die vier Batterie-Steuerwerte, Cloud- und
+    v1-API-Schalter (letzterer mit der Sicherheitsfolge), WLAN-Pegel, Laufzeit, Tarif,
+    Messzeitpunkt, Zähler-Kennung und der externe Zählerstand. Die 37 stummen Datenpunkt-**Arten**
+    (Kennungen, Knöpfe, elektrische Grundgrößen, Zählerstände, die zwei Begleiter des externen
+    Zählers) tragen je eine englische Begründung, warum ihr Name allein reicht — Muster ohne
+    Namensraum, `*` = genau EIN Id-Abschnitt. **Geprüft wird das vom Flotten-Gate D08**
+    (`../scripts/check-object-inventory.py` gegen `test/objects.inventory.json`), nicht mehr von
+    einem Adapter-Test: es meldet den unentschiedenen Datenpunkt genauso wie das verwaiste Muster,
+    das Muster, dessen Treffer alle eine Beschreibung TRAGEN, und die zu kurze Begründung. Der
+    frühere `SELF_EXPLAINING`-Block in `state-defs.test.ts` prüfte dieselbe Fläche (gemessen: alle
+    85 Katalog-Ids erscheinen im Inventar) und ist deshalb entfallen. ⚠️ D08 besitzt „ist
+    ENTSCHIEDEN", nicht „ist GUT" — ein grüner Lauf belegt nicht, dass die Beschreibungen etwas
+    erklären.
 
 ## Error-Handling (seit v0.3.5)
 
