@@ -31,14 +31,14 @@ Das Fenster bleibt die vollen 60 Sekunden offen — mehrere Geräte lassen sich 
 
 Jedes Gerät bekommt einen Ordner `<Produkttyp>_<Seriennummer>` mit:
 
-| Ordner | Inhalt |
-| --- | --- |
-| `info` | Produktname und -typ, Firmware, WLAN und Signalstärke, Laufzeit, Verbindungszustand |
-| `measurement` | Leistung, Spannung, Strom, Frequenz, Energiezähler je Tarif, Zeitstempel |
-| `measurement.quality` | Spannungseinbrüche und -überhöhungen, Ausfallzähler (nur P1) |
-| `measurement.external` | Gas-, Wasser- und Wärmezähler, die über das P1-Meter melden |
-| `system` | Cloud-Verbindung, Helligkeit der Status-LED, alte v1-API, Knöpfe für Neustart und Identifizieren |
-| `battery` | Lademodus, Berechtigungen, Zielleistung und Zähler — am Zähler, mit dem die Batterie gekoppelt ist |
+| Ordner                 | Inhalt                                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| `info`                 | Produktname und -typ, Firmware, WLAN und Signalstärke, Laufzeit, Verbindungszustand                |
+| `measurement`          | Leistung, Spannung, Strom, Frequenz, Energiezähler je Tarif, Zeitstempel                           |
+| `measurement.quality`  | Spannungseinbrüche und -überhöhungen, Ausfallzähler (nur P1)                                       |
+| `measurement.external` | Gas-, Wasser- und Wärmezähler, die über das P1-Meter melden                                        |
+| `system`               | Cloud-Verbindung, Helligkeit der Status-LED, alte v1-API, Knöpfe für Neustart und Identifizieren   |
+| `battery`              | Lademodus, Berechtigungen, Zielleistung und Zähler — am Zähler, mit dem die Batterie gekoppelt ist |
 
 `remove` entfernt ein Gerät samt aller Datenpunkte.
 

@@ -76,10 +76,33 @@ function makeCert(cn) {
   const csrFile = path.join(dir, "dev.csr");
   const certFile = path.join(dir, "cert.pem");
   // A slash separates the fields of -subj, so the slashes inside the CN are escaped.
-  openssl(["req", "-newkey", "rsa:2048", "-nodes", "-keyout", keyFile, "-out", csrFile, "-subj",
-    `/CN=${cn.replace(/\//g, "\\/")}`]);
-  openssl(["x509", "-req", "-in", csrFile, "-CA", CA_CERT, "-CAkey", CA_KEY, "-CAcreateserial", "-out", certFile,
-    "-days", "2"]);
+  openssl([
+    "req",
+    "-newkey",
+    "rsa:2048",
+    "-nodes",
+    "-keyout",
+    keyFile,
+    "-out",
+    csrFile,
+    "-subj",
+    `/CN=${cn.replace(/\//g, "\\/")}`,
+  ]);
+  openssl([
+    "x509",
+    "-req",
+    "-in",
+    csrFile,
+    "-CA",
+    CA_CERT,
+    "-CAkey",
+    CA_KEY,
+    "-CAcreateserial",
+    "-out",
+    certFile,
+    "-days",
+    "2",
+  ]);
   const key = fs.readFileSync(keyFile, "utf8");
   const cert = fs.readFileSync(certFile, "utf8");
   fs.rmSync(dir, { recursive: true, force: true });

@@ -69,30 +69,30 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
 11. **WS-Echtzeit für system/batteries additiv, nicht ersetzend** (seit v0.10.0) — WS pusht system/batteries nur bei Control-State-Änderung (uptime/rssi pushen NICHT laufend), darum bleibt der 60s-REST-System-Poll erhalten. `setStateChangedAsync` für langsame Felder verhindert die REST/WS-Doppel-Writes der überlappenden Felder
 12. **Token-Revoke beim Entfernen** (seit v0.10.0) — `removeDevice` ruft best-effort `DELETE /api/user` (`{name:"local/iobroker"}`) bevor das Device-Object gelöscht wird, damit auf dem Gerät keine toten `local/iobroker`-User-Tokens bei jedem Pair/Unpair zurückbleiben
 13. **Summen-Datenpunkte** (seit v0.16.0) — `info.devicesTotal`/`devicesOnline`/`devicesAllOnline`, abgeleitet
-   in `updateGlobalConnection()`, also in derselben Runde und aus derselben Quelle wie `info.connection` und
-   die Einzelmarker; eine zweite Rechenstelle würde driften. `devicesTotal` überlebt das Beenden (wie viele
-   Geräte eingerichtet sind, ändert sich nicht), `devicesAllOnline` braucht `total > 0` — sonst meldet eine
-   frische Installation ohne Gerät Vollzähligkeit. Flotten-Form: Memory `reference_summen_datenpunkte_flotte`.
+    in `updateGlobalConnection()`, also in derselben Runde und aus derselben Quelle wie `info.connection` und
+    die Einzelmarker; eine zweite Rechenstelle würde driften. `devicesTotal` überlebt das Beenden (wie viele
+    Geräte eingerichtet sind, ändert sich nicht), `devicesAllOnline` braucht `total > 0` — sonst meldet eine
+    frische Installation ohne Gerät Vollzähligkeit. Flotten-Form: Memory `reference_summen_datenpunkte_flotte`.
 14. **`onUnload` kommt auch ohne State-Manager durch** (seit v0.17.0) — der State-Manager entsteht erst NACH der
-   stopInstance-Korrektur in `onReady`; der von der Korrektur erzwungene Neustart beendet einen Prozess, der nie
-   einen gebaut hat. Der Abbau prüft das Feld, schreibt `info.connection` immer und die Geräte-Marker nur, wenn
-   es sie geben kann. Vorher warf der Abbau, und selbst `info.connection` blieb ungeschrieben.
+    stopInstance-Korrektur in `onReady`; der von der Korrektur erzwungene Neustart beendet einen Prozess, der nie
+    einen gebaut hat. Der Abbau prüft das Feld, schreibt `info.connection` immer und die Geräte-Marker nur, wenn
+    es sie geben kann. Vorher warf der Abbau, und selbst `info.connection` blieb ungeschrieben.
 15. **WS-Fehler-Entdopplung gilt pro Verbindung** (seit v0.17.0) — `connect()` setzt `lastErrorDetail` zurück.
-   Ein Gerät, das nach dem Neuverbinden denselben Fehler-Frame schickt, wird wieder gewarnt; vorher schwieg der
-   Adapter für den Rest seiner Laufzeit, weil der Vergleichswert den Reconnect überlebte.
+    Ein Gerät, das nach dem Neuverbinden denselben Fehler-Frame schickt, wird wieder gewarnt; vorher schwieg der
+    Adapter für den Rest seiner Laufzeit, weil der Vergleichswert den Reconnect überlebte.
 16. **Ack trägt den gesendeten Wert, nicht den Rohwert** (seit v0.17.0) — `cloud_enabled`, `api_v1_enabled`,
-   `charge_to_full` werden mit `!!state.val` ans Gerät geschickt und mit genau diesem Boolean bestätigt. Ein
-   Skript, das `"true"` oder `1` schreibt, bekam vorher den String/die Zahl als Ack in den Boolean-Datenpunkt.
+    `charge_to_full` werden mit `!!state.val` ans Gerät geschickt und mit genau diesem Boolean bestätigt. Ein
+    Skript, das `"true"` oder `1` schreibt, bekam vorher den String/die Zahl als Ack in den Boolean-Datenpunkt.
 17. **Jeder Geräte-String, der Objektname wird, läuft durch `sanitizeForLog`** — seit v0.14.0 der Produktname (L9),
-   seit v0.17.0 auch der `type` eines externen Zählers (`external.<type>_<id>`-Kanal). Objekt-IDs säubert
-   `sanitize()` separat; Namen brauchen den CR/LF-Strip, weil sie ungeprüft in den Objektbaum gehen.
+    seit v0.17.0 auch der `type` eines externen Zählers (`external.<type>_<id>`-Kanal). Objekt-IDs säubert
+    `sanitize()` separat; Namen brauchen den CR/LF-Strip, weil sie ungeprüft in den Objektbaum gehen.
 18. **`errText` liefert IMMER einen String** (seit v0.17.0, Flotten-Defekt) — `JSON.stringify` gibt für Symbol,
-   Funktion und `toJSON → undefined` `undefined` zurück, ohne zu werfen; der `catch` lief also nie und die Funktion
-   log trotz `string`-Signatur. Symbol → `String(sym)`, sonst `?? Object.prototype.toString.call(err)`.
+    Funktion und `toJSON → undefined` `undefined` zurück, ohne zu werfen; der `catch` lief also nie und die Funktion
+    log trotz `string`-Signatur. Symbol → `String(sym)`, sonst `?? Object.prototype.toString.call(err)`.
 19. **`HomeWizardApiError.errorCode` ist String oder `"unknown"`** (seit v0.17.0) — Geräte-Form
-   `{error:{code,description}}` und flaches `{error:"…"}` werden gelesen; alles, was kein String ist (Zahl,
-   Objekt, `{error:{}}`), bleibt `"unknown"`, die Beschreibung fällt dann auf den Rohkörper zurück. Vorher konnte
-   ein Objekt im String-Feld landen und als `[object Object]` im Log stehen.
+    `{error:{code,description}}` und flaches `{error:"…"}` werden gelesen; alles, was kein String ist (Zahl,
+    Objekt, `{error:{}}`), bleibt `"unknown"`, die Beschreibung fällt dann auf den Rohkörper zurück. Vorher konnte
+    ein Objekt im String-Feld landen und als `[object Object]` im Log stehen.
 20. **Die Verbindungs-Anzeigen beschreiben das GERÄT, nicht einen Transportweg** (seit v0.18.0, ersetzt
     die alte Entscheidung 8). Der Rollen-Katalog definiert `indicator.reachable` als „if a device is
     online" — ein Gerät, das den REST-Rückfall beantwortet, IST online, auch wenn der WebSocket gerade

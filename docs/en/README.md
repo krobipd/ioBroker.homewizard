@@ -31,14 +31,14 @@ The window stays open for the full 60 seconds, so several devices can be added i
 
 Each device gets a folder named `<product type>_<serial>` containing:
 
-| Folder | Contents |
-| --- | --- |
-| `info` | Product name and type, firmware, WiFi network and signal strength, uptime, connection state |
-| `measurement` | Power, voltage, current, frequency, energy totals per tariff, timestamps |
-| `measurement.quality` | Voltage sags and swells, power failure counters (P1 only) |
-| `measurement.external` | Gas, water and heat meters that report through the P1 meter |
-| `system` | Cloud connection, status LED brightness, legacy v1 API, reboot and identify buttons |
-| `battery` | Charge mode, permissions, target power and counters — on the meter the battery is paired with |
+| Folder                 | Contents                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| `info`                 | Product name and type, firmware, WiFi network and signal strength, uptime, connection state   |
+| `measurement`          | Power, voltage, current, frequency, energy totals per tariff, timestamps                      |
+| `measurement.quality`  | Voltage sags and swells, power failure counters (P1 only)                                     |
+| `measurement.external` | Gas, water and heat meters that report through the P1 meter                                   |
+| `system`               | Cloud connection, status LED brightness, legacy v1 API, reboot and identify buttons           |
+| `battery`              | Charge mode, permissions, target power and counters — on the meter the battery is paired with |
 
 `remove` deletes a device including all of its data points.
 
