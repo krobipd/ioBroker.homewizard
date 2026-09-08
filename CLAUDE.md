@@ -11,7 +11,7 @@
 - **npm:** https://www.npmjs.com/package/iobroker.homewizard
 - **Repository PR:** ioBroker/ioBroker.repositories#5749
 - **Runtime-Deps:** `@iobroker/adapter-core`, `ws`, `bonjour-service`
-- **Test-Setup:** Tests unter `src/**/*.test.ts` via **vitest** (seit v0.8.0; vorher mocha+ts-node). `test/package.js` + `test/integration.js` bleiben mocha (`@iobroker/testing` ist mocha-only). Konfiguration `vitest.config.mts` (ESM-Endung, im ESLint-`allowDefaultProject`). Admin-Untergrenze `>=8.0.11` — die Version, gegen die die CI die Einstellungsseite prüft
+- **Test-Setup:** Tests unter `src/**/*.test.ts` via **vitest** (seit v0.8.0; vorher mocha+ts-node). `test/package.js` + `test/integration.js` bleiben mocha (`@iobroker/testing` ist mocha-only). Konfiguration `vitest.config.mts` (ESM-Endung, im ESLint-`allowDefaultProject`). `tsconfig.json` deckt seit 2026-09-08 auch `test/**` (Typprüfung der Testdateien, Flotten-Master) — `test/standards` steht deshalb NICHT in `allowDefaultProject`, typescript-eslint verweigert eine Datei in beidem. Admin-Untergrenze `>=8.0.11` — die Version, gegen die die CI die Einstellungsseite prüft
 - **`@types/node` + `@tsconfig/nodeXX` an `engines.node`-Min gekoppelt:** `^22.x` / `@tsconfig/node22` weil `engines.node: ">=22"`. Dependabot ignoriert Major-Bumps
 
 ## API v2 Referenz
@@ -258,7 +258,7 @@ P1 Meter (HWE-P1), kWh 1-Phase (HWE-KWH1/SDM230), kWh 3-Phase (HWE-KWH3/SDM630),
 
 **Außerhalb des Scope (final, nicht „noch nicht"):** Energy Socket (HWE-SKT), Watermeter (HWE-WTR), Energy Display (HWE-DSP). Diese Geräte sprechen nur die deprecated v1-API. Adapter ist v2-only — siehe Design-Entscheidung 5.
 
-## Tests (489 unit + 58 package = 547) + Objekt-Inventar + Mutationstabellen
+## Tests (Zahl live über `npm test`, nicht hier gepinnt) + Objekt-Inventar + Mutationstabellen
 
 `npm run test:inventory` fährt den Adapter in einem Wegwerf-js-controller gegen vier Fixture-Geräte
 (P1, kWh 1-phasig, kWh 3-phasig, Battery) und schreibt `test/objects.inventory.json`. Die Geräte
