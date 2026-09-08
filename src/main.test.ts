@@ -573,6 +573,7 @@ function internalOf(hw: HomeWizard): {
   encrypt: ReturnType<typeof vi.fn>;
   getAdapterObjectsAsync: ReturnType<typeof vi.fn>;
   getObjectAsync: ReturnType<typeof vi.fn>;
+  delObjectAsync: ReturnType<typeof vi.fn>;
   extendObjectAsync: ReturnType<typeof vi.fn>;
   getForeignObjectAsync: ReturnType<typeof vi.fn>;
   extendForeignObjectAsync: ReturnType<typeof vi.fn>;
@@ -1087,6 +1088,26 @@ describe("HomeWizard onReady", () => {
 
     expect(i.connections.has("hwe-p1_dev1")).toBe(true);
     expect(wsInstances.length).toBeGreaterThanOrEqual(1); // initDevice → connectWebSocket
+  });
+
+  it("sweeps a stored device's moved paths off the object list it already holds", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      "homewizard.0.hwe-p1_dev1": {
+        type: "device",
+        native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
+      },
+      // Pre-measurement/ layout: `external` sat at the device root.
+      "homewizard.0.hwe-p1_dev1.external": { type: "channel", native: {} },
+    });
+    await i.onReady();
+    await settle();
+
+    // The real StateManager's cleanupMovedStates runs off the id set the device load
+    // fetched anyway — nothing else in onReady deletes objects (mutation H35, 2026-09-08).
+    expect(i.delObjectAsync).toHaveBeenCalledWith("hwe-p1_dev1.external", { recursive: true });
   });
 
   // Note: onReady builds its own real StateManager (main.ts), so these assert on
