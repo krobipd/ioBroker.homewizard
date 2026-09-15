@@ -267,6 +267,12 @@ ADAPTERPROZESS startet; umgelenkt wird an der einen Stelle, durch die HTTPS und 
 (`tls.connect`). Die Zertifikatsprüfung bleibt AN — nur der Vertrauensanker ist die
 Wegwerf-CA des Laufs, weil ein lokaler Server kein von HomeWizard signiertes Zertifikat haben kann.
 ⚠️ Der Lauf BAUT NICHT: `npm run build` gehört davor, sonst misst er einen alten Bau-Ausgang.
+Seit 2026-09-15 läuft derselbe Harness in der CI bei jedem Push (Gate-Job `adapter-inventory`); zwei
+Runner-Lektionen stecken im Harness: `encryptedToken` je Controller ist Chiffretext des
+Installationsgeheimnisses und am Mac anders als auf dem Runner — der Abzug maskiert die Felder aus
+`ENCRYPTED_NATIVE` (`<encrypted with the installation secret>`); und der Abzug wartet auf
+`battery.max_production_w` plus einen 4×250 ms ruhigen Objektsatz, statt in laufende Batterie-
+Schreibvorgänge hineinzulesen (eine feste Pause ist am Mac kalibriert, nicht am Runner).
 
 **Mutationstabellen** (`Ressourcen/iobroker-entwicklung/mutation-testing/mutations_homewizard*.py`,
 sechs Stück; `_all` und `_regression_*` sind AGGREGAT-Module, die die zwei Basistabellen dynamisch
