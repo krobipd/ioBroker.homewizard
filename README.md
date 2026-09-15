@@ -204,7 +204,7 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     ### **WORK IN PROGRESS**
 -->
 
-### **WORK IN PROGRESS**
+### 0.19.0 (2026-09-15)
 
 - Fixed: a device that changed its IP address is found again — the reply to the adapter's own network search was discarded, leaving the device unreachable until it was paired anew.
 - Fixed: removing a device now really withdraws its access on the device itself — the request was cut off before it left, so the adapter's user stayed behind on every device removed so far.
@@ -250,12 +250,6 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 - Fixed: two rare cases where a log line could show undefined or an object instead of the error now show the real text, and a malformed device error keeps a readable code.
 - Fixed: an external gas or water meter whose reported type contains unusual characters now gets a clean name in the object tree instead of a broken one.
 - Changed: ioBroker Admin 8.0.11 or newer is now required — the same minimum version that the current ioBroker stable repository ships with.
-
-### 0.16.0 (2026-08-27) — stable
-
-- Fixed: stopping the adapter no longer leaves every device showing as connected — the device markers and the connection status are now reset before the adapter goes down.
-- Fixed: after a crash, a power cut or a restart, a device that was reachable before no longer stays green until it reconnects — every device starts out as not connected.
-- New: three data points show at a glance how many devices are set up, how many are answering right now, and whether all of them are.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

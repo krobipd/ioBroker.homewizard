@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.18.2",
+    "version": "0.19.0",
     "news": {
+      "0.19.0": {
+        "en": "Devices now carry a pictogram of their type, a device that changed its IP address is found again, and removing one really withdraws its access.",
+        "de": "Geräte tragen jetzt ein Piktogramm ihres Typs, ein Gerät mit neuer IP-Adresse wird wiedergefunden, und beim Entfernen wird der Zugang wirklich entzogen.",
+        "ru": "Устройства теперь имеют пиктограмму своего типа, устройство со сменившимся IP-адресом снова находится, а при удалении доступ действительно отзывается.",
+        "pt": "Os dispositivos passam a ter um pictograma do seu tipo, um dispositivo que mudou de endereço IP volta a ser encontrado e ao removê-lo o acesso é mesmo revogado.",
+        "nl": "Apparaten krijgen nu een pictogram van hun type, een apparaat met een nieuw IP-adres wordt weer gevonden, en bij verwijderen wordt de toegang echt ingetrokken.",
+        "fr": "Les appareils portent désormais un pictogramme de leur type, un appareil ayant changé d'adresse IP est retrouvé, et sa suppression révoque vraiment son accès.",
+        "it": "I dispositivi mostrano ora un pittogramma del loro tipo, un dispositivo che ha cambiato indirizzo IP viene ritrovato e rimuovendolo l'accesso viene davvero revocato.",
+        "es": "Los dispositivos muestran ahora un pictograma de su tipo, un dispositivo que cambió de dirección IP vuelve a encontrarse y al quitarlo se revoca realmente su acceso.",
+        "pl": "Urządzenia mają teraz piktogram swojego typu, urządzenie ze zmienionym adresem IP zostaje odnalezione, a przy usuwaniu dostęp jest naprawdę odbierany.",
+        "uk": "Пристрої тепер мають піктограму свого типу, пристрій зі зміненою IP-адресою знову знаходиться, а під час видалення доступ справді відкликається.",
+        "zh-cn": "设备现在会显示其类型的图标，更换了 IP 地址的设备能被重新找到，删除设备时其访问权限也会真正被撤销。"
+      },
       "0.18.2": {
         "en": "A device entry the adapter could not read can be removed again, and a device's name and firmware version now follow changes made on the device itself.",
         "de": "Ein Geräte-Eintrag, den der Adapter nicht lesen konnte, lässt sich wieder entfernen, und Name sowie Firmware-Version folgen jetzt Änderungen am Gerät selbst.",
@@ -80,19 +93,6 @@
         "pl": "Adapter potrzebuje zauważalnie mniej mocy obliczeniowej w instalacjach, w których urządzenia wysyłają nowy odczyt co sekundę.",
         "uk": "Адаптер потребує помітно менше обчислювальної потужності там, де пристрої надсилають нове показання щосекунди.",
         "zh-cn": "在设备每秒发送一次读数的安装环境中，适配器所需的处理能力明显更少。"
-      },
-      "0.15.0": {
-        "en": "A device that rejects the adapter's token now stops retrying and asks you to re-pair it, and pairing no longer repeatedly requests logins from a device it cannot read.",
-        "de": "Ein Gerät, das den Token des Adapters ablehnt, versucht es nicht mehr endlos, sondern bittet um erneutes Koppeln; das Pairing fordert zudem keine Logins mehr von einem unlesbaren Gerät an.",
-        "ru": "Устройство, отклонившее токен адаптера, перестаёт повторять попытки и предлагает сопряжение заново; при сопряжении больше не запрашиваются входы у нечитаемого устройства.",
-        "pt": "Um dispositivo que rejeita o token do adaptador deixa de tentar de novo e pede novo emparelhamento; o emparelhamento também não solicita mais logins a um dispositivo ilegível.",
-        "nl": "Een apparaat dat het token van de adapter weigert, stopt met opnieuw proberen en vraagt om opnieuw koppelen; het koppelen vraagt ook geen aanmeldingen meer aan een onleesbaar apparaat.",
-        "fr": "Un appareil qui refuse le jeton de l'adaptateur cesse de réessayer et invite à le réappairer ; l'appairage ne demande plus d'identifiants à un appareil illisible.",
-        "it": "Un dispositivo che rifiuta il token dell'adattatore smette di riprovare e chiede di riassociarlo; l'associazione non richiede più accessi a un dispositivo illeggibile.",
-        "es": "Un dispositivo que rechaza el token del adaptador deja de reintentar y pide volver a emparejarlo; el emparejamiento tampoco solicita más inicios de sesión a un dispositivo ilegible.",
-        "pl": "Urządzenie, które odrzuca token adaptera, przestaje ponawiać próby i prosi o ponowne sparowanie; parowanie nie żąda też logowań od nieczytelnego urządzenia.",
-        "uk": "Пристрій, який відхиляє токен адаптера, припиняє повторні спроби й пропонує повторне сполучення; сполучення також не запитує входи в нечитабельного пристрою.",
-        "zh-cn": "当设备拒绝适配器令牌时，适配器会停止重试并提示您重新配对；配对也不再向无法读取的设备反复请求登录。"
       }
     },
     "plugins": {

@@ -1,6 +1,6 @@
 {
   "name": "iobroker.homewizard",
-  "version": "0.18.2",
+  "version": "0.19.0",
   "description": "ioBroker adapter for HomeWizard Energy devices with API v2",
   "author": {
     "name": "krobi",
@@ -75,8 +75,8 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "fix:changelog": "node -e \"const fs=require('fs');for(const[f,r]of[['README.md',/^(-->[ \\t]*)\\r?\\n(#{1,6} )/m],['CHANGELOG_OLD.md',/^(#{1,6} .*)\\r?\\n(#{1,6} )/]])if(fs.existsSync(f)){const t=fs.readFileSync(f,'utf8'),n=t.replace(r,(m,a,b)=>a+'\\n\\n'+b);if(n!==t)fs.writeFileSync(f,n)}\"",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.{ts,js}\" \"test/self-explaining.json\" \"admin/**/*.json\" \"*.mjs\" \"*.mts\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.{ts,js}\" \"test/self-explaining.json\" \"admin/**/*.json\" \"*.mjs\" \"*.mts\"",
+    "format": "prettier --write . \"!build/**\" \"!admin/custom/**\" \"!src-admin/.__mf__temp/**\" \"!src-admin/package.json\" \"!src-admin/package-lock.json\" \"!.github/dependabot.yml\" \"!.github/FUNDING.yml\" \"!.github/workflows/automerge-dependabot.yml\" \"!.github/copilot-instructions.md\" \"!.vscode/**\" \"!io-package.json\" \"!README.md\" \"!CHANGELOG_OLD.md\" \"!package-lock.json\" \"!.releaseconfig.json\" \"!tsconfig.json\" \"!tsconfig.build.json\" \"!test/objects.inventory.json\"",
+    "format:check": "prettier --check . \"!build/**\" \"!admin/custom/**\" \"!src-admin/.__mf__temp/**\" \"!src-admin/package.json\" \"!src-admin/package-lock.json\" \"!.github/dependabot.yml\" \"!.github/FUNDING.yml\" \"!.github/workflows/automerge-dependabot.yml\" \"!.github/copilot-instructions.md\" \"!.vscode/**\" \"!io-package.json\" \"!README.md\" \"!CHANGELOG_OLD.md\" \"!package-lock.json\" \"!.releaseconfig.json\" \"!tsconfig.json\" \"!tsconfig.build.json\" \"!test/objects.inventory.json\"",
     "release": "release-script",
     "release-patch": "release-script patch --yes --all",
     "release-minor": "release-script minor --yes --all",

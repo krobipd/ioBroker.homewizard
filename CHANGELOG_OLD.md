@@ -1,5 +1,11 @@
 # Older Changes
 
+## 0.16.0 (2026-08-27) — stable
+
+- Fixed: stopping the adapter no longer leaves every device showing as connected — the device markers and the connection status are now reset before the adapter goes down.
+- Fixed: after a crash, a power cut or a restart, a device that was reachable before no longer stays green until it reconnects — every device starts out as not connected.
+- New: three data points show at a glance how many devices are set up, how many are answering right now, and whether all of them are.
+
 ## 0.15.1 (2026-08-22)
 
 - Improved: The adapter needs noticeably less processing power on installations whose devices send a new reading every second.
