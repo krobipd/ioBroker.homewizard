@@ -22,12 +22,24 @@ describe("deviceIcon", () => {
     expect(decode(uri!)).toBe(normaliseLineEndings(readFileSync(join(ICON_DIR, "p1meter.svg"), "utf8")));
   });
 
-  it("gives every supported product type its own drawing", () => {
-    for (const [type, file] of Object.entries(ICON_BY_TYPE)) {
-      const uri = deviceIcon(type);
-      expect(uri, type).toBeDefined();
-      expect(decode(uri!), type).toBe(normaliseLineEndings(readFileSync(join(ICON_DIR, file), "utf8")));
-    }
+  // The expectation is written out instead of read from the map: comparing each type
+  // against the file its OWN map entry names is self-consistent, so a three-phase meter
+  // pointing at the single-phase drawing would pass (measured — that mutation survived).
+  it.each([
+    ["HWE-P1", "p1meter.svg"],
+    ["HWE-KWH1", "kwhmeter1.svg"],
+    ["SDM230-wifi", "kwhmeter1.svg"],
+    ["HWE-KWH3", "kwhmeter3.svg"],
+    ["SDM630-wifi", "kwhmeter3.svg"],
+    ["HWE-BAT", "battery.svg"],
+  ])("draws %s as %s", (type, file) => {
+    expect(decode(deviceIcon(type)!)).toBe(normaliseLineEndings(readFileSync(join(ICON_DIR, file), "utf8")));
+  });
+
+  it("covers every supported product type — no type without a drawing", () => {
+    expect(Object.keys(ICON_BY_TYPE).sort()).toEqual(
+      ["HWE-BAT", "HWE-KWH1", "HWE-KWH3", "HWE-P1", "SDM230-wifi", "SDM630-wifi"].sort(),
+    );
   });
 
   it("returns the same value on every call (cached, and the cache does not drift)", () => {
@@ -41,8 +53,10 @@ describe("deviceIcon", () => {
   });
 
   it("does not fall for an inherited property name", () => {
-    // Without `Object.hasOwn` this resolves to Object.prototype.constructor and the
-    // lookup would try to read a function as a file name.
+    // `Object.hasOwn` keeps an inherited name ("constructor" resolves to a function on
+    // Object.prototype) out of the file lookup. Both the guard and the read's own
+    // try/catch end at `undefined`, so this test cannot tell them apart — the guard is
+    // what keeps a thrown TypeError per call out of the hot path.
     expect(deviceIcon("constructor")).toBeUndefined();
     expect(deviceIcon("toString")).toBeUndefined();
   });
