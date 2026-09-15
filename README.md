@@ -210,6 +210,8 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 - Fixed: removing a device now really withdraws its access on the device itself — the request was cut off before it left, so the adapter's user stayed behind on every device removed so far.
 - Fixed: a device that is re-paired while the adapter is still working with the old connection keeps its new access token — that work could overwrite it and leave the device unusable.
 - Improved: pairing now says once per device why it is not getting anywhere — a wrong address or a device without the local API used to fail silently until the window closed.
+- Fixed: a device that does not manage batteries no longer keeps a battery folder — leftover entries from an earlier version are cleared the first time the device says it has none.
+- Fixed: data points the adapter removes during a start no longer reappear empty a moment later, which left nameless leftovers in the tree that nothing ever cleaned up again.
 
 ### 0.18.2 (2026-09-06)
 

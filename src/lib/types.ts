@@ -302,6 +302,8 @@ export interface DeviceConnection {
   recentDisconnects: number;
   /** True after the device was removed — async tasks (in-flight REST/WS) check this before writing further state. */
   removed: boolean;
+  /** True once `/api/batteries` answered 404 — the device does not manage batteries; set per connection so the cleanup runs once. */
+  batteryUnsupported?: boolean;
   /** True while a measurement write is in flight — drops flooded pushes (latest-wins backpressure). */
   measurementBusy?: boolean;
   /** L8: true while a system write is in flight — drops flooded system pushes (like measurementBusy). */

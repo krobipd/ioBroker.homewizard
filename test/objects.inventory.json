@@ -17,306 +17,6 @@
     },
     "_id": "homewizard.0.hwe-bat_5c2faf000014"
   },
-  "homewizard.0.hwe-bat_5c2faf000014.battery": {
-    "type": "channel",
-    "common": {
-      "name": {
-        "de": "Batteriesteuerung",
-        "en": "Battery Control",
-        "es": "Control de batería",
-        "fr": "Contrôle de la batterie",
-        "it": "Controllo batteria",
-        "nl": "Batterijbesturing",
-        "pl": "Sterowanie baterią",
-        "pt": "Controlo da bateria",
-        "ru": "Управление батареей",
-        "uk": "Керування батареєю",
-        "zh-cn": "电池控制"
-      }
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-bat_5c2faf000014.battery"
-  },
-  "homewizard.0.hwe-bat_5c2faf000014.battery.battery_count": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "Verbundene Batterien",
-        "en": "Connected batteries",
-        "es": "Baterías conectadas",
-        "fr": "Batteries connectées",
-        "it": "Batterie collegate",
-        "nl": "Verbonden batterijen",
-        "pl": "Podłączone baterie",
-        "pt": "Baterias conectadas",
-        "ru": "Подключённые батареи",
-        "uk": "Підключені батареї",
-        "zh-cn": "已连接电池"
-      },
-      "type": "number",
-      "role": "value",
-      "read": true,
-      "write": false
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-bat_5c2faf000014.battery.battery_count"
-  },
-  "homewizard.0.hwe-bat_5c2faf000014.battery.charge_to_full": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "Voll aufladen",
-        "en": "Charge to full",
-        "es": "Cargar al máximo",
-        "fr": "Charger à fond",
-        "it": "Carica al massimo",
-        "nl": "Volledig opladen",
-        "pl": "Naładuj do pełna",
-        "pt": "Carregar até cheio",
-        "ru": "Зарядить полностью",
-        "uk": "Зарядити повністю",
-        "zh-cn": "充至满电"
-      },
-      "type": "boolean",
-      "role": "switch",
-      "read": true,
-      "write": true,
-      "desc": {
-        "de": "Einmalig: auf 100 % laden und danach in den gewählten Modus zurückkehren.",
-        "en": "One-shot: charge to 100 % once, then return to the selected mode.",
-        "es": "Una sola vez: cargar al 100 % y volver luego al modo seleccionado.",
-        "fr": "Une seule fois : charger à 100 %, puis revenir au mode choisi.",
-        "it": "Una tantum: carica al 100 % e poi torna alla modalità scelta.",
-        "nl": "Eenmalig: opladen tot 100 % en daarna terug naar de gekozen modus.",
-        "pl": "Jednorazowo: naładuj do 100 %, a potem wróć do wybranego trybu.",
-        "pt": "Uma vez: carregar até 100 % e depois voltar ao modo selecionado.",
-        "ru": "Однократно: зарядить до 100 %, затем вернуться к выбранному режиму.",
-        "uk": "Одноразово: зарядити до 100 %, потім повернутися до вибраного режиму.",
-        "zh-cn": "一次性：充至 100%，随后回到所选模式。"
-      }
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-bat_5c2faf000014.battery.charge_to_full"
-  },
-  "homewizard.0.hwe-bat_5c2faf000014.battery.max_consumption_w": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "Max. Verbrauch",
-        "en": "Max consumption",
-        "es": "Consumo máx.",
-        "fr": "Consommation max.",
-        "it": "Consumo massimo",
-        "nl": "Max. verbruik",
-        "pl": "Maks. zużycie",
-        "pt": "Consumo máx.",
-        "ru": "Макс. потребление",
-        "uk": "Макс. споживання",
-        "zh-cn": "最大消耗"
-      },
-      "type": "number",
-      "role": "value.power",
-      "read": true,
-      "write": false,
-      "unit": "W",
-      "desc": {
-        "de": "Die Grenze, an die sich die Batteriegruppe beim Bezug aus dem bzw. bei der Einspeisung ins Netz hält.",
-        "en": "The limit the battery group keeps to when drawing from or feeding into the grid.",
-        "es": "El límite que respeta el grupo de baterías al consumir de la red o inyectar en ella.",
-        "fr": "La limite que le groupe de batteries respecte lors du soutirage ou de l'injection sur le réseau.",
-        "it": "Il limite che il gruppo batterie rispetta prelevando dalla rete o immettendo in essa.",
-        "nl": "De grens die de accugroep aanhoudt bij afname van of teruglevering aan het net.",
-        "pl": "Granica, której grupa akumulatorów przestrzega przy poborze z sieci lub oddawaniu do niej.",
-        "pt": "O limite que o grupo de baterias respeita ao consumir da rede ou injetar nela.",
-        "ru": "Предел, которого придерживается группа батарей при потреблении из сети или отдаче в неё.",
-        "uk": "Межа, якої дотримується група батарей під час споживання з мережі або віддачі в неї.",
-        "zh-cn": "电池组从电网取电或向电网馈电时遵守的上限。"
-      }
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-bat_5c2faf000014.battery.max_consumption_w"
-  },
-  "homewizard.0.hwe-bat_5c2faf000014.battery.max_production_w": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "Max. Erzeugung",
-        "en": "Max production",
-        "es": "Producción máx.",
-        "fr": "Production max.",
-        "it": "Produzione massima",
-        "nl": "Max. productie",
-        "pl": "Maks. produkcja",
-        "pt": "Produção máx.",
-        "ru": "Макс. производство",
-        "uk": "Макс. виробництво",
-        "zh-cn": "最大生产"
-      },
-      "type": "number",
-      "role": "value.power",
-      "read": true,
-      "write": false,
-      "unit": "W",
-      "desc": {
-        "de": "Die Grenze, an die sich die Batteriegruppe beim Bezug aus dem bzw. bei der Einspeisung ins Netz hält.",
-        "en": "The limit the battery group keeps to when drawing from or feeding into the grid.",
-        "es": "El límite que respeta el grupo de baterías al consumir de la red o inyectar en ella.",
-        "fr": "La limite que le groupe de batteries respecte lors du soutirage ou de l'injection sur le réseau.",
-        "it": "Il limite che il gruppo batterie rispetta prelevando dalla rete o immettendo in essa.",
-        "nl": "De grens die de accugroep aanhoudt bij afname van of teruglevering aan het net.",
-        "pl": "Granica, której grupa akumulatorów przestrzega przy poborze z sieci lub oddawaniu do niej.",
-        "pt": "O limite que o grupo de baterias respeita ao consumir da rede ou injetar nela.",
-        "ru": "Предел, которого придерживается группа батарей при потреблении из сети или отдаче в неё.",
-        "uk": "Межа, якої дотримується група батарей під час споживання з мережі або віддачі в неї.",
-        "zh-cn": "电池组从电网取电或向电网馈电时遵守的上限。"
-      }
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-bat_5c2faf000014.battery.max_production_w"
-  },
-  "homewizard.0.hwe-bat_5c2faf000014.battery.mode": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "Batterie-Modus",
-        "en": "Battery mode",
-        "es": "Modo de la batería",
-        "fr": "Mode de la batterie",
-        "it": "Modalità batteria",
-        "nl": "Batterijmodus",
-        "pl": "Tryb baterii",
-        "pt": "Modo da bateria",
-        "ru": "Режим батареи",
-        "uk": "Режим батареї",
-        "zh-cn": "电池模式"
-      },
-      "type": "string",
-      "role": "text",
-      "read": true,
-      "write": true,
-      "desc": {
-        "de": "Betriebsmodus: zero (keine Netzeinspeisung), to_full (auf Maximum laden), standby, predictive (prognosebasiert)",
-        "en": "Operating mode: zero (no grid feed-in), to_full (charge to maximum), standby, predictive (forecast-based)",
-        "es": "Modo de operación: zero (sin inyección a red), to_full (cargar al máximo), standby, predictive (basado en previsión)",
-        "fr": "Mode de fonctionnement : zero (aucune injection au réseau), to_full (charge maximale), standby, predictive (basé sur les prévisions)",
-        "it": "Modalità operativa: zero (nessuna immissione in rete), to_full (carica al massimo), standby, predictive (basato su previsioni)",
-        "nl": "Bedrijfsmodus: zero (geen netinvoeding), to_full (volledig laden), standby, predictive (op prognose gebaseerd)",
-        "pl": "Tryb pracy: zero (bez oddawania do sieci), to_full (ładuj do pełna), standby, predictive (oparte na prognozie)",
-        "pt": "Modo de operação: zero (sem injeção na rede), to_full (carregar ao máximo), standby, predictive (baseado em previsão)",
-        "ru": "Режим работы: zero (без подачи в сеть), to_full (заряд до максимума), standby, predictive (на основе прогноза)",
-        "uk": "Режим роботи: zero (без подачі в мережу), to_full (заряд до максимуму), standby, predictive (на основі прогнозу)",
-        "zh-cn": "运行模式：zero（不向电网馈送）、to_full（充满）、standby（待机）, predictive (基于预测)"
-      },
-      "states": {
-        "zero": "Zero (no grid feed-in)",
-        "to_full": "To full (charge to maximum)",
-        "standby": "Standby",
-        "predictive": "Predictive (forecast-based)"
-      }
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-bat_5c2faf000014.battery.mode"
-  },
-  "homewizard.0.hwe-bat_5c2faf000014.battery.permissions": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "Batterie-Berechtigungen",
-        "en": "Battery permissions",
-        "es": "Permisos de la batería",
-        "fr": "Permissions de la batterie",
-        "it": "Autorizzazioni batteria",
-        "nl": "Batterijrechten",
-        "pl": "Uprawnienia baterii",
-        "pt": "Permissões da bateria",
-        "ru": "Разрешения батареи",
-        "uk": "Дозволи батареї",
-        "zh-cn": "电池权限"
-      },
-      "type": "string",
-      "role": "json",
-      "read": true,
-      "write": true,
-      "desc": {
-        "de": "Welche Richtungen die Batteriegruppe derzeit nutzen darf (Laden, Entladen).",
-        "en": "Which directions the battery group may use right now (charging, discharging).",
-        "es": "Qué direcciones puede usar ahora el grupo de baterías (cargar, descargar).",
-        "fr": "Les sens actuellement autorisés pour le groupe de batteries (charge, décharge).",
-        "it": "Quali direzioni può usare ora il gruppo batterie (carica, scarica).",
-        "nl": "Welke richtingen de accugroep nu mag gebruiken (laden, ontladen).",
-        "pl": "Które kierunki może teraz wykorzystać grupa akumulatorów (ładowanie, rozładowanie).",
-        "pt": "Que direções o grupo de baterias pode usar agora (carregar, descarregar).",
-        "ru": "Какие направления сейчас разрешены группе батарей (заряд, разряд).",
-        "uk": "Які напрямки зараз дозволені групі батарей (заряд, розряд).",
-        "zh-cn": "电池组当前允许的方向（充电、放电）。"
-      }
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-bat_5c2faf000014.battery.permissions"
-  },
-  "homewizard.0.hwe-bat_5c2faf000014.battery.power_w": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "Batterieleistung",
-        "en": "Battery power",
-        "es": "Potencia de la batería",
-        "fr": "Puissance de la batterie",
-        "it": "Potenza della batteria",
-        "nl": "Batterijvermogen",
-        "pl": "Moc baterii",
-        "pt": "Potência da bateria",
-        "ru": "Мощность батареи",
-        "uk": "Потужність батареї",
-        "zh-cn": "电池功率"
-      },
-      "type": "number",
-      "role": "value.power",
-      "read": true,
-      "write": false,
-      "unit": "W"
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-bat_5c2faf000014.battery.power_w"
-  },
-  "homewizard.0.hwe-bat_5c2faf000014.battery.target_power_w": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "Soll-Leistung",
-        "en": "Target power",
-        "es": "Potencia objetivo",
-        "fr": "Puissance cible",
-        "it": "Potenza obiettivo",
-        "nl": "Doelvermogen",
-        "pl": "Moc docelowa",
-        "pt": "Potência alvo",
-        "ru": "Целевая мощность",
-        "uk": "Цільова потужність",
-        "zh-cn": "目标功率"
-      },
-      "type": "number",
-      "role": "value.power",
-      "read": true,
-      "write": false,
-      "unit": "W",
-      "desc": {
-        "de": "Die Leistung, die die Batteriegruppe gerade anstrebt; ein negativer Wert bedeutet Laden.",
-        "en": "The power the battery group is aiming for right now; a negative value means charging.",
-        "es": "La potencia que busca ahora el grupo de baterías; un valor negativo significa carga.",
-        "fr": "La puissance visée actuellement par le groupe de batteries ; une valeur négative signifie la charge.",
-        "it": "La potenza a cui punta ora il gruppo batterie; un valore negativo indica la carica.",
-        "nl": "Het vermogen waar de accugroep nu naar streeft; een negatieve waarde betekent laden.",
-        "pl": "Moc, do której dąży teraz grupa akumulatorów; wartość ujemna oznacza ładowanie.",
-        "pt": "A potência que o grupo de baterias procura atingir; um valor negativo significa carregar.",
-        "ru": "Мощность, к которой сейчас стремится группа батарей; отрицательное значение — заряд.",
-        "uk": "Потужність, до якої зараз прагне група батарей; від'ємне значення означає заряд.",
-        "zh-cn": "电池组当前的目标功率；负值表示充电。"
-      }
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-bat_5c2faf000014.battery.target_power_w"
-  },
   "homewizard.0.hwe-bat_5c2faf000014.info": {
     "type": "channel",
     "common": {
@@ -3144,6 +2844,306 @@
       "certCn": "appliance/hwe-p1/5c2faf000011"
     },
     "_id": "homewizard.0.hwe-p1_5c2faf000011"
+  },
+  "homewizard.0.hwe-p1_5c2faf000011.battery": {
+    "type": "channel",
+    "common": {
+      "name": {
+        "de": "Batteriesteuerung",
+        "en": "Battery Control",
+        "es": "Control de batería",
+        "fr": "Contrôle de la batterie",
+        "it": "Controllo batteria",
+        "nl": "Batterijbesturing",
+        "pl": "Sterowanie baterią",
+        "pt": "Controlo da bateria",
+        "ru": "Управление батареей",
+        "uk": "Керування батареєю",
+        "zh-cn": "电池控制"
+      }
+    },
+    "native": {},
+    "_id": "homewizard.0.hwe-p1_5c2faf000011.battery"
+  },
+  "homewizard.0.hwe-p1_5c2faf000011.battery.battery_count": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Verbundene Batterien",
+        "en": "Connected batteries",
+        "es": "Baterías conectadas",
+        "fr": "Batteries connectées",
+        "it": "Batterie collegate",
+        "nl": "Verbonden batterijen",
+        "pl": "Podłączone baterie",
+        "pt": "Baterias conectadas",
+        "ru": "Подключённые батареи",
+        "uk": "Підключені батареї",
+        "zh-cn": "已连接电池"
+      },
+      "type": "number",
+      "role": "value",
+      "read": true,
+      "write": false
+    },
+    "native": {},
+    "_id": "homewizard.0.hwe-p1_5c2faf000011.battery.battery_count"
+  },
+  "homewizard.0.hwe-p1_5c2faf000011.battery.charge_to_full": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Voll aufladen",
+        "en": "Charge to full",
+        "es": "Cargar al máximo",
+        "fr": "Charger à fond",
+        "it": "Carica al massimo",
+        "nl": "Volledig opladen",
+        "pl": "Naładuj do pełna",
+        "pt": "Carregar até cheio",
+        "ru": "Зарядить полностью",
+        "uk": "Зарядити повністю",
+        "zh-cn": "充至满电"
+      },
+      "type": "boolean",
+      "role": "switch",
+      "read": true,
+      "write": true,
+      "desc": {
+        "de": "Einmalig: auf 100 % laden und danach in den gewählten Modus zurückkehren.",
+        "en": "One-shot: charge to 100 % once, then return to the selected mode.",
+        "es": "Una sola vez: cargar al 100 % y volver luego al modo seleccionado.",
+        "fr": "Une seule fois : charger à 100 %, puis revenir au mode choisi.",
+        "it": "Una tantum: carica al 100 % e poi torna alla modalità scelta.",
+        "nl": "Eenmalig: opladen tot 100 % en daarna terug naar de gekozen modus.",
+        "pl": "Jednorazowo: naładuj do 100 %, a potem wróć do wybranego trybu.",
+        "pt": "Uma vez: carregar até 100 % e depois voltar ao modo selecionado.",
+        "ru": "Однократно: зарядить до 100 %, затем вернуться к выбранному режиму.",
+        "uk": "Одноразово: зарядити до 100 %, потім повернутися до вибраного режиму.",
+        "zh-cn": "一次性：充至 100%，随后回到所选模式。"
+      }
+    },
+    "native": {},
+    "_id": "homewizard.0.hwe-p1_5c2faf000011.battery.charge_to_full"
+  },
+  "homewizard.0.hwe-p1_5c2faf000011.battery.max_consumption_w": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Max. Verbrauch",
+        "en": "Max consumption",
+        "es": "Consumo máx.",
+        "fr": "Consommation max.",
+        "it": "Consumo massimo",
+        "nl": "Max. verbruik",
+        "pl": "Maks. zużycie",
+        "pt": "Consumo máx.",
+        "ru": "Макс. потребление",
+        "uk": "Макс. споживання",
+        "zh-cn": "最大消耗"
+      },
+      "type": "number",
+      "role": "value.power",
+      "read": true,
+      "write": false,
+      "unit": "W",
+      "desc": {
+        "de": "Die Grenze, an die sich die Batteriegruppe beim Bezug aus dem bzw. bei der Einspeisung ins Netz hält.",
+        "en": "The limit the battery group keeps to when drawing from or feeding into the grid.",
+        "es": "El límite que respeta el grupo de baterías al consumir de la red o inyectar en ella.",
+        "fr": "La limite que le groupe de batteries respecte lors du soutirage ou de l'injection sur le réseau.",
+        "it": "Il limite che il gruppo batterie rispetta prelevando dalla rete o immettendo in essa.",
+        "nl": "De grens die de accugroep aanhoudt bij afname van of teruglevering aan het net.",
+        "pl": "Granica, której grupa akumulatorów przestrzega przy poborze z sieci lub oddawaniu do niej.",
+        "pt": "O limite que o grupo de baterias respeita ao consumir da rede ou injetar nela.",
+        "ru": "Предел, которого придерживается группа батарей при потреблении из сети или отдаче в неё.",
+        "uk": "Межа, якої дотримується група батарей під час споживання з мережі або віддачі в неї.",
+        "zh-cn": "电池组从电网取电或向电网馈电时遵守的上限。"
+      }
+    },
+    "native": {},
+    "_id": "homewizard.0.hwe-p1_5c2faf000011.battery.max_consumption_w"
+  },
+  "homewizard.0.hwe-p1_5c2faf000011.battery.max_production_w": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Max. Erzeugung",
+        "en": "Max production",
+        "es": "Producción máx.",
+        "fr": "Production max.",
+        "it": "Produzione massima",
+        "nl": "Max. productie",
+        "pl": "Maks. produkcja",
+        "pt": "Produção máx.",
+        "ru": "Макс. производство",
+        "uk": "Макс. виробництво",
+        "zh-cn": "最大生产"
+      },
+      "type": "number",
+      "role": "value.power",
+      "read": true,
+      "write": false,
+      "unit": "W",
+      "desc": {
+        "de": "Die Grenze, an die sich die Batteriegruppe beim Bezug aus dem bzw. bei der Einspeisung ins Netz hält.",
+        "en": "The limit the battery group keeps to when drawing from or feeding into the grid.",
+        "es": "El límite que respeta el grupo de baterías al consumir de la red o inyectar en ella.",
+        "fr": "La limite que le groupe de batteries respecte lors du soutirage ou de l'injection sur le réseau.",
+        "it": "Il limite che il gruppo batterie rispetta prelevando dalla rete o immettendo in essa.",
+        "nl": "De grens die de accugroep aanhoudt bij afname van of teruglevering aan het net.",
+        "pl": "Granica, której grupa akumulatorów przestrzega przy poborze z sieci lub oddawaniu do niej.",
+        "pt": "O limite que o grupo de baterias respeita ao consumir da rede ou injetar nela.",
+        "ru": "Предел, которого придерживается группа батарей при потреблении из сети или отдаче в неё.",
+        "uk": "Межа, якої дотримується група батарей під час споживання з мережі або віддачі в неї.",
+        "zh-cn": "电池组从电网取电或向电网馈电时遵守的上限。"
+      }
+    },
+    "native": {},
+    "_id": "homewizard.0.hwe-p1_5c2faf000011.battery.max_production_w"
+  },
+  "homewizard.0.hwe-p1_5c2faf000011.battery.mode": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Batterie-Modus",
+        "en": "Battery mode",
+        "es": "Modo de la batería",
+        "fr": "Mode de la batterie",
+        "it": "Modalità batteria",
+        "nl": "Batterijmodus",
+        "pl": "Tryb baterii",
+        "pt": "Modo da bateria",
+        "ru": "Режим батареи",
+        "uk": "Режим батареї",
+        "zh-cn": "电池模式"
+      },
+      "type": "string",
+      "role": "text",
+      "read": true,
+      "write": true,
+      "desc": {
+        "de": "Betriebsmodus: zero (keine Netzeinspeisung), to_full (auf Maximum laden), standby, predictive (prognosebasiert)",
+        "en": "Operating mode: zero (no grid feed-in), to_full (charge to maximum), standby, predictive (forecast-based)",
+        "es": "Modo de operación: zero (sin inyección a red), to_full (cargar al máximo), standby, predictive (basado en previsión)",
+        "fr": "Mode de fonctionnement : zero (aucune injection au réseau), to_full (charge maximale), standby, predictive (basé sur les prévisions)",
+        "it": "Modalità operativa: zero (nessuna immissione in rete), to_full (carica al massimo), standby, predictive (basato su previsioni)",
+        "nl": "Bedrijfsmodus: zero (geen netinvoeding), to_full (volledig laden), standby, predictive (op prognose gebaseerd)",
+        "pl": "Tryb pracy: zero (bez oddawania do sieci), to_full (ładuj do pełna), standby, predictive (oparte na prognozie)",
+        "pt": "Modo de operação: zero (sem injeção na rede), to_full (carregar ao máximo), standby, predictive (baseado em previsão)",
+        "ru": "Режим работы: zero (без подачи в сеть), to_full (заряд до максимума), standby, predictive (на основе прогноза)",
+        "uk": "Режим роботи: zero (без подачі в мережу), to_full (заряд до максимуму), standby, predictive (на основі прогнозу)",
+        "zh-cn": "运行模式：zero（不向电网馈送）、to_full（充满）、standby（待机）, predictive (基于预测)"
+      },
+      "states": {
+        "zero": "Zero (no grid feed-in)",
+        "to_full": "To full (charge to maximum)",
+        "standby": "Standby",
+        "predictive": "Predictive (forecast-based)"
+      }
+    },
+    "native": {},
+    "_id": "homewizard.0.hwe-p1_5c2faf000011.battery.mode"
+  },
+  "homewizard.0.hwe-p1_5c2faf000011.battery.permissions": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Batterie-Berechtigungen",
+        "en": "Battery permissions",
+        "es": "Permisos de la batería",
+        "fr": "Permissions de la batterie",
+        "it": "Autorizzazioni batteria",
+        "nl": "Batterijrechten",
+        "pl": "Uprawnienia baterii",
+        "pt": "Permissões da bateria",
+        "ru": "Разрешения батареи",
+        "uk": "Дозволи батареї",
+        "zh-cn": "电池权限"
+      },
+      "type": "string",
+      "role": "json",
+      "read": true,
+      "write": true,
+      "desc": {
+        "de": "Welche Richtungen die Batteriegruppe derzeit nutzen darf (Laden, Entladen).",
+        "en": "Which directions the battery group may use right now (charging, discharging).",
+        "es": "Qué direcciones puede usar ahora el grupo de baterías (cargar, descargar).",
+        "fr": "Les sens actuellement autorisés pour le groupe de batteries (charge, décharge).",
+        "it": "Quali direzioni può usare ora il gruppo batterie (carica, scarica).",
+        "nl": "Welke richtingen de accugroep nu mag gebruiken (laden, ontladen).",
+        "pl": "Które kierunki może teraz wykorzystać grupa akumulatorów (ładowanie, rozładowanie).",
+        "pt": "Que direções o grupo de baterias pode usar agora (carregar, descarregar).",
+        "ru": "Какие направления сейчас разрешены группе батарей (заряд, разряд).",
+        "uk": "Які напрямки зараз дозволені групі батарей (заряд, розряд).",
+        "zh-cn": "电池组当前允许的方向（充电、放电）。"
+      }
+    },
+    "native": {},
+    "_id": "homewizard.0.hwe-p1_5c2faf000011.battery.permissions"
+  },
+  "homewizard.0.hwe-p1_5c2faf000011.battery.power_w": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Batterieleistung",
+        "en": "Battery power",
+        "es": "Potencia de la batería",
+        "fr": "Puissance de la batterie",
+        "it": "Potenza della batteria",
+        "nl": "Batterijvermogen",
+        "pl": "Moc baterii",
+        "pt": "Potência da bateria",
+        "ru": "Мощность батареи",
+        "uk": "Потужність батареї",
+        "zh-cn": "电池功率"
+      },
+      "type": "number",
+      "role": "value.power",
+      "read": true,
+      "write": false,
+      "unit": "W"
+    },
+    "native": {},
+    "_id": "homewizard.0.hwe-p1_5c2faf000011.battery.power_w"
+  },
+  "homewizard.0.hwe-p1_5c2faf000011.battery.target_power_w": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Soll-Leistung",
+        "en": "Target power",
+        "es": "Potencia objetivo",
+        "fr": "Puissance cible",
+        "it": "Potenza obiettivo",
+        "nl": "Doelvermogen",
+        "pl": "Moc docelowa",
+        "pt": "Potência alvo",
+        "ru": "Целевая мощность",
+        "uk": "Цільова потужність",
+        "zh-cn": "目标功率"
+      },
+      "type": "number",
+      "role": "value.power",
+      "read": true,
+      "write": false,
+      "unit": "W",
+      "desc": {
+        "de": "Die Leistung, die die Batteriegruppe gerade anstrebt; ein negativer Wert bedeutet Laden.",
+        "en": "The power the battery group is aiming for right now; a negative value means charging.",
+        "es": "La potencia que busca ahora el grupo de baterías; un valor negativo significa carga.",
+        "fr": "La puissance visée actuellement par le groupe de batteries ; une valeur négative signifie la charge.",
+        "it": "La potenza a cui punta ora il gruppo batterie; un valore negativo indica la carica.",
+        "nl": "Het vermogen waar de accugroep nu naar streeft; een negatieve waarde betekent laden.",
+        "pl": "Moc, do której dąży teraz grupa akumulatorów; wartość ujemna oznacza ładowanie.",
+        "pt": "A potência que o grupo de baterias procura atingir; um valor negativo significa carregar.",
+        "ru": "Мощность, к которой сейчас стремится группа батарей; отрицательное значение — заряд.",
+        "uk": "Потужність, до якої зараз прагне група батарей; від'ємне значення означає заряд.",
+        "zh-cn": "电池组当前的目标功率；负值表示充电。"
+      }
+    },
+    "native": {},
+    "_id": "homewizard.0.hwe-p1_5c2faf000011.battery.target_power_w"
   },
   "homewizard.0.hwe-p1_5c2faf000011.info": {
     "type": "channel",

@@ -1640,6 +1640,28 @@ describe("the label retrofit covers every object the adapter names itself", () =
     expect(adapter.objects.size).toBe(0);
   });
 
+  // The retrofit works off ONE object list, read once at start-up. A branch that goes
+  // away AFTER that list was taken — the battery branch of a device that answers 404 —
+  // is still in it, and `extendObject` on a missing object creates it. Measured in the
+  // upgrade suite before the guard: all nine battery objects came back, as husks with
+  // a name and nothing else.
+  it("does not resurrect a branch this start-up removed", async () => {
+    await manager.createDeviceStates(device);
+    await manager.updateBattery(device, { mode: "zero", battery_count: 2, power_w: -400 });
+    const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+    expect(existing.has(`homewizard.0.${prefix}.battery.mode`)).toBe(true);
+
+    expect(await manager.removeBatteryStates(device)).toBe(true);
+    const afterRemoval = adapter.objects.size;
+
+    // The list still carries the battery ids — that is exactly the situation.
+    await manager.refreshExistingNames(device, existing);
+
+    expect(adapter.objects.size, "the retrofit must not bring the branch back").toBe(afterRemoval);
+    expect(adapter.objects.has(`${prefix}.battery.mode`)).toBe(false);
+    expect(adapter.objects.has(`${prefix}.battery`)).toBe(false);
+  });
+
   it("does not write again what this very start-up already wrote", async () => {
     await fullPass();
     const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));

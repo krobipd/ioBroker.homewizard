@@ -4,7 +4,10 @@
     "not just the maintainer's own hardware. Field sets follow the official API v2 docs",
     "(Ressourcen/homewizard/api-referenz.md, 'Messdaten per Gerät'); values are arbitrary but",
     "constant, because the inventory dumps OBJECTS, not values.",
-    "Serial = MAC in lowercase hex without separators, as the device reports it."
+    "Serial = MAC in lowercase hex without separators, as the device reports it.",
+    "The battery control block sits on the P1 METER, not on the battery: 'the /api/batteries",
+    "endpoint is available on the P1 Meter and kWh Meter ... The endpoint is not available",
+    "directly on the Plug-In Battery' (official API v2 documentation, docs/v2/batteries)."
   ],
   "devices": [
     {
@@ -79,6 +82,16 @@
         "cloud_enabled": true,
         "status_led_brightness_pct": 100,
         "api_v1_enabled": false
+      },
+      "batteries": {
+        "mode": "zero",
+        "permissions": ["charge_allowed", "discharge_allowed"],
+        "charge_to_full": false,
+        "battery_count": 2,
+        "power_w": -400.0,
+        "target_power_w": -350.0,
+        "max_consumption_w": 1600.0,
+        "max_production_w": 800.0
       }
     },
     {
@@ -186,16 +199,6 @@
         "uptime_s": 3600,
         "cloud_enabled": true,
         "status_led_brightness_pct": 80
-      },
-      "batteries": {
-        "mode": "zero",
-        "permissions": ["charge_allowed", "discharge_allowed"],
-        "charge_to_full": false,
-        "battery_count": 2,
-        "power_w": -400.0,
-        "target_power_w": -350.0,
-        "max_consumption_w": 1600.0,
-        "max_production_w": 800.0
       }
     }
   ]

@@ -753,6 +753,7 @@ export class ConnectionManager {
         // this avoids a misleading debug line). Only create states if batteries exist.
         if (battery && battery.battery_count && battery.battery_count > 0) {
           conn.batteryAbsentPolls = 0;
+          conn.batteryUnsupported = false;
           await this.host.getStateManager().updateBattery(conn.config, battery);
         } else if (battery) {
           // The meter answered and says there is no battery. Once that holds
@@ -771,7 +772,25 @@ export class ConnectionManager {
         }
       } catch (err) {
         if (err instanceof HomeWizardApiError && err.statusCode === 404) {
-          return; // device doesn't support batteries — expected
+          // Expected on every device that does not manage batteries — per the API
+          // docs only the P1 and kWh meters serve this endpoint, a Plug-In Battery
+          // does not. Unlike `battery_count: 0` (a device that HAS the route and says
+          // there is nothing on it, where a single frame can be a firmware hiccup and
+          // the two-poll hysteresis above applies), a 404 says the route does not
+          // exist in this firmware — so a battery branch left over from an earlier
+          // version, or from a meter that was downgraded or factory-reset, is dead
+          // and goes right away. Once per connection: the flag keeps the object
+          // probe off the per-minute path.
+          if (!conn.batteryUnsupported) {
+            conn.batteryUnsupported = true;
+            const removed = await this.host.getStateManager().removeBatteryStates(conn.config);
+            if (removed) {
+              this.adapter.log.info(
+                `${conn.config.productName}: this device does not manage batteries — its battery data points were removed`,
+              );
+            }
+          }
+          return;
         }
         this.adapter.log.debug(`${conn.config.productName} batteries: ${errText(err)}`);
       }

@@ -1433,7 +1433,7 @@ describe("HomeWizard onWsMeasurement", () => {
 });
 
 describe("HomeWizard pollSystemInfo", () => {
-  it("updates system states and silently skips batteries on 404 (device has none)", async () => {
+  it("updates system states and skips batteries on 404 (device does not manage any)", async () => {
     const { hw, client, conn, stateMgr } = setup();
     const i = internalOf(hw);
     client.getBatteries.mockRejectedValue(new HomeWizardApiError(404, "{}", "GET /api/batteries"));
@@ -2048,14 +2048,52 @@ describe("battery datapoints do not outlive the battery", () => {
     expect(stateMgr.removeBatteryStates).not.toHaveBeenCalled();
   });
 
-  it("leaves a device without battery support alone (404)", async () => {
+  // 404 is not the same statement as `battery_count: 0`: the route does not exist in
+  // this firmware at all (per the API docs only the meters serve it), so a battery
+  // branch still sitting there is dead and goes at once — no two-poll hysteresis, which
+  // guards against a single odd frame from a device that HAS the route.
+  it("drops a leftover battery branch as soon as the device answers 404 — once, not every minute", async () => {
+    const { hw, client, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+    stateMgr.removeBatteryStates.mockResolvedValue(true);
+    client.getBatteries.mockRejectedValue(new HomeWizardApiError(404, "{}", "GET /api/batteries"));
+
+    await i.connectionManager.pollSystemInfo(conn);
+    expect(stateMgr.removeBatteryStates).toHaveBeenCalledWith(conn.config);
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("does not manage batteries"));
+
+    await i.connectionManager.pollSystemInfo(conn);
+    await i.connectionManager.pollSystemInfo(conn);
+    expect(stateMgr.removeBatteryStates, "the probe must not run every minute").toHaveBeenCalledTimes(1);
+  });
+
+  it("a device that answers 404 without a battery branch stays quiet", async () => {
+    const { hw, client, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+    stateMgr.removeBatteryStates.mockResolvedValue(false); // nothing was there
+    client.getBatteries.mockRejectedValue(new HomeWizardApiError(404, "{}", "GET /api/batteries"));
+
+    await i.connectionManager.pollSystemInfo(conn);
+    expect(i.log.info).not.toHaveBeenCalledWith(expect.stringContaining("does not manage batteries"));
+    expect(i.log.warn).not.toHaveBeenCalled();
+  });
+
+  it("a meter that starts serving batteries again is not blocked by the earlier 404", async () => {
     const { hw, client, conn, stateMgr } = setup();
     const i = internalOf(hw);
     client.getBatteries.mockRejectedValue(new HomeWizardApiError(404, "{}", "GET /api/batteries"));
     await i.connectionManager.pollSystemInfo(conn);
+
+    client.getBatteries.mockResolvedValue({ mode: "zero", battery_count: 2 });
     await i.connectionManager.pollSystemInfo(conn);
+    expect(stateMgr.updateBattery).toHaveBeenCalled();
+
+    // …and a later 404 cleans up again instead of being swallowed by a stale flag.
+    stateMgr.removeBatteryStates.mockClear();
+    stateMgr.removeBatteryStates.mockResolvedValue(true);
+    client.getBatteries.mockRejectedValue(new HomeWizardApiError(404, "{}", "GET /api/batteries"));
     await i.connectionManager.pollSystemInfo(conn);
-    expect(stateMgr.removeBatteryStates).not.toHaveBeenCalled();
+    expect(stateMgr.removeBatteryStates).toHaveBeenCalledTimes(1);
   });
 });
 

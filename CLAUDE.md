@@ -231,6 +231,24 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     ein Gerät, das beim Entfernen offline ist, ist der Normalfall — der Satz ist derselbe wie beim Gerät
     ohne lesbaren Token, weil der Nutzer den Rest in der App erledigen muss.
 
+37. **Ein 404 auf `/api/batteries` ist eine andere Aussage als `battery_count: 0`** (seit v0.19.0).
+    Die offizielle API-Doku (`docs/v2/batteries`, live geprüft 2026-09-15) sagt: „Despite its name, the
+    `/api/batteries` endpoint is available on the P1 Meter and kWh Meter … The endpoint is not available
+    directly on the Plug-In Battery." Ein 404 heißt also „diese Firmware hat die Route nicht" — kommt per
+    CN-Pinning vom Gerät selbst, kann kein Einzelframe-Ausrutscher sein und räumt einen übrig gebliebenen
+    `battery`-Zweig deshalb SOFORT weg (einmal je Verbindung, Flag `batteryUnsupported`). Die
+    Zwei-Poll-Hysterese aus Entscheidung 26 bleibt für `battery_count: 0`: dort HAT das Gerät die Route
+    und ein einzelnes Frame kann ein Firmware-Schluckauf sein. Die Fixture trägt den Batterie-Block
+    seither am P1, nicht am HWE-BAT.
+38. **Der Label-Nachzug darf nicht wiederbeleben, was derselbe Start gelöscht hat** (seit v0.19.0).
+    Er arbeitet auf EINER Objektliste, die beim Start einmal gelesen wird; ein danach gelöschter Zweig
+    steht noch darin, und `extendObject` auf ein fehlendes Objekt LEGT ES AN (js-controller: „if old
+    object is not existing, we behave like setObject") — als Hülle mit Name und Beschreibung, ohne
+    Rolle und Typ, die kein Lauf je wieder aufräumt. `StateManager.removedIds` merkt sich die in diesem
+    Lauf gelöschten Zweige, `refreshExistingNames` überspringt sie. **Gefunden hat das nicht ein Test,
+    sondern die Aufstiegs-Suite** (Entscheidung 37 löschte die neun Batterie-Objekte, und alle neun
+    standen danach wieder da).
+
 ## Error-Handling (seit v0.3.5)
 
 Folgt beszel/parcelapp Pattern:

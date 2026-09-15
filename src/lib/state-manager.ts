@@ -109,6 +109,15 @@ export class StateManager {
    * is replaced on re-pair.
    */
   private readonly prefixCache = new WeakMap<DeviceConfig, string>();
+  /**
+   * Branches this run deleted. The label retrofit works off ONE object list, read once
+   * at start-up; a branch removed after that list was taken is still in it, and
+   * `extendObject` on a missing object CREATES it (js-controller: "if old object is not
+   * existing, we behave like setObject"). Without this the retrofit resurrects what the
+   * same start just removed, as a husk carrying only name and description. Entries are
+   * prefixes: an id below one counts as removed too.
+   */
+  private readonly removedIds = new Set<string>();
 
   /** @param adapter The ioBroker adapter instance */
   constructor(adapter: utils.AdapterInstance) {
@@ -694,6 +703,11 @@ export class StateManager {
       if (!existingIds.has(`${this.adapter.namespace}.${id}`)) {
         continue;
       }
+      // Deleted while this start was running: still in the caller's list, but writing
+      // it would bring the object back (see `removedIds`).
+      if (this.wasRemoved(id)) {
+        continue;
+      }
       // Already written in this very start-up (createDeviceStates, or a create
       // triggered by incoming data): those objects carry the current label by
       // definition, so refreshing them again is a second write for nothing.
@@ -780,7 +794,22 @@ export class StateManager {
         this.createdIds.delete(id);
       }
     }
+    this.removedIds.add(channel);
     return true;
+  }
+
+  /**
+   * Whether this id — or a branch above it — was deleted during this run.
+   *
+   * @param id Device-relative object id.
+   */
+  private wasRemoved(id: string): boolean {
+    for (const removed of this.removedIds) {
+      if (id === removed || id.startsWith(`${removed}.`)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
