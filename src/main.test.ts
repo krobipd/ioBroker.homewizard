@@ -764,9 +764,11 @@ describe("HomeWizard pollPairing", () => {
     expect(i.pairingManager.discovered).toHaveLength(1); // still waiting for the button
     // 403 is the EXPECTED state during the whole pairing window (the user has
     // not pressed the button yet). Logging it as an error would put one line
-    // every 2 s into the log and send whoever reads it hunting a fault.
+    // every 2 s into the log and send whoever reads it hunting a fault — and as a
+    // WARNING it would greet every single pairing attempt.
     const errorLines = i.log.debug.mock.calls.filter((c: unknown[]) => String(c[0]).includes("Pairing poll error"));
     expect(errorLines, "403 is not a pairing error").toHaveLength(0);
+    expect(i.log.warn, "the normal 'button not pressed yet' must not warn").not.toHaveBeenCalled();
   });
 
   // Everything that is not the expected 403 — a mistyped manual IP, a device that
