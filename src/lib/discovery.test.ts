@@ -3,9 +3,15 @@ import { vi } from "vitest";
 // I5: mock bonjour-service so the start/stop lifecycle tests exercise
 // HomeWizardDiscovery's own logic (stop-before-start, null handling) without
 // binding real mDNS multicast sockets (slow, flaky, leaks handles in CI).
+// The fake keeps the callback the adapter passes, so the path from an announcement
+// to the adapter's callback can be driven — without it, a regression that never calls
+// back (or hands over the raw service) stays green.
+const announced: { emit: ((service: unknown) => void) | null } = { emit: null };
+
 vi.mock("bonjour-service", () => {
   class FakeBonjour {
-    find(_opts: unknown, _cb: unknown): { stop: () => void } {
+    find(_opts: unknown, cb: (service: unknown) => void): { stop: () => void } {
+      announced.emit = cb;
       return { stop: (): void => {} };
     }
     destroy(): void {}
@@ -94,6 +100,31 @@ describe("HomeWizardDiscovery", () => {
     it("should stop previous scan when starting a new one", () => {
       discovery.start(() => {});
       expect(() => discovery.start(() => {})).not.toThrow();
+    });
+  });
+
+  describe("the path from an announcement to the caller", () => {
+    it("hands the parsed device to the callback and says so in the log", () => {
+      const seen: DiscoveredDevice[] = [];
+      discovery.start(d => seen.push(d));
+
+      announced.emit!({
+        name: "p1meter-aabbcc",
+        addresses: ["192.168.1.100"],
+        txt: { product_type: "HWE-P1", serial: "aabbccddeeff", product_name: "P1 Meter" },
+      });
+
+      expect(seen).toEqual([{ ip: "192.168.1.100", productType: "HWE-P1", serial: "aabbccddeeff", name: "P1 Meter" }]);
+      expect(log._logs.some(l => l.msg.includes("mDNS: found P1 Meter (HWE-P1) at 192.168.1.100"))).toBe(true);
+    });
+
+    it("swallows an announcement it cannot use instead of calling back with nothing", () => {
+      const seen: DiscoveredDevice[] = [];
+      discovery.start(d => seen.push(d));
+
+      announced.emit!({ name: "no-address", addresses: [], txt: { product_type: "HWE-P1" } });
+
+      expect(seen).toEqual([]);
     });
   });
 

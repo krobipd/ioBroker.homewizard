@@ -619,8 +619,6 @@ function internalOf(hw: HomeWizard): {
     onDeviceDiscovered: (d: DiscoveredDevice) => void;
   };
   discovery: FakeDiscovery | null;
-  pairingTimer: unknown;
-  pairingPollTimer: unknown;
   systemPollTimer: unknown;
   ipRecoveryTimer: unknown;
   connections: Map<string, DeviceConnection>;
@@ -670,6 +668,7 @@ function internalOf(hw: HomeWizard): {
     pollAllSystemInfo: () => Promise<void>;
     initDevice: (c: DeviceConnection) => Promise<void>;
     connectWebSocket: (c: DeviceConnection) => void;
+    dropCooldowns: (serial: string) => void;
   };
 } {
   return hw as unknown as ReturnType<typeof internalOf>;
@@ -1270,30 +1269,21 @@ describe("HomeWizard onReady", () => {
     expect(i.setStateAsync).not.toHaveBeenCalledWith("info.legacyMigrated", expect.anything());
     expect(i.setStateAsync).not.toHaveBeenCalledWith("info.labelsVersion", expect.anything());
   });
-
-  it("does not re-write the legacy marker when it is already set (I6)", async () => {
-    const { hw } = setup();
-    const i = internalOf(hw);
-    i.connections.clear();
-    i.getAdapterObjectsAsync.mockResolvedValue({
-      "homewizard.0.hwe-p1_dev1": {
-        type: "device",
-        native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
-      },
-    });
-    i.getStateAsync.mockResolvedValue({ val: true, ack: true }); // marker already set
-    await i.onReady();
-    await settle();
-
-    expect(i.setStateAsync).not.toHaveBeenCalledWith("info.legacyMigrated", { val: true, ack: true });
-  });
 });
 
 describe("HomeWizard onUnload", () => {
   it("clears all global timers, tears down connections and always calls the callback", async () => {
     const { hw, conn } = setup();
     const i = internalOf(hw);
-    await i.pairingManager.start(); // installs pairing timers + discovery
+    await i.pairingManager.start(); // installs the pairing window's timers + discovery
+    // The two timers main owns itself. Asserting `undefined` on them without setting
+    // them first proves nothing — and `pairingTimer`/`pairingPollTimer` are not even
+    // fields of the adapter any more (they moved into the pairing manager), so those
+    // assertions held on any object at all.
+    const systemPoll = { id: "system-poll" };
+    const ipRecovery = { id: "ip-recovery" };
+    i.systemPollTimer = systemPoll;
+    i.ipRecoveryTimer = ipRecovery;
     const ws = { connect: vi.fn(), close: vi.fn() };
     conn.wsClient = ws as unknown as DeviceConnection["wsClient"];
     conn.pollTimer = {} as never;
@@ -1305,10 +1295,11 @@ describe("HomeWizard onUnload", () => {
     expect(callback).toHaveBeenCalledTimes(1);
     expect(ws.close).toHaveBeenCalled();
     expect(i.connections.size).toBe(0);
-    expect(i.pairingTimer).toBeUndefined();
-    expect(i.pairingPollTimer).toBeUndefined();
+    expect(i.clearInterval).toHaveBeenCalledWith(systemPoll);
+    expect(i.clearTimeout).toHaveBeenCalledWith(ipRecovery);
     expect(i.systemPollTimer).toBeUndefined();
     expect(i.ipRecoveryTimer).toBeUndefined();
+    expect(i.pairingManager.active, "the pairing window is closed too").toBe(false);
     expect(conn.pollTimer).toBeUndefined();
     expect(conn.reconnectTimer).toBeUndefined();
   });
@@ -2095,6 +2086,119 @@ describe("battery datapoints do not outlive the battery", () => {
   });
 });
 
+describe("the mDNS browser stops as soon as it has done its job", () => {
+  // The only place a recovery window ends early. Without it the browser keeps
+  // listening for its full minute after every device is back.
+  it("stops the browser once every device has reconnected", () => {
+    const { hw, conn, discovery } = setup();
+    const i = internalOf(hw);
+    conn.wsFailCount = 5;
+    i.startIpRecovery();
+    expect(discovery.start).toHaveBeenCalled();
+
+    i.connectionManager.onWsConnected(conn);
+
+    expect(discovery.stop).toHaveBeenCalled();
+  });
+
+  it("keeps it running while another device is still missing", () => {
+    const { hw, conn, discovery } = setup();
+    const i = internalOf(hw);
+    const other = { ...conn, config: { ...conn.config, serial: "ccdd" }, wsAuthenticated: false };
+    i.connections.set("hwe-p1_ccdd", other);
+    i.startIpRecovery();
+
+    i.connectionManager.onWsConnected(conn);
+
+    expect(discovery.stop).not.toHaveBeenCalled();
+  });
+});
+
+describe("log volume under a chronic fault", () => {
+  // A device with bad WiFi can produce a new error CATEGORY every cycle. Without the
+  // cooldown each one is a fresh warn, and the log of a house with one bad meter is
+  // useless for finding a real fault.
+  it("warns once per hour for a device that keeps producing new error categories", () => {
+    const { hw, conn } = setup();
+    const i = internalOf(hw);
+    i.log.warn.mockClear();
+
+    // Three DIFFERENT categories (network, timeout, server) — each one is a first
+    // occurrence for the repeat-dedup, so only the per-device cooldown holds the line.
+    i.connectionManager.onWsDisconnected(conn, Object.assign(new Error("a"), { code: "ECONNREFUSED" }));
+    i.connectionManager.onWsDisconnected(conn, Object.assign(new Error("b"), { code: "ETIMEDOUT" }));
+    i.connectionManager.onWsDisconnected(conn, new HomeWizardApiError(500, "{}", "ws"));
+
+    expect(i.log.warn.mock.calls.length, "one warn per device and hour").toBe(1);
+    expect(i.log.debug).toHaveBeenCalledWith(expect.stringContaining("(cooldown)"));
+  });
+
+  it("a device that is removed and paired again warns immediately, not after the old cooldown", () => {
+    const { hw, conn } = setup();
+    const i = internalOf(hw);
+    i.connectionManager.onWsDisconnected(conn, Object.assign(new Error("a"), { code: "ECONNREFUSED" }));
+    i.log.warn.mockClear();
+
+    // Re-pairing builds a FRESH connection for the same serial; without dropping the
+    // stamp it would inherit the old device's cooldown and swallow its first warning.
+    i.connectionManager.dropCooldowns(conn.config.serial);
+    const fresh = makeConn();
+    i.connectionManager.onWsDisconnected(fresh, Object.assign(new Error("b"), { code: "ETIMEDOUT" }));
+
+    expect(i.log.warn.mock.calls.length).toBe(1);
+  });
+});
+
+describe("the pairing queue is bounded", () => {
+  // Anything on the LAN can announce itself. Without the cap a flood of announcements
+  // would grow the queue without limit and the 2 s poll would walk all of it.
+  it("ignores further devices once the queue is full", () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    for (let n = 0; n < 50; n++) {
+      i.pairingManager.onDeviceDiscovered({
+        ip: `192.168.1.${n + 100}`,
+        productType: "HWE-P1",
+        serial: `s${n}`,
+        name: `P1 ${n}`,
+      });
+    }
+    expect(i.pairingManager.discovered).toHaveLength(50);
+
+    i.pairingManager.onDeviceDiscovered({
+      ip: "192.168.1.250",
+      productType: "HWE-P1",
+      serial: "one-too-many",
+      name: "P1 51",
+    });
+
+    expect(i.pairingManager.discovered).toHaveLength(50);
+    expect(i.log.debug).toHaveBeenCalledWith(expect.stringContaining("discovery list full"));
+  });
+});
+
+describe("every control state the adapter offers is actually subscribed", () => {
+  // A ninth entry in the command table without its subscribeStates would be a control
+  // that silently does nothing: the write never reaches onStateChange. Nothing else
+  // holds the two lists together.
+  it("subscribes exactly the suffixes the command table handles", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    await i.onReady();
+    await settle();
+
+    const subscribed = new Set(i.subscribeStatesAsync.mock.calls.map((c: unknown[]) => String(c[0])));
+    const commands = (hw as unknown as { deviceCommands: Array<{ suffix: string }> }).deviceCommands;
+    for (const { suffix } of commands) {
+      // `.system.reboot` → `*.system.reboot`
+      expect(subscribed, `${suffix} is handled but never subscribed`).toContain(`*${suffix}`);
+    }
+    // …and the two that are not in the table.
+    expect(subscribed).toContain("startPairing");
+    expect(subscribed).toContain("*.remove");
+  });
+});
+
 describe("a refused write does not leave the data point lying", () => {
   // Without the read-back the data point keeps the user's value, unacknowledged, until
   // the 60 s system poll corrects it — a minute in which the tree says the device is in
@@ -2268,7 +2372,9 @@ describe("timeout callbacks (the timers nobody drove before)", () => {
     timeoutCallbackFor(i, 60_000)();
 
     expect(discovery.stop).toHaveBeenCalled();
-    expect(i.pairingPollTimer).toBeUndefined();
+    // `pairingPollTimer` is not an adapter field (it lives in the pairing manager), so
+    // asserting `undefined` on it held on any object — ask the manager instead.
+    expect(i.pairingManager.active).toBe(false);
     expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("automatically disabled"));
   });
 

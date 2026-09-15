@@ -439,6 +439,27 @@ describe("StateManager", () => {
     });
   });
 
+  describe("setProductName / setFirmware", () => {
+    // Both are called from the periodic device-info fetch as well: a device renamed
+    // in the app, or one that updated its own firmware, has to reach the tree while
+    // the adapter runs — not only at the next start.
+    it("writes the current name and firmware, and skips a write that changes nothing", async () => {
+      await manager.createDeviceStates(testDevice);
+      await manager.setFirmware(testDevice, "6.4");
+      expect(adapter.states.get("hwe-p1_aabbccddeeff.info.firmware")?.val).toBe("6.4");
+
+      const writes = adapter.metrics.stateWrites;
+      await manager.setFirmware(testDevice, "6.4");
+      expect(adapter.metrics.stateWrites, "the same version must not be written again").toBe(writes);
+
+      await manager.setFirmware(testDevice, "6.5");
+      expect(adapter.states.get("hwe-p1_aabbccddeeff.info.firmware")?.val).toBe("6.5");
+
+      await manager.setProductName({ ...testDevice, productName: "Meter renamed in the app" });
+      expect(adapter.states.get("hwe-p1_aabbccddeeff.info.productName")?.val).toBe("Meter renamed in the app");
+    });
+  });
+
   describe("updateMeasurement", () => {
     it("should create and set power states", async () => {
       const data: Measurement = {
