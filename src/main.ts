@@ -787,12 +787,14 @@ export class HomeWizard extends utils.Adapter {
         if (discovered.ip === conn.ip || conn.wsAuthenticated) {
           return; // Same IP or already connected
         }
-        // Multiple mDNS broadcasts can arrive within one recovery window
-        // (e.g. AP roam). Skip if a connect cycle is already in flight.
-        if (conn.recovering) {
-          return;
-        }
-
+        // A connect attempt in flight is NOT a reason to drop this answer — it is
+        // the normal case. The recovery query goes out from connectWebSocket right
+        // before it opens the socket to the OLD (dead) address, which then hangs for
+        // seconds; the device's reply arrives inside exactly that window, and
+        // bonjour-service announces a service only ONCE per browser run, so a dropped
+        // answer was the only one for the whole recovery window. `teardownConnection`
+        // below closes that pending client (its close-event is suppressed), so the
+        // reconnect below is the only one left.
         this.log.info(`${conn.config.productName}: found at new IP ${discovered.ip} (was ${conn.ip})`);
 
         // Update IP and persist — reset stability (new network conditions)
@@ -807,15 +809,9 @@ export class HomeWizard extends utils.Adapter {
           this.log.debug(`Failed to persist new IP for ${conn.config.productName}: ${errText(err)}`),
         );
 
-        // Cancel pending reconnect and connect immediately
-        if (conn.reconnectTimer) {
-          this.clearTimeout(conn.reconnectTimer);
-          conn.reconnectTimer = undefined;
-        }
-        if (conn.pollTimer) {
-          this.clearInterval(conn.pollTimer);
-          conn.pollTimer = undefined;
-        }
+        // Drop everything that still points at the old address — the pending
+        // WebSocket, the backoff timer and the REST fallback — then connect.
+        this.connectionManager.teardownConnection(conn);
         this.connectionManager.connectWebSocket(conn);
         return;
       }

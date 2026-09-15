@@ -726,6 +726,15 @@ async function startWssStub(): Promise<WssStub> {
   };
 }
 
+/** A port nobody listens on: bind one, read it, close it again. */
+async function findClosedPort(): Promise<number> {
+  const server = https.createServer({ cert: TEST_CERT_PEM, key: TEST_KEY_PEM });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as AddressInfo).port;
+  await new Promise<void>(resolve => server.close(() => resolve()));
+  return port;
+}
+
 async function waitUntil(pred: () => boolean, timeoutMs = 2000): Promise<void> {
   const start = Date.now();
   while (!pred()) {
@@ -786,6 +795,26 @@ describe("HomeWizardWebSocket against a real wss stub-server (T4)", () => {
     expect(stub.state.token).toBe("mytoken");
     await waitUntil(() => stub.state.subs.length === 3);
     expect([...stub.state.subs].sort()).toEqual(["batteries", "measurement", "system"]);
+  });
+
+  // The failure path that feeds the reconnect loop and, after three of them, the mDNS
+  // IP search: the device is gone, so the socket errors and closes WITHOUT ever opening.
+  // It must report exactly one disconnect, and without an auth error — a 'bad token'
+  // reading would stop the reconnect loop for a device that is merely unreachable.
+  it("reports a connect that never opens as a single plain disconnect", async () => {
+    const deadPort = await findClosedPort();
+    const { callbacks, tracker, disconnected } = trackerWithSignals();
+    ws = new HomeWizardWebSocket("127.0.0.1", "mytoken", callbacks, createNativeTimerDeps(), {
+      agent: TEST_AGENT,
+      port: deadPort,
+    });
+    ws.connect();
+
+    await disconnected;
+    await new Promise(r => setTimeout(r, 100)); // a second report would land here
+    expect(tracker.disconnected).toBe(1);
+    expect(tracker.connected).toBe(0);
+    expect(tracker.disconnectErrors[0], "no auth error — the device is unreachable, not hostile").toBe(undefined);
   });
 
   it("delivers pushed measurement / system / battery frames to the callbacks", async () => {

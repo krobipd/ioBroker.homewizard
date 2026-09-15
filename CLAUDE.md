@@ -209,6 +209,18 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     85 Katalog-Ids erscheinen im Inventar) und ist deshalb entfallen. ⚠️ D08 besitzt „ist
     ENTSCHIEDEN", nicht „ist GUT" — ein grüner Lauf belegt nicht, dass die Beschreibungen etwas
     erklären.
+35. **Die IP-Wiederfindung kennt KEINEN In-Flight-Guard** (seit v0.19.0, ersetzt das `recovering`-Feld
+    aus v0.7.5). Der Ablauf ist zwangsläufig verschränkt: `connectWebSocket` stößt beim dritten
+    Fehlschlag die mDNS-Suche an und öffnet DANACH den Socket zur alten, toten Adresse, der mehrere
+    Sekunden hängt. Die Antwort des Geräts trifft genau in diesem Fenster ein — und `bonjour-service`
+    meldet einen Dienst nur EINMAL je Browser-Lauf, die verworfene Antwort war also die einzige des
+    ganzen 60-s-Fensters. Der Guard machte die Wiederfindung damit im häufigsten Fall („Gerät hat eine
+    neue DHCP-Adresse") wirkungslos; nächster Anstoß erst nach ~50 min, mit demselben Ausgang.
+    Er war auch nie nötig: dieselbe IP fängt `discovered.ip === conn.ip`, und der laufende Client wird
+    von `teardownConnection` geschlossen — sein `close()` setzt `destroyed`, das Schließen-Ereignis
+    erreicht `onWsDisconnected` also nicht mehr (kein Zombie-Socket, kein zweiter Reconnect-Timer).
+    Der Test dazu geht über den PRODUKTIVPFAD (`connectWebSocket` mit `wsFailCount = 3`), nicht über
+    ein von Hand gesetztes Feld — der alte Test setzte das Feld und schrieb damit den Defekt fest.
 
 ## Error-Handling (seit v0.3.5)
 

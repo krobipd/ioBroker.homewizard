@@ -125,7 +125,6 @@ function makeConn(overrides: Partial<DeviceConnection> = {}): DeviceConnection {
     lastErrorCode: "",
     lastConnectedAt: 0,
     recentDisconnects: 0,
-    recovering: false,
     removed: false,
     ...overrides,
   };
@@ -1037,14 +1036,31 @@ describe("HomeWizard startIpRecovery", () => {
     expect(wsInstances).toHaveLength(0);
   });
 
-  it("skips when a connect cycle is already in flight (recovering guard)", () => {
+  // The production path, not a hand-set flag: connectWebSocket asks for recovery and
+  // THEN opens the socket to the old (dead) address, so the device's answer always
+  // arrives while that connect hangs. Dropping it — as the old `recovering` guard did —
+  // wasted the only announcement of the whole window (bonjour-service announces a
+  // service once per browser run), and the device stayed unreachable.
+  it("takes the new IP from an answer that arrives while the connect to the old one hangs", () => {
     const { hw, conn, discovery, wsInstances } = setup();
     const i = internalOf(hw);
-    conn.recovering = true;
-    i.startIpRecovery();
+    conn.wsFailCount = 3; // third failure — this is the tick that asks mDNS
+    conn.reconnectTimer = { id: "pending" } as unknown as ioBroker.Timeout;
+
+    i.connectionManager.connectWebSocket(conn);
+
+    expect(discovery.start).toHaveBeenCalled();
+    expect(wsInstances).toHaveLength(1); // the doomed connect to the old address
     discovery.callback!({ ip: "10.0.0.99", productType: "HWE-P1", serial: "aabb", name: "P1" });
-    expect(wsInstances).toHaveLength(0);
-    expect(conn.ip).toBe("192.168.1.5");
+
+    expect(conn.ip).toBe("10.0.0.99");
+    expect(conn.config.ip).toBe("10.0.0.99");
+    expect(conn.wsFailCount).toBe(0);
+    expect(i.extendObjectAsync).toHaveBeenCalled(); // new IP persisted
+    expect(wsInstances).toHaveLength(2); // reconnect to the new address
+    expect(wsInstances[0].close).toHaveBeenCalled(); // the pending one is dropped
+    expect(conn.reconnectTimer).toBeUndefined(); // and so is its backoff timer
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("found at new IP 10.0.0.99"));
   });
 
   it("does not start while pairing is active", async () => {

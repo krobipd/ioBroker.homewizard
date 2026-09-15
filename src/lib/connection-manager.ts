@@ -348,13 +348,12 @@ export class ConnectionManager {
       return;
     }
 
-    // Mark as recovering so concurrent triggers (mDNS broadcast race,
-    // overlapping reconnect timer) don't spawn a second wsClient.
-    conn.recovering = true;
-
     // Close any existing wsClient before creating a new one. The normal
     // disconnect path nulls conn.wsClient, but IP-recovery jumps in directly
-    // and would otherwise leak the old socket.
+    // and would otherwise leak the old socket. `close()` marks the client
+    // destroyed, so its own close-event no longer reaches onWsDisconnected —
+    // no zombie socket and no second reconnect timer. That is why a connect in
+    // flight is NOT a reason to ignore an mDNS answer (see main.startIpRecovery).
     if (conn.wsClient) {
       conn.wsClient.close();
       conn.wsClient = null;
@@ -396,9 +395,8 @@ export class ConnectionManager {
       wsClient.connect();
     } catch (err) {
       // connect() builds the WebSocket synchronously; a malformed URL (e.g. a
-      // corrupted ip) would throw before the close handler is wired and leave
-      // `recovering` stuck true, permanently blocking IP-recovery for this device.
-      conn.recovering = false;
+      // corrupted ip) throws before the close handler is wired, so the reconnect
+      // loop never hears about this attempt — drop the client and log it.
       conn.wsClient = null;
       this.logDeviceError(conn, "ws", err);
     }
@@ -502,7 +500,6 @@ export class ConnectionManager {
     conn.wsFailCount = 0;
     conn.authFailCount = 0;
     conn.lastConnectedAt = Date.now();
-    conn.recovering = false;
 
     // Stop REST fallback if active — the push is back, so the fallback's own
     // health says nothing any more (the WebSocket now carries the online state).
@@ -578,7 +575,6 @@ export class ConnectionManager {
 
     conn.wsAuthenticated = false;
     conn.wsClient = null;
-    conn.recovering = false;
     // The fallback has not answered yet at this point, so the derived state is
     // false here — it flips back to online as soon as the first fallback poll
     // gets a reply, which is what the reachability indicator has to say.

@@ -300,8 +300,6 @@ export interface DeviceConnection {
   lastConnectedAt: number;
   /** Count of short-lived connections (< STABLE_THRESHOLD) */
   recentDisconnects: number;
-  /** True while a connect/IP-recovery cycle is in flight — guards against duplicate connect attempts triggered by repeated mDNS broadcasts. */
-  recovering: boolean;
   /** True after the device was removed — async tasks (in-flight REST/WS) check this before writing further state. */
   removed: boolean;
   /** True while a measurement write is in flight — drops flooded pushes (latest-wins backpressure). */

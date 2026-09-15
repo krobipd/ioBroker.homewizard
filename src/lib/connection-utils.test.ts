@@ -121,7 +121,6 @@ describe("createDeviceConnection", () => {
     expect(conn.lastErrorCode).toBe("");
     expect(conn.lastConnectedAt).toBe(0);
     expect(conn.recentDisconnects).toBe(0);
-    expect(conn.recovering).toBe(false);
     expect(conn.removed).toBe(false);
   });
 

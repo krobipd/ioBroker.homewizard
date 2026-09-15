@@ -132,7 +132,6 @@ describe("findConnectionForState", () => {
       lastErrorCode: "",
       lastConnectedAt: 0,
       recentDisconnects: 0,
-      recovering: false,
       removed: false,
     };
   }
