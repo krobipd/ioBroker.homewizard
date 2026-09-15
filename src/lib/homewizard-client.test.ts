@@ -352,6 +352,41 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
     });
   });
 
+  describe("deleteUser (DELETE /api/user)", () => {
+    // The revoke that runs when a device is removed. It was dead for five versions
+    // without a single test noticing, because the only test asserted that the method
+    // had been CALLED — never that the request reaches a device.
+    it("sends DELETE with the adapter's own user name and the Bearer token", async () => {
+      stub.queue.push({ statusCode: 204, bodyText: "" });
+      await client.deleteUser();
+
+      const req = stub.requests[0];
+      expect(req.method).toBe("DELETE");
+      expect(req.path).toBe("/api/user");
+      expect(JSON.parse(req.body)).toEqual({ name: "local/iobroker" });
+      expect(req.headers.authorization).toBe("Bearer test-token");
+      expect(req.headers["x-api-version"]).toBe("2");
+    });
+
+    it("surfaces a rejection from the device instead of resolving silently", async () => {
+      stub.queue.push({ statusCode: 401, body: { error: { code: "user:unauthorized" } } });
+      await expect(client.deleteUser()).rejects.toBeInstanceOf(HomeWizardApiError);
+    });
+  });
+
+  describe("getServerCertCn", () => {
+    // The pinned identity: captured from the TLS session of the first answer and
+    // used from then on to reject a look-alike device on the same address.
+    it("is empty before the first request and carries the leaf CN afterwards", async () => {
+      expect(client.getServerCertCn()).toBeNull();
+
+      stub.queue.push({ statusCode: 200, body: { cloud_enabled: true } });
+      await client.getSystem();
+
+      expect(client.getServerCertCn()).toBe("localhost"); // CN of the test certificate
+    });
+  });
+
   describe("getBatteries / setBatteries (GET / PUT /api/batteries)", () => {
     it("getBatteries returns parsed control state", async () => {
       stub.queue.push({

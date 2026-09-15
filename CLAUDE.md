@@ -222,6 +222,15 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     Der Test dazu geht über den PRODUKTIVPFAD (`connectWebSocket` mit `wsFailCount = 3`), nicht über
     ein von Hand gesetztes Feld — der alte Test setzte das Feld und schrieb damit den Defekt fest.
 
+36. **Die Agenten eines entfernten Geräts fallen ERST nach dem Widerruf** (seit v0.19.0). Der Widerruf
+    (`DELETE /api/user`) reitet auf dem gepinnten TLS-Agenten des Geräts; `dropDeviceAgent` eine Anweisung
+    später zerstörte den Socket, auf dem die Anfrage gerade lief (gemessen: `ECONNRESET`, das Gerät sah
+    die Anfrage nie) — der Widerruf war seit v0.14.0 wirkungslos, obwohl der Changelog ihn zusagt. Die
+    Räumung hängt deshalb im `.finally` des Widerrufs und wird übersprungen, wenn unter demselben
+    Schlüssel inzwischen wieder ein Gerät steht (Neu-Koppeln). Ein Fehlschlag ist `info`, nicht `warn`:
+    ein Gerät, das beim Entfernen offline ist, ist der Normalfall — der Satz ist derselbe wie beim Gerät
+    ohne lesbaren Token, weil der Nutzer den Rest in der App erledigen muss.
+
 ## Error-Handling (seit v0.3.5)
 
 Folgt beszel/parcelapp Pattern:

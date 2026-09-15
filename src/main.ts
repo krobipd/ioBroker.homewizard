@@ -951,18 +951,38 @@ export class HomeWizard extends utils.Adapter {
     // Best-effort token revoke on the device (DELETE /api/user) so the local/iobroker user
     // doesn't linger across pair/unpair cycles. Fire-and-forget — never block removal on a
     // (possibly offline) device's 10s timeout.
-    if (conn.ip && conn.config.token) {
-      void this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial)
-        .deleteUser()
-        .catch((err: unknown) => this.log.debug(`Token revoke failed for ${conn.config.productName}: ${errText(err)}`));
-    }
+    const revoke =
+      conn.ip && conn.config.token
+        ? this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial)
+            .deleteUser()
+            .then(
+              () => this.log.debug(`Token revoked for ${conn.config.productName}`),
+              (err: unknown) =>
+                // Not a fault of the adapter's: the usual case is a device that is
+                // already gone or offline. Say it at info, in the same words as the
+                // path for a device without a readable token, because the user has to
+                // finish the job in the app.
+                this.log.info(
+                  `${conn.config.productName}: the access token could not be revoked (${errText(err)}) — ` +
+                    `the local/iobroker user stays on the device, remove it in the HomeWizard app.`,
+                ),
+            )
+        : Promise.resolve();
 
     // Disconnect
     this.connectionManager.teardownConnection(conn);
     this.connections.delete(key);
-    // I8: evict the pinned per-device TLS agents (CN + serial) and close their
-    // pooled sockets so nothing lingers in the module maps after the device is gone.
-    dropDeviceAgent(conn.config.certCn, conn.config.serial);
+    // I8: evict the pinned per-device TLS agents (CN + serial) and close their pooled
+    // sockets so nothing lingers in the module maps after the device is gone — but only
+    // AFTER the revoke above is done with them. `agent.destroy()` tears down the socket
+    // the DELETE is riding on (measured: ECONNRESET, the device never sees the request),
+    // so evicting one statement later silently killed every revoke. Skip it when the
+    // same device was paired again in the meantime: the agents are then in use.
+    void revoke.finally(() => {
+      if (!this.connections.has(key)) {
+        dropDeviceAgent(conn.config.certCn, conn.config.serial);
+      }
+    });
     // Drop the per-device cooldown stamps — otherwise a re-pair of the same
     // serial within the cooldown window inherits the old device's stamp and
     // its first warn/info is silently suppressed (and the maps grow forever

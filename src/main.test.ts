@@ -40,8 +40,17 @@ vi.mock("@iobroker/adapter-core", () => {
   };
 });
 
+// Everything real except `dropDeviceAgent`: the ORDER of that call against the
+// token revoke is what the removal tests below check, and a real eviction closes
+// sockets the fake client does not have.
+vi.mock("./lib/cacert", async importOriginal => {
+  const actual = await importOriginal<typeof CacertModule>();
+  return { ...actual, dropDeviceAgent: vi.fn() };
+});
+
+import type * as CacertModule from "./lib/cacert";
 import { HomeWizard } from "./main";
-import { createDeviceAgent, createDeviceAgentForSerial, HW_AGENT } from "./lib/cacert";
+import { createDeviceAgent, createDeviceAgentForSerial, dropDeviceAgent, HW_AGENT } from "./lib/cacert";
 import { HomeWizardApiError } from "./lib/homewizard-client";
 import type { DeviceConnection, DiscoveredDevice } from "./lib/types";
 
@@ -310,6 +319,10 @@ describe("HomeWizard onStateChange routing", () => {
 });
 
 describe("HomeWizard removeDevice (A2 token revoke)", () => {
+  beforeEach(() => {
+    vi.mocked(dropDeviceAgent).mockClear();
+  });
+
   it("revokes the token (DELETE /api/user) and removes the device", async () => {
     const { hw, client, stateMgr } = setup();
     await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
@@ -317,6 +330,62 @@ describe("HomeWizard removeDevice (A2 token revoke)", () => {
     expect(stateMgr.removeDevice).toHaveBeenCalled();
     // The summary is derived from the registry — a removed device must leave it.
     expect(stateMgr.writeDeviceRollup).toHaveBeenLastCalledWith(0, 0);
+  });
+
+  // The revoke rides on the device's pinned TLS agent. Destroying that agent while the
+  // request is in flight kills the socket (measured: ECONNRESET, the device never sees
+  // the DELETE) — so the eviction has to wait for the revoke to finish.
+  it("evicts the pinned agents only after the revoke has finished", async () => {
+    const { hw, client } = setup();
+    let finish!: () => void;
+    client.deleteUser.mockImplementation(() => new Promise<void>(resolve => (finish = resolve)));
+
+    await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
+    expect(client.deleteUser).toHaveBeenCalled();
+    expect(dropDeviceAgent, "agents must still carry the in-flight request").not.toHaveBeenCalled();
+
+    finish();
+    await settle();
+    expect(dropDeviceAgent).toHaveBeenCalledTimes(1);
+    expect(dropDeviceAgent).toHaveBeenCalledWith(undefined, "aabb");
+  });
+
+  it("keeps the agents when the same device was paired again while the revoke ran", async () => {
+    const { hw, conn, client } = setup();
+    const i = internalOf(hw);
+    let finish!: () => void;
+    client.deleteUser.mockImplementation(() => new Promise<void>(resolve => (finish = resolve)));
+
+    await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
+    // Re-pairing puts a fresh connection under the same key — its agents are the ones
+    // that would be torn down here.
+    i.connections.set("hwe-p1_aabb", conn);
+    finish();
+    await settle();
+
+    expect(dropDeviceAgent).not.toHaveBeenCalled();
+  });
+
+  it("evicts the agents right away when there is no token to revoke", async () => {
+    const { hw, conn, client } = setup();
+    conn.config.token = "";
+    await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
+    await settle();
+
+    expect(client.deleteUser).not.toHaveBeenCalled();
+    expect(dropDeviceAgent).toHaveBeenCalledTimes(1);
+  });
+
+  it("says who has to finish the job when the device cannot be reached", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    client.deleteUser.mockRejectedValue(new Error("connect EHOSTUNREACH"));
+
+    await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
+    await settle();
+
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("remove it in the HomeWizard app"));
+    expect(dropDeviceAgent, "a failed revoke must not leak the agents").toHaveBeenCalledTimes(1);
   });
 });
 
