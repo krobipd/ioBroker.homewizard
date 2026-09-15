@@ -2097,6 +2097,59 @@ describe("battery datapoints do not outlive the battery", () => {
   });
 });
 
+describe("a refused write does not leave the data point lying", () => {
+  // Without the read-back the data point keeps the user's value, unacknowledged, until
+  // the 60 s system poll corrects it — a minute in which the tree says the device is in
+  // a state it never accepted (a battery rejects `cloud_enabled` every single time).
+  it("reads the affected group back when the device refuses the write", async () => {
+    const { hw, client, stateMgr } = setup();
+    client.setSystem.mockRejectedValueOnce(new Error("device said no"));
+    client.getSystem.mockResolvedValue({ cloud_enabled: false });
+
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.cloud_enabled", active(true));
+
+    expect(client.getSystem).toHaveBeenCalledTimes(1);
+    expect(stateMgr.updateSystem).toHaveBeenCalledWith(
+      expect.objectContaining({ serial: "aabb" }),
+      { cloud_enabled: false },
+      expect.any(Function),
+    );
+    // Only that group: a refused LED brightness has no business fetching the battery
+    // group or the device info (which would also advance the identity-drift counter).
+    expect(client.getBatteries).not.toHaveBeenCalled();
+    expect(client.getDeviceInfo).not.toHaveBeenCalled();
+  });
+
+  it("reads the battery group back when a battery write is refused", async () => {
+    const { hw, client, stateMgr } = setup();
+    client.setBatteries.mockRejectedValueOnce(new Error("device said no"));
+    client.getBatteries.mockResolvedValue({ mode: "standby", battery_count: 1 });
+
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.mode", active("to_full"));
+
+    expect(client.getBatteries).toHaveBeenCalledTimes(1);
+    expect(stateMgr.updateBattery).toHaveBeenCalled();
+    expect(client.getSystem).not.toHaveBeenCalled();
+  });
+
+  it("a failed button does not trigger a read-back — there is no value to correct", async () => {
+    const { hw, client } = setup();
+    client.reboot.mockRejectedValueOnce(new Error("boom"));
+
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.reboot", active(true));
+
+    expect(client.getSystem).not.toHaveBeenCalled();
+  });
+
+  it("an input the adapter itself rejects reaches no device and needs no read-back", async () => {
+    const { hw, client } = setup();
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", active(500));
+
+    expect(client.setSystem).not.toHaveBeenCalled();
+    expect(client.getSystem).not.toHaveBeenCalled();
+  });
+});
+
 describe("acks carry the value that was sent", () => {
   it("battery.permissions acks the parsed list, not the raw text a script wrote", async () => {
     const { hw, client } = setup();

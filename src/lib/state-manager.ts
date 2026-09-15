@@ -745,6 +745,28 @@ export class StateManager {
         continue;
       }
       const rest = fullId.slice(externalPrefix.length).split(".");
+      const localId = fullId.slice(`${this.adapter.namespace}.`.length);
+      if (this.wasRemoved(localId)) {
+        continue;
+      }
+      // The meter's own channel (`<type>_<unique_id>`). Its name is the adapter's
+      // translated text for every type the API knows, so it has to reach existing
+      // installations like any other label — but it is only written when the meter
+      // actually reports, which a silent device never does. A type OUTSIDE the list
+      // is device-supplied and stays untouched here.
+      if (rest.length === 1) {
+        const typeKey = Object.keys(EXTERNAL_METER_TYPE_NAMES).find(t => rest[0].startsWith(`${sanitize(t)}_`));
+        if (!typeKey || this.createdIds.has(localId)) {
+          continue;
+        }
+        await this.adapter.extendObjectAsync(localId, {
+          type: "channel",
+          common: { name: tName(EXTERNAL_METER_TYPE_NAMES[typeKey]) },
+          native: {},
+        });
+        refreshed++;
+        continue;
+      }
       if (rest.length !== 2) {
         continue;
       }
@@ -753,14 +775,14 @@ export class StateManager {
         continue;
       }
       // Same rule as the fixed ids above: skip what this run already wrote.
-      if (this.createdIds.has(fullId.slice(`${this.adapter.namespace}.`.length))) {
+      if (this.createdIds.has(localId)) {
         continue;
       }
       const leafCommon: Record<string, unknown> = { name: tName(leaf.nameKey) };
       if (leaf.descKey) {
         leafCommon.desc = tName(leaf.descKey);
       }
-      await this.adapter.extendObjectAsync(fullId.slice(`${this.adapter.namespace}.`.length), {
+      await this.adapter.extendObjectAsync(localId, {
         type: "state",
         common: leafCommon,
         native: {},

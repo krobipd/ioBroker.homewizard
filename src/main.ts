@@ -58,6 +58,13 @@ interface DeviceCommand {
    *   out. In that case the handler has already said why.
    */
   send(ctx: CommandContext): Promise<ioBroker.StateValue | null>;
+  /**
+   * Which group of device values this entry writes. When the device rejects the
+   * write, that group is read back once so the data point shows what the device
+   * actually holds instead of the user's value — otherwise it keeps lying until
+   * the next 60 s system poll. Buttons have no group: nothing to read back.
+   */
+  refresh?: "system" | "battery";
 }
 
 /**
@@ -626,6 +633,7 @@ export class HomeWizard extends utils.Adapter {
     },
     {
       suffix: ".system.cloud_enabled",
+      refresh: "system",
       // Ack the value that was actually sent (a script may write "true" or 1 into
       // the boolean state) — the ack must not carry the raw write (DD16).
       send: async ({ client, state }) => {
@@ -636,6 +644,7 @@ export class HomeWizard extends utils.Adapter {
     },
     {
       suffix: ".system.status_led_brightness_pct",
+      refresh: "system",
       send: async ({ client, state }) => {
         const pct = coerceFiniteNumber(state.val);
         if (pct === null || pct < 0 || pct > 100) {
@@ -648,6 +657,7 @@ export class HomeWizard extends utils.Adapter {
     },
     {
       suffix: ".system.api_v1_enabled",
+      refresh: "system",
       send: async ({ client, state, conn }) => {
         if (state.val) {
           this.log.warn(
@@ -662,6 +672,7 @@ export class HomeWizard extends utils.Adapter {
     },
     {
       suffix: ".battery.mode",
+      refresh: "battery",
       // The validated mode, not the raw write. (The two cannot differ today,
       // because validateBatteryMode only lets the four exact strings through;
       // acking the sent value keeps it right if a normalisation step is ever added.)
@@ -679,6 +690,7 @@ export class HomeWizard extends utils.Adapter {
     },
     {
       suffix: ".battery.permissions",
+      refresh: "battery",
       // Ack the list that actually went to the device, not the raw text a script
       // wrote — otherwise its spacing stays in the data point while the device
       // holds the parsed value.
@@ -696,6 +708,7 @@ export class HomeWizard extends utils.Adapter {
     },
     {
       suffix: ".battery.charge_to_full",
+      refresh: "battery",
       send: async ({ client, state }) => {
         const chargeToFull = !!state.val;
         await client.setBatteries({ charge_to_full: chargeToFull });
@@ -752,6 +765,13 @@ export class HomeWizard extends utils.Adapter {
         }
       } catch (err) {
         this.log.warn(`Failed to set ${id}: ${errText(err)}`);
+        // The device refused (or never heard) the write, so the data point still shows
+        // what the user asked for, unacknowledged — a value the device does not hold.
+        // Read that one group back right away instead of letting the data point lie
+        // until the next 60 s system poll corrects it.
+        if (command.refresh) {
+          await this.connectionManager.refreshGroup(conn, command.refresh);
+        }
       } finally {
         // Whatever happened above, a momentary button goes back to false. It can
         // never collide with an acknowledged value: an entry is either a button

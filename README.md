@@ -212,6 +212,8 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 - Improved: pairing now says once per device why it is not getting anywhere — a wrong address or a device without the local API used to fail silently until the window closed.
 - Fixed: a device that does not manage batteries no longer keeps a battery folder — leftover entries from an earlier version are cleared the first time the device says it has none.
 - Fixed: data points the adapter removes during a start no longer reappear empty a moment later, which left nameless leftovers in the tree that nothing ever cleaned up again.
+- Improved: a setting the device refuses is corrected in the tree at once — it used to keep showing the requested value for up to a minute before the next check put it right.
+- Fixed: the name of a gas, water or heat meter folder now also reaches installations whose meter has been quiet since the update, instead of only the entries below it.
 
 ### 0.18.2 (2026-09-06)
 

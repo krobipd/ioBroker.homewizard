@@ -803,6 +803,47 @@ export class ConnectionManager {
   }
 
   /**
+   * Read ONE group of device values back and write it to the tree.
+   *
+   * Used after a write the device refused: the data point then holds the user's value
+   * with `ack:false`, and without this it keeps saying so until the next 60 s system
+   * poll. Deliberately not `pollSystemInfo`: that one also advances the identity-drift
+   * counter and fetches the other group — a rejected LED brightness has no business
+   * triggering a device-info refresh.
+   *
+   * @param conn  Device connection.
+   * @param group Which group the refused write belonged to.
+   */
+  async refreshGroup(conn: DeviceConnection, group: "system" | "battery"): Promise<void> {
+    if (!conn.ip || conn.removed || this.host.isUnloading()) {
+      return;
+    }
+    try {
+      const client = this.host.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial);
+      if (group === "system") {
+        const system = await client.getSystem();
+        if (conn.removed || this.host.isUnloading()) {
+          return;
+        }
+        await this.host
+          .getStateManager()
+          .updateSystem(conn.config, system, () => conn.removed || this.host.isUnloading());
+      } else {
+        const battery = await client.getBatteries();
+        if (conn.removed || this.host.isUnloading()) {
+          return;
+        }
+        if (battery) {
+          await this.host.getStateManager().updateBattery(conn.config, battery);
+        }
+      }
+    } catch (err) {
+      // Best-effort: the write's own warning has already told the user what failed.
+      this.adapter.log.debug(`${conn.config.productName} ${group} read-back: ${errText(err)}`);
+    }
+  }
+
+  /**
    * Update the instance-level connection state and the device summary from the
    * registry.
    *

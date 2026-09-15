@@ -23,7 +23,13 @@ vi.mock("@iobroker/adapter-core", () => {
 });
 
 import { I18n } from "@iobroker/adapter-core";
-import { EXTERNAL_METER_LEAF_KEYS, LABELLED_OBJECT_IDS, MEASUREMENT_STATE_DEFS, MOMENTARY_KEYS } from "./state-defs";
+import {
+  EXTERNAL_METER_LEAF_KEYS,
+  EXTERNAL_METER_TYPE_NAMES,
+  LABELLED_OBJECT_IDS,
+  MEASUREMENT_STATE_DEFS,
+  MOMENTARY_KEYS,
+} from "./state-defs";
 import { StateManager } from "./state-manager";
 import type { DeviceConfig, Measurement, SystemInfo, BatteryControl } from "./types";
 
@@ -1580,23 +1586,31 @@ describe("the label retrofit covers every object the adapter names itself", () =
   it("lists every adapter-named object a full pass creates", async () => {
     await fullPass();
 
-    // Names that come from the DEVICE, not from this adapter — the device object
-    // and the external-meter channel — are deliberately not retrofitted.
-    const deviceOwned = new Set([prefix, `${prefix}.measurement.external.gas_meter_g1`]);
+    // The one name that comes from the DEVICE, not from this adapter, and is
+    // therefore not retrofitted: the device object itself. (A meter channel of a
+    // KNOWN type carries the adapter's own translated text and IS retrofitted; only
+    // an unknown type keeps the device's raw string.)
+    const deviceOwned = new Set([prefix]);
     const created = [...adapter.objects.keys()]
       .filter(id => id.startsWith(prefix) && !deviceOwned.has(id))
       .map(id => id.slice(prefix.length + 1));
 
     const covered = new Set(LABELLED_OBJECT_IDS);
-    // The three leaves below an external meter sit behind a device-supplied channel
-    // segment, so the retrofit reaches them by pattern instead of by fixed id.
+    // An external meter sits behind a device-supplied id segment, so the retrofit
+    // reaches its channel and its three leaves by pattern instead of by fixed id.
     const externalLeaf = /^measurement\.external\.[^.]+\.([^.]+)$/;
+    const externalChannel = /^measurement\.external\.([^.]+)$/;
+    const knownTypes = Object.keys(EXTERNAL_METER_TYPE_NAMES);
     const missing = created.filter(id => {
       if (covered.has(id)) {
         return false;
       }
       const leaf = externalLeaf.exec(id);
-      return !(leaf && EXTERNAL_METER_LEAF_KEYS.includes(leaf[1]));
+      if (leaf && EXTERNAL_METER_LEAF_KEYS.includes(leaf[1])) {
+        return false;
+      }
+      const channel = externalChannel.exec(id);
+      return !(channel && knownTypes.some(t => channel[1].startsWith(`${t}_`)));
     });
     // A new datapoint that nobody adds to DEVICE_LABELLED_OBJECTS would silently
     // keep the label of whatever version created it on every installation whose
@@ -1645,6 +1659,34 @@ describe("the label retrofit covers every object the adapter names itself", () =
   // is still in it, and `extendObject` on a missing object creates it. Measured in the
   // upgrade suite before the guard: all nine battery objects came back, as husks with
   // a name and nothing else.
+  // A meter channel is only written when the meter reports. On an installation whose
+  // device is offline — or whose meter was unplugged — the channel kept the wording of
+  // whatever version created it, while its three leaves below were refreshed.
+  it("refreshes the channel of an external meter of a known type, not just its leaves", async () => {
+    await fullPass();
+    const channelId = `${prefix}.measurement.external.gas_meter_g1`;
+    adapter.objects.get(channelId)!.common.name = "old label";
+    const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+
+    // A fresh manager = a fresh adapter start on an existing tree.
+    await new StateManager(adapter as never).refreshExistingNames(device, existing);
+
+    expect(adapter.objects.get(channelId)!.common.name).toEqual(expect.objectContaining({ en: expect.any(String) }));
+  });
+
+  it("leaves the channel of an unknown meter type alone (the name is the device's)", async () => {
+    await fullPass();
+    await manager.updateMeasurement(device, {
+      external: [{ type: "future_meter", unique_id: "f1", value: 1, unit: "m3", timestamp: "2026-01-01T00:00:00" }],
+    } as unknown as Measurement);
+    const channelId = `${prefix}.measurement.external.future_meter_f1`;
+    const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+
+    await new StateManager(adapter as never).refreshExistingNames(device, existing);
+
+    expect(adapter.objects.get(channelId)!.common.name).toBe("future_meter");
+  });
+
   it("does not resurrect a branch this start-up removed", async () => {
     await manager.createDeviceStates(device);
     await manager.updateBattery(device, { mode: "zero", battery_count: 2, power_w: -400 });
