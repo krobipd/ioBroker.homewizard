@@ -20,6 +20,14 @@ const ADAPTER = require(path.join(ADAPTER_DIR, "io-package.json")).common.name;
 const NS = `${ADAPTER}.0.`;
 const INVENTORY = path.join(__dirname, "objects.inventory.json");
 const VOLATILE = ["ts", "from", "user", "acl"];
+// The device token is stored encrypted with the js-controller's `system.config.native.secret`
+// (main.ts, encrypt/decrypt). That secret is minted per installation, so the ciphertext
+// differs between two throwaway controllers — it is the one native value that can never be
+// reproduced, and the inventory would flip with every fresh controller (measured 2026-09-15 in
+// the first CI run of the start proof: four lines differed on the runner, and on the Mac after
+// a fresh temp controller). The dump keeps the key and replaces the ciphertext with a marker.
+const ENCRYPTED_NATIVE = ["encryptedToken"];
+const ENCRYPTED_MARKER = "<encrypted with the installation secret>";
 const COMPARED = ["name", "desc", "role", "type", "unit"];
 
 const HOOK = path.join(__dirname, "inventory-hook.cjs");
@@ -165,6 +173,14 @@ async function dumpObjects(harness) {
     const obj = { ...row.value };
     for (const key of VOLATILE) {
       delete obj[key];
+    }
+    if (obj.native) {
+      obj.native = { ...obj.native };
+      for (const key of ENCRYPTED_NATIVE) {
+        if (typeof obj.native[key] === "string") {
+          obj.native[key] = ENCRYPTED_MARKER;
+        }
+      }
     }
     out[row.id] = obj;
   }

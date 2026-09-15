@@ -8,7 +8,7 @@
       }
     },
     "native": {
-      "encryptedToken": "\u0004Z\u001dDEF\u0003H\u0015\n\\\u0001W\u001cS\u0001\u0002\u0007P\u0002U\u0007\u0000\u0001\u0001V",
+      "encryptedToken": "<encrypted with the installation secret>",
       "productType": "HWE-BAT",
       "serial": "5c2faf000014",
       "productName": "Plug-In Battery",
@@ -934,7 +934,7 @@
       }
     },
     "native": {
-      "encryptedToken": "\u0004Z\u001dDEF\u0003H\u0015\n\\\u0001W\u001cS\u0001\u0002\u0007P\u0002U\u0007\u0000\u0001\u0001P",
+      "encryptedToken": "<encrypted with the installation secret>",
       "productType": "HWE-KWH1",
       "serial": "5c2faf000012",
       "productName": "kWh Meter 1-phase",
@@ -1746,7 +1746,7 @@
       }
     },
     "native": {
-      "encryptedToken": "\u0004Z\u001dDEF\u0003H\u0015\n\\\u0001W\u001cS\u0001\u0002\u0007P\u0002U\u0007\u0000\u0001\u0001Q",
+      "encryptedToken": "<encrypted with the installation secret>",
       "productType": "HWE-KWH3",
       "serial": "5c2faf000013",
       "productName": "kWh Meter 3-phase",
@@ -3136,7 +3136,7 @@
       }
     },
     "native": {
-      "encryptedToken": "\u0004Z\u001dDEF\u0003H\u0015\n\\\u0001W\u001cS\u0001\u0002\u0007P\u0002U\u0007\u0000\u0001\u0001S",
+      "encryptedToken": "<encrypted with the installation secret>",
       "productType": "HWE-P1",
       "serial": "5c2faf000011",
       "productName": "P1 Meter",
