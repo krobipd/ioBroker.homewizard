@@ -874,6 +874,12 @@ export class HomeWizard extends utils.Adapter {
     const previous = this.connections.get(key);
     if (previous) {
       this.log.debug(`Re-pair: closing previous connection for ${config.productName}`);
+      // Mark it before the teardown, like removeDevice does: work that is already in
+      // flight on the OLD connection (an initDevice or system poll waiting on a 10 s
+      // timeout) checks this flag after each await. Without it such a task can still
+      // persist the old device object — overwriting the token that was just issued —
+      // and its tail even opens a fresh WebSocket for a connection nobody holds any more.
+      previous.removed = true;
       this.connectionManager.teardownConnection(previous);
     }
 

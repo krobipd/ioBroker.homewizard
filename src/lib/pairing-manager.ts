@@ -93,6 +93,13 @@ export class PairingManager {
   private pollBusy = false;
   private manualIp = "";
   private discovered: DiscoveredDevice[] = [];
+  /**
+   * Addresses that already produced a warning in THIS window. Everything except the
+   * expected 403 ("button not pressed yet") is worth one line — a mistyped manual IP,
+   * a device that only speaks API v1, a full user store — but the poll repeats every
+   * 2 s for 60 s, so only the first one per device is a warning.
+   */
+  private warnedIps = new Set<string>();
 
   /**
    * @param adapter The ioBroker adapter instance (timers, state writes, log).
@@ -319,7 +326,20 @@ export class PairingManager {
           );
           continue;
         }
-        this.adapter.log.debug(`Pairing poll error for ${device.ip}: ${errText(err)}`);
+        // Everything that is not the expected 403 used to end here, at debug: a
+        // mistyped manual IP, a device that does not answer, one that speaks only the
+        // v1 API, a device whose user store is full. The user pressed the button and
+        // then read "pairing mode automatically disabled" 60 s later, with nothing in
+        // between. One warning per device and window, repeats stay at debug.
+        if (!this.warnedIps.has(device.ip)) {
+          this.warnedIps.add(device.ip);
+          this.adapter.log.warn(
+            `Pairing with ${device.ip} failed — device unreachable, or its local API v2 turned off? ` +
+              `(${errText(err)})`,
+          );
+        } else {
+          this.adapter.log.debug(`Pairing poll error for ${device.ip}: ${errText(err)}`);
+        }
       }
     }
   }
@@ -329,6 +349,7 @@ export class PairingManager {
     this.pairing = false;
     this.manualIp = "";
     this.discovered = [];
+    this.warnedIps.clear();
 
     // Stop mDNS — only needed during pairing
     this.host.stopDiscovery();

@@ -770,6 +770,31 @@ describe("HomeWizard pollPairing", () => {
     expect(errorLines, "403 is not a pairing error").toHaveLength(0);
   });
 
+  // Everything that is not the expected 403 — a mistyped manual IP, a device that
+  // does not answer, one whose local API v2 is off — used to be debug-only: the user
+  // pressed the button and read nothing but "pairing mode automatically disabled" a
+  // minute later.
+  it("says once per device why pairing is not getting anywhere, and stays quiet afterwards", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    i.pairingManager.discovered = [{ ip: "192.168.1.70", productType: "HWE-P1", serial: "new01", name: "P1" }];
+    client.requestPairing.mockRejectedValue(Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }));
+
+    await i.pairingManager.poll();
+    await i.pairingManager.poll();
+    await i.pairingManager.poll();
+
+    const warns = i.log.warn.mock.calls.filter((c: unknown[]) => String(c[0]).includes("192.168.1.70"));
+    expect(warns, "one warning per device and window").toHaveLength(1);
+    expect(String(warns[0][0])).toContain("ECONNREFUSED");
+
+    // A new window starts the count over — the user may have fixed the address.
+    i.pairingManager.stop();
+    i.pairingManager.discovered = [{ ip: "192.168.1.70", productType: "HWE-P1", serial: "new01", name: "P1" }];
+    await i.pairingManager.poll();
+    expect(i.log.warn.mock.calls.filter((c: unknown[]) => String(c[0]).includes("192.168.1.70"))).toHaveLength(2);
+  });
+
   it("success: saves the device, creates states, registers the connection and drops it from the queue", async () => {
     const { hw, client, stateMgr } = setup();
     const i = internalOf(hw);
@@ -830,6 +855,36 @@ describe("HomeWizard pollPairing", () => {
 
     expect(oldWs.close).toHaveBeenCalled();
     expect(i.connections.has("hwe-p1_aabb")).toBe(true);
+  });
+
+  // The old connection can still have work in flight — a system poll or an initDevice
+  // sitting in a 10 s timeout. Every one of those checks `removed` after its awaits, and
+  // without the mark the tail of that work persists the OLD token over the fresh one and
+  // opens a socket for a connection nobody holds any more.
+  it("work still running on the replaced connection is stopped, not left to overwrite the new token", async () => {
+    const { hw, client, conn, stateMgr, wsInstances } = setup();
+    const i = internalOf(hw);
+    let releaseInfo!: (v: { product_type: string; serial: string; product_name: string }) => void;
+    // The old connection's device-info call hangs; the re-pairing below completes meanwhile.
+    client.getDeviceInfo.mockImplementationOnce(() => new Promise(resolve => (releaseInfo = resolve)));
+    const pending = i.connectionManager.initDevice(conn);
+
+    client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "aabb", product_name: "P1" });
+    i.pairingManager.discovered = [{ ip: "192.168.1.9", productType: "HWE-P1", serial: "aabb", name: "P1" }];
+    await i.pairingManager.poll();
+    await settle();
+
+    expect(conn.removed, "the replaced connection must be marked").toBe(true);
+    stateMgr.setProductName.mockClear();
+    const socketsAfterRepair = wsInstances.length;
+
+    releaseInfo({ product_type: "HWE-P1", serial: "aabb", product_name: "Renamed while re-pairing" });
+    await pending;
+    await settle();
+
+    // Nothing from the old connection reached the tree, and it started no second socket.
+    expect(stateMgr.setProductName, "the old connection must not write any more").not.toHaveBeenCalled();
+    expect(wsInstances.length, "no zombie socket from the replaced connection").toBe(socketsAfterRepair);
   });
 
   it("a re-paired device is stamped disconnected before its new connection", async () => {
