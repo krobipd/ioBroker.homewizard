@@ -153,10 +153,30 @@ async function feedFixtures(harness) {
       Boolean(await harness.objects.getObjectAsync(`${NS}${prefix}.system.identify`)),
     );
   }
+  // `max_production_w` is the LAST object of the battery branch — waiting on the first one
+  // (`battery.mode`) let the dump run while the remaining writes were still in flight: on the
+  // GitHub runner one inventory lacked the two limit states and the upgrade suite reported them
+  // as leftovers (measured 2026-09-15, second CI run of the start proof). On the Mac the writes
+  // were always fast enough, so nothing ever showed it.
   const battery = DEVICES.find(d => d.batteries);
   await waitFor("the battery branch", async () =>
-    Boolean(await harness.objects.getObjectAsync(`${NS}${prefixOf(battery.api)}.battery.mode`)),
+    Boolean(await harness.objects.getObjectAsync(`${NS}${prefixOf(battery.api)}.battery.max_production_w`)),
   );
+  // The three branches (measurement, system, battery) are written by independent push handlers,
+  // so a marker in one says nothing about the others: after the markers, wait until the tree
+  // has stopped growing for a second. The markers stay — the quiet window alone would also be
+  // satisfied by an adapter that never wrote a branch at all.
+  await waitFor("the object tree to settle", async () => {
+    const count = async () => (await harness.objects.getObjectList({ startkey: NS, endkey: `${NS}香` })).rows.length;
+    const before = await count();
+    for (let i = 0; i < 4; i++) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+      if ((await count()) !== before) {
+        return false;
+      }
+    }
+    return true;
+  });
 }
 
 /**
