@@ -1,5 +1,6 @@
 import type * as utils from "@iobroker/adapter-core";
 import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject, sanitizeForLog } from "./coerce";
+import { deviceIcon } from "./device-icons";
 import type { I18nKey } from "./i18n";
 import { resolveLabel, tName } from "./i18n";
 import type { MeasurementStateDef } from "./state-defs";
@@ -136,20 +137,23 @@ export class StateManager {
 
     // Device-Object: common.name keeps the user-supplied product name (or product type as fallback) —
     // these are device-specific identifiers, NOT translatable.
-    await this.adapter.extendObjectAsync(
-      prefix,
-      {
-        type: "device",
-        common: {
-          name: config.productName || config.productType,
-          statusStates: {
-            onlineId: `${this.adapter.namespace}.${prefix}.info.connected`,
-          },
+    const icon = deviceIcon(config.productType);
+    // No `preserve`: the adapter owns every name in its own tree, this one included.
+    // The name's SOURCE is the device — it follows the name in the HomeWizard app,
+    // and a rename made in the object tree is put back at the next sync, like every
+    // other label. A user's own data points belong in `0_userdata`.
+    await this.adapter.extendObjectAsync(prefix, {
+      type: "device",
+      common: {
+        name: config.productName || config.productType,
+        statusStates: {
+          onlineId: `${this.adapter.namespace}.${prefix}.info.connected`,
         },
-        native: {},
+        // A type with no pictogram leaves the field untouched — never emptied.
+        ...(icon ? { icon } : {}),
       },
-      { preserve: { common: ["name"] } },
-    );
+      native: {},
+    });
 
     // No `preserve` (ensureChannel only preserves for a device-owned name): the
     // channel name is the adapter's own translated text, so preserving the existing
@@ -214,10 +218,9 @@ export class StateManager {
    *
    * Its own method because it has TWO callers: the start-up/pairing path above and
    * every rename the adapter picks up while running. Without the second one the
-   * data point kept the name from the last adapter start — the object's visible
-   * name legitimately stays whatever the user set (`preserve`), so this state was
-   * the only place the device's current name could still show up, and it was
-   * frozen.
+   * data point kept the name from the last adapter start. (Until v0.19.0 the object's
+   * visible name was frozen by `preserve`, which made this state the only place the
+   * device's current name showed up at all.)
    *
    * @param config Device configuration (already carrying the current name).
    */
@@ -328,17 +331,11 @@ export class StateManager {
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
         // The meter TYPE comes from a closed list in the API (gas, water, warm
         // water, heat, inlet heat), so its channel name is the adapter's own
-        // translated text and must reach existing installations like every other
-        // label. Only a type outside that list is genuinely device-supplied: it
-        // keeps the raw value — with the same CR/LF strip as the product name
-        // (L9), because a device string must not carry line breaks into the tree —
-        // and keeps `preserve`, because the adapter does not own that text.
+        // translated text. A type outside that list is device-supplied and keeps the
+        // raw value — with the same CR/LF strip as the product name (L9), because a
+        // device string must not carry line breaks into the tree.
         const typeNameKey = EXTERNAL_METER_TYPE_NAMES[type];
-        await this.ensureChannel(
-          extId,
-          () => (typeNameKey ? tName(typeNameKey) : sanitizeForLog(type)),
-          /* deviceOwnedName */ !typeNameKey,
-        );
+        await this.ensureChannel(extId, () => (typeNameKey ? tName(typeNameKey) : sanitizeForLog(type)));
 
         const extWrites: Promise<void>[] = [];
         if (value !== null) {
@@ -921,19 +918,11 @@ export class StateManager {
    * name on every installation that already has the channel, so a renamed or
    * newly translated channel would only ever reach fresh installations.
    *
-   * @param id              Full channel ID (`<prefix>.<channelName>`).
-   * @param name            Thunk returning the display name (translation object or
-   *   device-supplied string).
-   * @param deviceOwnedName `true` when the name comes from the device (external
-   *   meter type) — then the stored name is preserved, because a user may have
-   *   renamed it and the adapter does not own that text. Adapter-owned names
-   *   (everything translated) must NOT preserve.
+   * @param id   Full channel ID (`<prefix>.<channelName>`).
+   * @param name Thunk returning the display name (translation object, or the
+   *   device's own string for a meter type the API does not define).
    */
-  private async ensureChannel(
-    id: string,
-    name: () => ioBroker.StringOrTranslated,
-    deviceOwnedName = false,
-  ): Promise<void> {
+  private async ensureChannel(id: string, name: () => ioBroker.StringOrTranslated): Promise<void> {
     if (this.createdIds.has(id)) {
       return;
     }
@@ -944,16 +933,14 @@ export class StateManager {
     // cold-path/hot-path split removed for the per-field names in L14). One form
     // instead of two: the value overload existed for three call sites that had no
     // reason to differ from the fourth.
-    const obj = {
+    // No `preserve` anywhere: the adapter owns every name in its own tree. Where the
+    // text comes from the device (a meter type the API does not define) the adapter
+    // writes the device's current value — it does not freeze whatever stood there.
+    await this.adapter.extendObjectAsync(id, {
       type: "channel" as const,
       common: { name: name() },
       native: {},
-    };
-    if (deviceOwnedName) {
-      await this.adapter.extendObjectAsync(id, obj, { preserve: { common: ["name"] } });
-    } else {
-      await this.adapter.extendObjectAsync(id, obj);
-    }
+    });
     this.createdIds.add(id);
   }
 

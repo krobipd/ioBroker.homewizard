@@ -109,9 +109,15 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     `extendObject`-Aufruf (`ensureManifestObjects`, wörtlich statt Schleife — sonst hat das
     Konsistenz-Gate nichts zu prüfen); `createState`, der `info`-Kanal, `ensureChannel` und
     `createButton` schreiben ohne `preserve` bzw. mit `extendObject` statt `setObjectNotExists`.
-    **`preserve: {common:["name"]}` bleibt an genau zwei Stellen** — dem Geräte-Objekt (Name kommt vom
-    Gerät, der Nutzer darf ihn ändern) und dem Kanal eines externen Zählers (`deviceOwnedName: true`).
-    Ein Test hält die Liste der `preserve`-Stellen fest; kein Gate sieht diesen Fehler sonst.
+    **Seit v0.19.0 trägt KEIN einziger Schreibvorgang mehr `preserve`** (vorher zwei: Geräte-Objekt
+    und Kanal eines externen Zählers). Der Flottenstandard (krobi 2026-09-02) sagt: Namen und
+    Beschreibungen gehören dem Adapter, der Platz des Nutzers ist `0_userdata`. Die beiden Namen, die
+    vom GERÄT kommen (Produktname, Typ eines nicht dokumentierten externen Zählers), werden deshalb aus
+    dem aktuellen Gerätewert GESCHRIEBEN statt eingefroren: eine Umbenennung in der HomeWizard-App
+    erreicht den Objektbaum jetzt (vorher nirgends außer `info.productName`), eine Umbenennung im
+    Objektbaum wird beim nächsten Abgleich zurückgesetzt. Ein Test hält die Liste der `preserve`-Stellen
+    als LEER fest; kein Gate sieht diesen Fehler sonst (Flotten-Fund: das Prüfpaket hat keine Regel
+    dafür).
 22. **`supportedMessages` wird GELÖSCHT, nicht auf `false` gesetzt** (seit v0.18.0). Die Liste ist eine
     POSITIVliste: ein `{stopInstance:false}` — und selbst ein leeres Objekt — heißt „nur diese
     Nachrichten werden unterstützt", also keine. Die Messagebox stirbt dann still, kein `sendTo`
@@ -248,6 +254,18 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     Lauf gelöschten Zweige, `refreshExistingNames` überspringt sie. **Gefunden hat das nicht ein Test,
     sondern die Aufstiegs-Suite** (Entscheidung 37 löschte die neun Batterie-Objekte, und alle neun
     standen danach wieder da).
+
+39. **Jedes Gerät trägt ein Piktogramm seines Typs** (seit v0.19.0) — `common.icon` am Geräteobjekt,
+    gesetzt in `createDeviceStates`, also bei JEDEM Start und damit auch am Bestand. Vier Zeichnungen in
+    `admin/icons/` (`p1meter`, `kwhmeter1`, `kwhmeter3`, `battery`), Zuordnung in
+    `src/lib/device-icons.ts`; ein unbekannter Produkttyp lässt das Feld unangetastet (nie leeren).
+    Die vier Regeln des Flotten-Rezepts (`Entwicklung/CLAUDE_PATTERNS.md` § Geräte-Piktogramme) gelten
+    wörtlich: **Inline-`data:image/svg+xml`-URI der Dateibytes** (ein Pfad landet in einem nackten
+    `<img>` ohne Theme-Anpassung), nur `currentColor`/`none`, nur `path`/`circle` (die Zellen-CSS nullt
+    `rect`/`image`/`use`), gezeichnet für 28 px (`viewBox 0 0 64 64`, `stroke-width 4`). Zeilenenden
+    werden vor dem Einbetten normalisiert, sonst liefert ein CRLF-Checkout andere Bytes und das Inventar
+    ist auf dem Windows-Läufer rot. `icon` steht im Vergleichssatz der Aufstiegs-Suite — nur sie beweist,
+    dass ein BESTEHENDES Geräteobjekt das Piktogramm bekommt.
 
 ## Error-Handling (seit v0.3.5)
 

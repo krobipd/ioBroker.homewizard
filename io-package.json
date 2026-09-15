@@ -155,7 +155,7 @@
       ]
     },
     "enabled": true,
-    "tier": 3,
+    "tier": 2,
     "loglevel": "info",
     "mode": "daemon",
     "type": "energy",

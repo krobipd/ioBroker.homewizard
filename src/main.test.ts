@@ -1026,20 +1026,19 @@ describe("HomeWizard loadDevicesFromObjects", () => {
 });
 
 describe("HomeWizard saveDeviceToObject", () => {
-  it("stores the encrypted token in device-object native and preserves user-modified names", async () => {
+  it("stores the encrypted token in device-object native and writes the name unconditionally", async () => {
     const { hw } = setup();
     const i = internalOf(hw);
     await i.saveDeviceToObject({ token: "tok", productType: "HWE-P1", serial: "s1", productName: "Mein P1" });
 
     expect(i.encrypt).toHaveBeenCalledWith("tok");
-    expect(i.extendObjectAsync).toHaveBeenCalledWith(
-      "hwe-p1_s1",
-      expect.objectContaining({
-        type: "device",
-        native: expect.objectContaining({ encryptedToken: "tok", serial: "s1" }),
-      }),
-      { preserve: { common: ["name"] } },
-    );
+    // No options argument: `preserve` would freeze whatever name is stored, and the
+    // adapter owns every name in its own tree — this one follows the device.
+    expect(i.extendObjectAsync).toHaveBeenCalledWith("hwe-p1_s1", {
+      type: "device",
+      common: { name: "Mein P1" },
+      native: expect.objectContaining({ encryptedToken: "tok", serial: "s1" }),
+    });
   });
 });
 
@@ -1070,7 +1069,6 @@ describe("HomeWizard initDevice", () => {
     expect(i.extendObjectAsync).toHaveBeenCalledWith(
       "hwe-p1_aabb",
       expect.objectContaining({ native: expect.objectContaining({ certCn: "appliance/p1dongle/aabb" }) }),
-      expect.anything(),
     );
   });
 

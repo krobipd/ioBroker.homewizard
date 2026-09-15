@@ -324,6 +324,27 @@ describe("StateManager", () => {
       expect(obj!.common.name).toBe("P1 Meter");
     });
 
+    it("gives the device object the pictogram of its type — existing installations too", async () => {
+      // An installation that updates already has the device object; the icon has to
+      // reach it, not only a freshly paired device.
+      adapter.objects.set("hwe-p1_aabbccddeeff", {
+        type: "device",
+        common: { name: "P1 Meter" },
+        native: {},
+      });
+      await manager.createDeviceStates(testDevice);
+
+      const icon = adapter.objects.get("hwe-p1_aabbccddeeff")!.common.icon as string;
+      expect(icon.startsWith("data:image/svg+xml;base64,")).toBe(true);
+      expect(Buffer.from(icon.split(",")[1], "base64").toString("utf8")).toContain('viewBox="0 0 64 64"');
+    });
+
+    it("leaves the icon field untouched for a product type it has no drawing for", async () => {
+      await manager.createDeviceStates({ ...testDevice, productType: "HWE-FUTURE" });
+      const obj = adapter.objects.get("hwe-future_aabbccddeeff")!;
+      expect(obj.common.icon).toBeUndefined();
+    });
+
     it("should create info channel with translated name", async () => {
       await manager.createDeviceStates(testDevice);
       const obj = adapter.objects.get("hwe-p1_aabbccddeeff.info");
@@ -405,13 +426,16 @@ describe("StateManager", () => {
       expect(after.common.name).not.toBe("Device Information");
     });
 
-    it("keeps a user-renamed DEVICE object name — that one is not the adapter's text", async () => {
+    it("puts a rename made in the object tree back to the device's own name", async () => {
+      // The adapter owns every name in its own tree — the source of THIS one is the
+      // device, so it follows the name in the HomeWizard app. A user's own data points
+      // belong in `0_userdata`, not in an adapter's namespace.
       await manager.createDeviceStates(testDevice);
-      const obj = adapter.objects.get("hwe-p1_aabbccddeeff")!;
-      obj.common.name = "Meter in the basement";
+      adapter.objects.get("hwe-p1_aabbccddeeff")!.common.name = "Meter in the basement";
+
       await manager.createDeviceStates(testDevice);
-      const after = adapter.objects.get("hwe-p1_aabbccddeeff")!;
-      expect(after.common.name).toBe("Meter in the basement");
+
+      expect(adapter.objects.get("hwe-p1_aabbccddeeff")!.common.name).toBe("P1 Meter");
     });
   });
 
@@ -1431,17 +1455,13 @@ describe("name ownership — which objects may keep their stored name", () => {
     });
     await manager.updateBattery(device, { mode: "zero", battery_count: 1, charge_to_full: false });
 
-    // `preserve: { common: ["name"] }` keeps whatever name is already stored. That
-    // is right exactly where the adapter does not own the text — here only the
-    // device object, whose name is the device-supplied product name a user may
-    // have renamed. Everywhere else the name is this adapter's own translation,
-    // and preserving it would mean a corrected label never reaches an existing
-    // installation (reference_preserve_name_verhindert_umbenennung). No gate
-    // catches that, so this list is the guard.
-    //
-    // The external-meter channel is NOT in the list any more: `gas_meter` comes
-    // from a closed list in the API, so its label is translated like every other.
-    expect([...new Set(adapter.preservedIds)].sort()).toEqual(["hwe-p1_aabbccddeeff"]);
+    // `preserve: { common: ["name"] }` keeps whatever name is already stored — which
+    // means a corrected label never reaches an existing installation. Since v0.19.0 not
+    // a single write carries it: the adapter owns every name in its own tree, and the
+    // two that come from the device (the device object, a meter type the API does not
+    // define) are WRITTEN from the device's current value, not frozen. No gate sees a
+    // `preserve` that sneaks back in, so this empty list is the guard.
+    expect([...new Set(adapter.preservedIds)]).toEqual([]);
 
     const channel = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.external.gas_meter_g1")!;
     expect(channel.common.name).toEqual(expect.objectContaining({ en: "Gas meter" }));
@@ -1454,7 +1474,8 @@ describe("name ownership — which objects may keep their stored name", () => {
 
     const channel = adapter.objects.get("hwe-p1_aabbccddeeff.measurement.external.future_meter_f1")!;
     expect(channel.common.name).toBe("future_meter");
-    expect(adapter.preservedIds).toContain("hwe-p1_aabbccddeeff.measurement.external.future_meter_f1");
+    // The device's text, written — not the stored one, kept.
+    expect(adapter.preservedIds).not.toContain("hwe-p1_aabbccddeeff.measurement.external.future_meter_f1");
   });
 
   it("creates no object through a create-only write — every path must reach existing installs", async () => {

@@ -28,7 +28,10 @@ const VOLATILE = ["ts", "from", "user", "acl"];
 // a fresh temp controller). The dump keeps the key and replaces the ciphertext with a marker.
 const ENCRYPTED_NATIVE = ["encryptedToken"];
 const ENCRYPTED_MARKER = "<encrypted with the installation secret>";
-const COMPARED = ["name", "desc", "role", "type", "unit"];
+// `icon` is in here on purpose: it is the one field an EXISTING device object has to
+// receive on an update, and only the upgrade suite can prove it does — a unit test
+// sees the call, not the tree.
+const COMPARED = ["name", "desc", "role", "type", "unit", "icon"];
 
 const HOOK = path.join(__dirname, "inventory-hook.cjs");
 const DEVICES = JSON.parse(

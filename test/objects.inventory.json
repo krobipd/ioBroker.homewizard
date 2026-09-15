@@ -5,7 +5,8 @@
       "name": "Plug-In Battery",
       "statusStates": {
         "onlineId": "homewizard.0.hwe-bat_5c2faf000014.info.connected"
-      }
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0xMiAxOCBoMzQgYTYgNiAwIDAgMSA2IDYgdjE2IGE2IDYgMCAwIDEgLTYgNiBoLTM0IGE2IDYgMCAwIDEgLTYgLTYgdi0xNiBhNiA2IDAgMCAxIDYgLTYgeiIvPgogIDxwYXRoIGQ9Ik01MiAyNiBoNCBhMiAyIDAgMCAxIDIgMiB2OCBhMiAyIDAgMCAxIC0yIDIgaC00Ii8+CiAgPHBhdGggZD0iTTMyIDIyIEwyMiAzNCBIMzAgTDI4IDQyIEwzOCAzMCBIMzAgWiIvPgo8L3N2Zz4K"
     },
     "native": {
       "encryptedToken": "<encrypted with the installation secret>",
@@ -631,7 +632,8 @@
       "name": "kWh Meter 1-phase",
       "statusStates": {
         "onlineId": "homewizard.0.hwe-kwh1_5c2faf000012.info.connected"
-      }
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0xOCA2IGgyOCBhNiA2IDAgMCAxIDYgNiB2NDAgYTYgNiAwIDAgMSAtNiA2IGgtMjggYTYgNiAwIDAgMSAtNiAtNiB2LTQwIGE2IDYgMCAwIDEgNiAtNiB6Ii8+CiAgPHBhdGggZD0iTTIyIDEzIGgyMCBhMiAyIDAgMCAxIDIgMiB2NyBhMiAyIDAgMCAxIC0yIDIgaC0yMCBhMiAyIDAgMCAxIC0yIC0yIHYtNyBhMiAyIDAgMCAxIDIgLTIgeiIvPgogIDxwYXRoIGQ9Ik0yNyAzNCBsNiAtNCB2MjAiLz4KPC9zdmc+Cg=="
     },
     "native": {
       "encryptedToken": "<encrypted with the installation secret>",
@@ -1443,7 +1445,8 @@
       "name": "kWh Meter 3-phase",
       "statusStates": {
         "onlineId": "homewizard.0.hwe-kwh3_5c2faf000013.info.connected"
-      }
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0xOCA2IGgyOCBhNiA2IDAgMCAxIDYgNiB2NDAgYTYgNiAwIDAgMSAtNiA2IGgtMjggYTYgNiAwIDAgMSAtNiAtNiB2LTQwIGE2IDYgMCAwIDEgNiAtNiB6Ii8+CiAgPHBhdGggZD0iTTIyIDEzIGgyMCBhMiAyIDAgMCAxIDIgMiB2NyBhMiAyIDAgMCAxIC0yIDIgaC0yMCBhMiAyIDAgMCAxIC0yIC0yIHYtNyBhMiAyIDAgMCAxIDIgLTIgeiIvPgogIDxwYXRoIGQ9Ik0yNiAzMSBoNiBhNC41IDQuNSAwIDAgMSAwIDkgaC0zIGgzIGE0LjUgNC41IDAgMCAxIDAgOSBoLTYiLz4KPC9zdmc+Cg=="
     },
     "native": {
       "encryptedToken": "<encrypted with the installation secret>",
@@ -2833,7 +2836,8 @@
       "name": "P1 Meter",
       "statusStates": {
         "onlineId": "homewizard.0.hwe-p1_5c2faf000011.info.connected"
-      }
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0xOCA2IGgyOCBhNiA2IDAgMCAxIDYgNiB2NDAgYTYgNiAwIDAgMSAtNiA2IGgtMjggYTYgNiAwIDAgMSAtNiAtNiB2LTQwIGE2IDYgMCAwIDEgNiAtNiB6Ii8+CiAgPHBhdGggZD0iTTIyIDEzIGgyMCBhMiAyIDAgMCAxIDIgMiB2NyBhMiAyIDAgMCAxIC0yIDIgaC0yMCBhMiAyIDAgMCAxIC0yIC0yIHYtNyBhMiAyIDAgMCAxIDIgLTIgeiIvPgogIDxwYXRoIGQ9Ik0zNCAzMCBMMjYgNDIgSDMyIEwzMCA1MSBMMzggMzkgSDMyIFoiLz4KPC9zdmc+Cg=="
     },
     "native": {
       "encryptedToken": "<encrypted with the installation secret>",

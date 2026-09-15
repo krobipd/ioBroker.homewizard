@@ -504,22 +504,20 @@ export class HomeWizard extends utils.Adapter {
   private async saveDeviceToObject(config: DeviceConfig): Promise<void> {
     const prefix = this.stateManager.devicePrefix(config);
     const encryptedToken = this.encrypt(config.token);
-    await this.extendObjectAsync(
-      prefix,
-      {
-        type: "device",
-        common: { name: config.productName || config.productType },
-        native: {
-          encryptedToken,
-          productType: config.productType,
-          serial: config.serial,
-          productName: config.productName,
-          ...(config.ip ? { ip: config.ip } : {}),
-          ...(config.certCn ? { certCn: config.certCn } : {}),
-        },
+    await this.extendObjectAsync(prefix, {
+      type: "device",
+      // No `preserve`: the name follows the device (i.e. the HomeWizard app), like
+      // every other label in this tree — see DD21.
+      common: { name: config.productName || config.productType },
+      native: {
+        encryptedToken,
+        productType: config.productType,
+        serial: config.serial,
+        productName: config.productName,
+        ...(config.ip ? { ip: config.ip } : {}),
+        ...(config.certCn ? { certCn: config.certCn } : {}),
       },
-      { preserve: { common: ["name"] } },
-    );
+    });
   }
 
   /**

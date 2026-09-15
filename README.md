@@ -214,6 +214,8 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 - Fixed: data points the adapter removes during a start no longer reappear empty a moment later, which left nameless leftovers in the tree that nothing ever cleaned up again.
 - Improved: a setting the device refuses is corrected in the tree at once — it used to keep showing the requested value for up to a minute before the next check put it right.
 - Fixed: the name of a gas, water or heat meter folder now also reaches installations whose meter has been quiet since the update, instead of only the entries below it.
+- New: every device now shows a pictogram of its type in the object tree — a meter, a three-phase meter or a battery — drawn to read on the light and the dark theme alike.
+- Changed: a device now carries the name it has in the HomeWizard app; renaming it there reaches the object tree, and a rename made in the tree is put back at the next check.
 
 ### 0.18.2 (2026-09-06)
 
