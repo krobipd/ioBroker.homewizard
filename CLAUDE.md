@@ -267,6 +267,15 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     ist auf dem Windows-Läufer rot. `icon` steht im Vergleichssatz der Aufstiegs-Suite — nur sie beweist,
     dass ein BESTEHENDES Geräteobjekt das Piktogramm bekommt.
 
+40. **`tier` erreicht nur NEUE Instanzen** (gemessen 2026-09-15 am Live-Server, Quelle
+    `js-controller/packages/cli/src/lib/setup/setupUpload.ts:734-743`): `tier` steht in
+    `preserveAttributes` — neben `enabled`, `loglevel`, `mode`, `schedule`. Ein Update lässt den Wert
+    eines bestehenden Instanzobjekts unangetastet, weil es eine INSTANZ-Einstellung des Nutzers ist. Die
+    Umstellung des Manifests von 3 auf 2 (v0.19.0, Schema: „TIER 2: APIs & other data") wirkt also erst
+    bei einer neu angelegten Instanz. **Der Adapter schreibt das NICHT nach** — das überschriebe eine
+    Nutzer-Einstellung; die Flottenregel „ein Update erreicht den Bestand" gilt den Datenpunkten, die
+    der Adapter verantwortet, nicht den Instanz-Einstellungen, die die Plattform dem Nutzer zuordnet.
+
 ## Error-Handling (seit v0.3.5)
 
 Folgt beszel/parcelapp Pattern:
