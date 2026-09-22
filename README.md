@@ -204,7 +204,7 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     ### **WORK IN PROGRESS**
 -->
 
-### 0.19.0 (2026-09-15)
+### 0.19.0 (2026-09-15) — stable
 
 - Fixed: a device that changed its IP address is found again — the reply to the adapter's own network search was discarded, leaving the device unreachable until it was paired anew.
 - Fixed: removing a device now really withdraws its access on the device itself — the request was cut off before it left, so the adapter's user stayed behind on every device removed so far.
