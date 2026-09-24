@@ -1047,7 +1047,7 @@ describe("HomeWizard pollPairing", () => {
   });
 
   it("re-pairing a device paired under the old shared name deletes that old user", async () => {
-    const { hw, client, conn } = setup();
+    const { hw, client, conn, clientCalls } = setup();
     const i = internalOf(hw);
     expect(conn.config.userName).toBeUndefined(); // paired before v0.20.0
     i.pairingManager.pairing = true; // the window is open
@@ -1058,6 +1058,9 @@ describe("HomeWizard pollPairing", () => {
 
     expect(client.deleteUser).toHaveBeenCalledWith("local/iobroker");
     expect(client.deleteUser).not.toHaveBeenCalledWith("local/iobroker_iob-host_0");
+    // …with the OLD token: with the new one, a name another system has taken over
+    // since would be deleted along with that system's access.
+    expect(clientCalls.filter(([, token]) => token === "tok")).toEqual([["192.168.1.5", "tok", undefined, "aabb"]]);
   });
 
   it("re-pairing under the same name deletes nothing — the new token already replaced the old one", async () => {
