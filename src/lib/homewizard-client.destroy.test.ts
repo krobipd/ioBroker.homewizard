@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import type * as HttpsModule from "node:https";
 import { vi } from "vitest";
 
 // The client must settle its promise ITSELF when it aborts a request. Since Node 26.10,
@@ -28,7 +29,7 @@ const control: {
 } = { onRequest: null };
 
 vi.mock("node:https", async importOriginal => {
-  const real = await importOriginal<typeof import("node:https")>();
+  const real = await importOriginal<typeof HttpsModule>();
   return {
     ...real,
     request: (_opts: unknown, respond: (res: EventEmitter) => void): SilentRequest => {
