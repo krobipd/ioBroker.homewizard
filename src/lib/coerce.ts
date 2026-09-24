@@ -242,66 +242,52 @@ export function parseBatteryPermissions(raw: string): BatteryPermissionsResult {
 }
 
 /**
- * Extract a log-friendly message from a thrown / rejected value. Centralizes the
- * `err instanceof Error ? err.message : String(err)` pattern that otherwise
- * gets repeated at every catch-site. Plain objects are JSON-stringified so a
- * `[object Object]` log is avoided when adapters throw bag-of-fields. Always
- * returns a string: symbols, functions and `toJSON → undefined` (where
- * JSON.stringify yields undefined without throwing) fall back to the
- * `[object X]` tag instead of leaking `undefined` into the log line.
+ * One readable line for anything a `catch` receives — never `[object Object]`, never without the reason.
  *
- * @param err Caught value of unknown shape (Error, string, undefined, ...).
+ * @param err the caught value
+ * @returns the text
  */
 export function errText(err: unknown): string {
-  if (err instanceof Error) {
-    // An Error's text is its message — or its string `code` when the message is
-    // empty (`net.connect` to localhost rejects with an empty AggregateError whose
-    // reason is only `code: "ECONNREFUSED"`) — plus, one level deep, its `cause`:
-    // `fetch` reports every network failure as "fetch failed" and keeps the actual
-    // reason there. Only one level: a cause's own cause is not followed.
-    const code: unknown = (err as { code?: unknown }).code;
-    const own = err.message || (typeof code === "string" ? code : "");
-    const cause: unknown = (err as { cause?: unknown }).cause;
-    if (cause === undefined || cause === null) {
-      return own || err.name;
-    }
-    let causeText: string;
-    if (cause instanceof Error) {
-      const causeCode: unknown = (cause as { code?: unknown }).code;
-      causeText = cause.message || (typeof causeCode === "string" ? causeCode : "");
-    } else {
-      causeText = errText(cause);
-    }
-    if (!causeText || own.includes(causeText)) {
-      return own || err.name;
-    }
-    return own ? `${own} (${causeText})` : causeText;
-  }
-  if (err === null) {
-    return "null";
-  }
-  if (err === undefined) {
-    return "undefined";
-  }
-  if (typeof err === "string") {
-    return err;
-  }
-  if (typeof err === "number" || typeof err === "boolean" || typeof err === "bigint") {
-    return String(err);
-  }
-  if (typeof err === "symbol") {
-    // JSON.stringify(Symbol()) returns undefined (it does NOT throw), so the
-    // catch below never runs and the declared `string` return would be a lie.
-    // String(symbol) is the only safe conversion — `${symbol}` throws.
-    return String(err);
-  }
-  // Plain objects would otherwise stringify to "[object Object]". Prefer JSON so
-  // the log is at least diagnosable; circular structures fall back to the tag.
+  // It runs inside a `catch` and must not throw there: any property of a caught value can be a
+  // getter that throws, or hold something other than a string.
   try {
-    // A function, or an object whose toJSON drops everything, also yields
-    // undefined here — fall back rather than returning a non-string.
+    if (err instanceof Error) {
+      // An empty message carries its reason in `code`: `http.get`/`net.connect` to `localhost`
+      // reject with an AggregateError (message "", code ECONNREFUSED).
+      const code = "code" in err ? err.code : undefined;
+      const message: unknown = err.message;
+      const name: unknown = err.name;
+      const text = String(message || (typeof code === "string" ? code : name));
+      // `fetch` rejects with TypeError("fetch failed", { cause }) — ENOTFOUND, ECONNREFUSED,
+      // "other side closed" live only in the cause. One level, never the chain (`e.cause = e` is legal).
+      const cause = err.cause;
+      let reason = "";
+      if (cause instanceof Error) {
+        const causeCode = "code" in cause ? cause.code : undefined;
+        const causeMessage: unknown = cause.message;
+        reason =
+          (typeof causeMessage === "string" ? causeMessage : "") || (typeof causeCode === "string" ? causeCode : "");
+      } else if (cause !== undefined && cause !== null) {
+        reason = errText(cause);
+      }
+      // A wrapper that copies its cause's message would say it twice.
+      return reason && !text.includes(reason) ? `${text} (${reason})` : text;
+    }
+    if (typeof err === "string") {
+      return err;
+    }
+    if (typeof err === "function") {
+      // A thrown function or class: `String()` would print its whole source text.
+      return Object.prototype.toString.call(err);
+    }
+    if (err === null || err === undefined || typeof err !== "object") {
+      return String(err); // number, boolean, bigint, symbol (`${symbol}` would throw)
+    }
+    // A thrown object ({ code: "ECONNRESET" }, an HTTP client's error object): JSON.stringify
+    // yields `undefined` for what it cannot render and throws on a circular structure.
     return JSON.stringify(err) ?? Object.prototype.toString.call(err);
   } catch {
+    // A getter that threw, a circular structure for JSON.stringify: the type tag.
     return Object.prototype.toString.call(err);
   }
 }
