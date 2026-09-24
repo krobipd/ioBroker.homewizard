@@ -33,18 +33,16 @@ export interface PairingManagerHost {
    * @param token Bearer token — empty while pairing.
    */
   makeClient(ip: string, token: string): HomeWizardClient;
-  /** Serials that are already paired — a discovery hit for one of them is ignored. */
-  knownSerials(): Iterable<string>;
   /**
-   * Start the mDNS browser (owned by main, shared with IP recovery).
-   *
-   * @param onDiscovered Called for every announcement.
+   * (Re)start the mDNS browser. Main owns it and shares it with IP recovery; its
+   * announcements reach {@link PairingManager.onDeviceDiscovered} through main,
+   * which already filtered out devices that are paired and healthy.
    */
-  startDiscovery(onDiscovered: (device: DiscoveredDevice) => void): void;
-  /** Stop the mDNS browser. */
+  startDiscovery(): void;
+  /** Release the mDNS browser — main keeps it while IP recovery still needs it. */
   stopDiscovery(): void;
-  /** Stop IP recovery before the pairing window opens — both use the one browser. */
-  stopIpRecovery(): void;
+  /** True once the adapter is shutting down — a running poll pass stops there. */
+  isUnloading(): boolean;
   /**
    * Persist a device config to its device object.
    *
@@ -100,6 +98,8 @@ export class PairingManager {
    * 2 s for 60 s, so only the first one per device is a warning.
    */
   private warnedIps = new Set<string>();
+  /** Paired devices already named as "already paired" in THIS window — one line each. */
+  private notedPaired = new Set<string>();
 
   /**
    * @param adapter The ioBroker adapter instance (timers, state writes, log).
@@ -128,11 +128,6 @@ export class PairingManager {
 
     // Reset startPairing immediately so it doesn't survive a restart
     await this.adapter.setState("startPairing", { val: false, ack: true });
-
-    // I9: stop IP recovery BEFORE setting the flag — stopIpRecovery only tears
-    // down the discovery browser while pairing is inactive, so doing it after
-    // would leave the recovery browser running alongside the pairing one.
-    this.host.stopIpRecovery();
 
     this.pairing = true;
     this.discovered = [];
@@ -168,9 +163,10 @@ export class PairingManager {
       this.adapter.log.info(
         `Pairing mode enabled — searching for devices via mDNS, press the button on your HomeWizard device now (60 seconds timeout)`,
       );
-      // Restart mDNS browser to trigger fresh query — already-cached devices
-      // won't be re-announced otherwise and pairing would never find them
-      this.host.startDiscovery(discovered => this.onDeviceDiscovered(discovered));
+      // Restart the shared mDNS browser for a fresh query — a device announced in an
+      // earlier run is not reported again otherwise and pairing would never find it.
+      // IP recovery keeps running on the same browser (I9 used to stop it here).
+      this.host.startDiscovery();
     }
 
     // Poll discovered devices for pairing
@@ -191,12 +187,8 @@ export class PairingManager {
    * @param discovered Discovered device info.
    */
   onDeviceDiscovered(discovered: DiscoveredDevice): void {
-    // Skip already paired devices
-    for (const serial of this.host.knownSerials()) {
-      if (serial === discovered.serial) {
-        return;
-      }
-    }
+    // Main decides which announcements reach this point: unknown devices, and known
+    // ones whose token no longer works (they may be paired again).
 
     // Skip duplicates
     if (this.discovered.find(d => d.serial === discovered.serial)) {
@@ -217,6 +209,21 @@ export class PairingManager {
       `Found ${sanitizeForLog(discovered.name)} (${sanitizeForLog(discovered.productType)}) at ${discovered.ip} — ` +
         `press the button on the device to pair`,
     );
+  }
+
+  /**
+   * Say once per window that a device is already paired — otherwise a user who
+   * wants to pair it again watches 60 silent seconds.
+   *
+   * @param discovered The announced device.
+   * @param label      How the adapter names the paired device.
+   */
+  noteAlreadyPaired(discovered: DiscoveredDevice, label: string): void {
+    if (this.notedPaired.has(discovered.serial)) {
+      return;
+    }
+    this.notedPaired.add(discovered.serial);
+    this.adapter.log.info(`${label} is already paired — remove it first, or set 'pairingIp' to pair it again`);
   }
 
   /** Poll all discovered devices to attempt pairing. */
@@ -350,6 +357,7 @@ export class PairingManager {
     this.manualIp = "";
     this.discovered = [];
     this.warnedIps.clear();
+    this.notedPaired.clear();
 
     // Stop mDNS — only needed during pairing
     this.host.stopDiscovery();

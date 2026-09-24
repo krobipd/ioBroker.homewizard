@@ -885,6 +885,17 @@ export class ConnectionManager {
   }
 
   /**
+   * Whether the device rejected the token often enough that the adapter stopped
+   * trying ("token invalid — re-pair device to fix"). Such a device may be paired
+   * again over mDNS: its old access is gone anyway.
+   *
+   * @param conn Device connection.
+   */
+  isAuthStopped(conn: DeviceConnection): boolean {
+    return conn.authFailCount >= MAX_AUTH_FAILURES;
+  }
+
+  /**
    * Handle a possible auth failure on a device connection. Counts failures and,
    * once `MAX_AUTH_FAILURES` is reached, warns the user and (optionally) tears
    * down active timers and the WebSocket — stops bombarding the device with a

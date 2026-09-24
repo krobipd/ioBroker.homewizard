@@ -733,11 +733,26 @@ describe("HomeWizard onDeviceDiscovered", () => {
     expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("press the button"));
   });
 
-  it("skips devices that are already paired (same serial)", () => {
-    const { hw } = setup();
+  it("does not offer a paired, healthy device for pairing — it says once that it is already paired", async () => {
+    const { hw, discovery } = setup();
     const i = internalOf(hw);
-    i.pairingManager.onDeviceDiscovered({ ip: "192.168.1.61", productType: "HWE-P1", serial: "aabb", name: "P1" });
+    await i.pairingManager.start();
+    const announce = { ip: "192.168.1.61", productType: "HWE-P1", serial: "aabb", name: "P1" };
+    discovery.callback!(announce);
+    discovery.callback!(announce);
     expect(i.pairingManager.discovered).toHaveLength(0);
+    const lines = i.log.info.mock.calls.filter((c: unknown[]) => String(c[0]).includes("is already paired"));
+    expect(lines).toHaveLength(1);
+    expect(String(lines[0][0])).toContain("P1 (hwe-p1_aabb) is already paired");
+  });
+
+  it("offers a paired device whose token no longer works — 'token invalid — re-pair' can be fixed over mDNS", async () => {
+    const { hw, conn, discovery } = setup();
+    const i = internalOf(hw);
+    conn.authFailCount = 3; // the auth-stop has fired
+    await i.pairingManager.start();
+    discovery.callback!({ ip: conn.ip, productType: "HWE-P1", serial: "aabb", name: "P1" });
+    expect(i.pairingManager.discovered.map((d: DiscoveredDevice) => d.serial)).toEqual(["aabb"]);
   });
 
   it("skips duplicate discoveries (same serial twice)", () => {
@@ -1190,11 +1205,43 @@ describe("HomeWizard startIpRecovery", () => {
     expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("found at new IP 10.0.0.99"));
   });
 
-  it("does not start while pairing is active", async () => {
-    const { hw, discovery } = setup();
+  it("shares the browser with an open pairing window — a known device at a new IP is still switched over", async () => {
+    const { hw, conn, discovery, wsInstances } = setup();
     const i = internalOf(hw);
     await i.pairingManager.start();
-    discovery.start.mockClear();
+    i.startIpRecovery();
+    discovery.callback!({ ip: "10.0.0.77", productType: "HWE-P1", serial: "aabb", name: "P1" });
+    await settle();
+    expect(conn.ip).toBe("10.0.0.77");
+    expect(wsInstances).toHaveLength(1);
+  });
+
+  it("restarts the browser when a second request comes while a search is running", () => {
+    // bonjour-service reports a service once per browser run: a running browser
+    // cannot hear device B any more if it already reported B before B moved.
+    const { hw, discovery } = setup();
+    const i = internalOf(hw);
+    i.startIpRecovery();
+    i.startIpRecovery();
+    expect(discovery.start).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the browser for an open recovery window when the pairing window closes", async () => {
+    const { hw, discovery } = setup();
+    const i = internalOf(hw);
+    i.startIpRecovery();
+    await i.pairingManager.start();
+    i.pairingManager.stop();
+    expect(discovery.stop).not.toHaveBeenCalled();
+    // …and releases it once recovery is over too.
+    (i as unknown as { stopIpRecovery: () => void }).stopIpRecovery();
+    expect(discovery.stop).toHaveBeenCalled();
+  });
+
+  it("does not start a search once the adapter is shutting down", () => {
+    const { hw, discovery } = setup();
+    const i = internalOf(hw);
+    (i as unknown as { unloading: boolean }).unloading = true;
     i.startIpRecovery();
     expect(discovery.start).not.toHaveBeenCalled();
   });

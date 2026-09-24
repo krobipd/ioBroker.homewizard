@@ -18,7 +18,7 @@ import { CA_NOT_AFTER, caDaysUntilExpiry, dropDeviceAgent, pinnedAgent } from ".
 import { HomeWizardClient } from "./lib/homewizard-client";
 import { tName } from "./lib/i18n";
 import { StateManager } from "./lib/state-manager";
-import type { DeviceConfig, DeviceConnection } from "./lib/types";
+import type { DeviceConfig, DeviceConnection, DiscoveredDevice } from "./lib/types";
 import { HomeWizardWebSocket, type TimerDeps, type WsCallbacks } from "./lib/websocket-client";
 
 /** System info poll interval in milliseconds */
@@ -148,20 +148,9 @@ export class HomeWizard extends utils.Adapter {
     const pairingHost: PairingManagerHost = {
       getStateManager: () => this.stateManager,
       makeClient: (ip, token) => this.makeClient(ip, token),
-      knownSerials: () => Array.from(this.connections.values(), c => c.config.serial),
-      startDiscovery: onDiscovered => {
-        if (!this.discovery) {
-          this.discovery = this.makeDiscovery();
-        }
-        this.discovery.start(onDiscovered);
-      },
-      stopDiscovery: () => {
-        if (this.discovery) {
-          this.discovery.stop();
-          this.discovery = null;
-        }
-      },
-      stopIpRecovery: () => this.stopIpRecovery(),
+      startDiscovery: () => this.restartBrowser(),
+      stopDiscovery: () => this.releaseBrowser(),
+      isUnloading: () => this.unloading,
       saveDeviceToObject: config => this.saveDeviceToObject(config),
       adoptPairedDevice: (config, ip) => this.adoptPairedDevice(config, ip),
       resetButton: id => this.resetButton(id),
@@ -783,66 +772,121 @@ export class HomeWizard extends utils.Adapter {
     }
   }
 
-  /** Start mDNS to find devices that changed IP */
-  private startIpRecovery(): void {
-    // Don't start if already running or pairing
-    if (this.discovery || this.pairingManager.active) {
+  /**
+   * (Re)start the one mDNS browser, shared by IP recovery and the pairing window.
+   *
+   * A restart is a fresh browser with a fresh PTR query: bonjour-service reports a
+   * service only ONCE per browser run (`up`; later answers are `srv-update`, which
+   * nobody hears), so a second device asking for recovery, or a device that moved
+   * while the browser was already running, is only heard by a new run.
+   */
+  private restartBrowser(): void {
+    if (this.unloading) {
       return;
     }
+    if (!this.discovery) {
+      this.discovery = this.makeDiscovery();
+    }
+    this.discovery.start(discovered => this.onDiscovered(discovered));
+  }
 
-    // Internal recovery — debug only. The initial disconnect already produced
-    // one warn via logDeviceError; repeating that hourly while a device stays
-    // offline is just spam.
+  /** Stop the browser once neither IP recovery nor the pairing window needs it. */
+  private releaseBrowser(): void {
+    if (this.discovery && !this.pairingManager.active && !this.ipRecoveryTimer) {
+      this.discovery.stop();
+      this.discovery = null;
+    }
+  }
+
+  /**
+   * One place that decides what an mDNS announcement means.
+   *
+   * - A known device: its address is taken over if it changed and it is not
+   *   connected (IP recovery, DD35). While the pairing window is open, a known
+   *   device whose token the device no longer accepts is offered to pairing, so
+   *   "token invalid — re-pair" can be fixed over mDNS; a healthy one is named once
+   *   as already paired.
+   * - An unknown device: offered to pairing while the window is open.
+   *
+   * @param discovered The announced device.
+   */
+  private onDiscovered(discovered: DiscoveredDevice): void {
+    const conn = Array.from(this.connections.values()).find(c => c.config.serial === discovered.serial);
+    if (!conn) {
+      if (this.pairingManager.active) {
+        this.pairingManager.onDeviceDiscovered(discovered);
+      }
+      return;
+    }
+    if (this.pairingManager.active) {
+      if (this.connectionManager.isAuthStopped(conn)) {
+        this.pairingManager.onDeviceDiscovered(discovered);
+      } else {
+        this.pairingManager.noteAlreadyPaired(discovered, deviceLabel(conn.config));
+      }
+    }
+    this.applyDiscoveredAddress(conn, discovered);
+  }
+
+  /**
+   * Take over the address mDNS reports for a known device.
+   *
+   * @param conn       The device's connection.
+   * @param discovered The announcement.
+   */
+  private applyDiscoveredAddress(conn: DeviceConnection, discovered: DiscoveredDevice): void {
+    if (discovered.ip === conn.ip || conn.wsAuthenticated) {
+      return; // Same IP or already connected
+    }
+    // A connect attempt in flight is NOT a reason to drop this answer — it is the
+    // normal case. The recovery query goes out from connectWebSocket right before it
+    // opens the socket to the OLD (dead) address, which then hangs for seconds; the
+    // device's reply arrives inside exactly that window. `teardownConnection` below
+    // closes that pending client (its close-event is suppressed), so the reconnect
+    // below is the only one left.
+    this.log.info(`${deviceLabel(conn.config)}: found at new IP ${discovered.ip} (was ${conn.ip})`);
+
+    // Update IP and persist — reset stability (new network conditions)
+    conn.ip = discovered.ip;
+    conn.config.ip = discovered.ip;
+    conn.wsFailCount = 0;
+    conn.recentDisconnects = 0;
+    // Surface persist-failures (e.g. js-controller hiccup) instead of swallowing
+    // them — the user otherwise sees "new IP" log but the change is lost on next
+    // restart.
+    this.saveDeviceToObject(conn.config).catch((err: unknown) =>
+      this.log.debug(`Failed to persist new IP for ${deviceLabel(conn.config)}: ${errText(err)}`),
+    );
+
+    // Drop everything that still points at the old address — the pending
+    // WebSocket, the backoff timer and the REST fallback — then connect.
+    this.connectionManager.teardownConnection(conn);
+    this.connectionManager.connectWebSocket(conn);
+  }
+
+  /**
+   * Search for devices that changed their IP.
+   *
+   * Every request restarts the browser and the 60-second window, even while a search
+   * is already running: a dropped request used to wait ~50 minutes for the next one,
+   * and a running browser cannot hear an answer it has already reported.
+   */
+  private startIpRecovery(): void {
+    if (this.unloading) {
+      return;
+    }
+    // Internal recovery — debug only. The state of every device is in its
+    // `info.connected`; repeating that hourly while a device stays offline adds nothing.
     this.log.debug(`Device unreachable — searching for new IP via mDNS`);
 
-    this.discovery = this.makeDiscovery();
-    this.discovery.start(discovered => {
-      // Match against disconnected devices
-      for (const conn of this.connections.values()) {
-        if (conn.config.serial !== discovered.serial) {
-          continue;
-        }
-        if (discovered.ip === conn.ip || conn.wsAuthenticated) {
-          return; // Same IP or already connected
-        }
-        // A connect attempt in flight is NOT a reason to drop this answer — it is
-        // the normal case. The recovery query goes out from connectWebSocket right
-        // before it opens the socket to the OLD (dead) address, which then hangs for
-        // seconds; the device's reply arrives inside exactly that window, and
-        // bonjour-service announces a service only ONCE per browser run, so a dropped
-        // answer was the only one for the whole recovery window. `teardownConnection`
-        // below closes that pending client (its close-event is suppressed), so the
-        // reconnect below is the only one left.
-        this.log.info(`${deviceLabel(conn.config)}: found at new IP ${discovered.ip} (was ${conn.ip})`);
-
-        // Update IP and persist — reset stability (new network conditions)
-        conn.ip = discovered.ip;
-        conn.config.ip = discovered.ip;
-        conn.wsFailCount = 0;
-        conn.recentDisconnects = 0;
-        // Surface persist-failures (e.g. js-controller hiccup) instead of
-        // swallowing them — the user otherwise sees "new IP" log but the
-        // change is lost on next restart.
-        this.saveDeviceToObject(conn.config).catch((err: unknown) =>
-          this.log.debug(`Failed to persist new IP for ${deviceLabel(conn.config)}: ${errText(err)}`),
-        );
-
-        // Drop everything that still points at the old address — the pending
-        // WebSocket, the backoff timer and the REST fallback — then connect.
-        this.connectionManager.teardownConnection(conn);
-        this.connectionManager.connectWebSocket(conn);
-        return;
-      }
-    });
-
-    // Stop mDNS after timeout — WS reconnect continues with exponential
-    // backoff. Don't log per-device warns here: the initial disconnect already
-    // produced a `deviceUnreachable` warn via logDeviceError; spamming the
-    // user hourly while the device stays offline adds zero information. If
-    // someone needs to see retry cadence they can enable debug logging.
+    this.restartBrowser();
+    if (this.ipRecoveryTimer) {
+      this.clearTimeout(this.ipRecoveryTimer);
+    }
+    // Stop mDNS after the window — WS reconnect continues with exponential backoff.
     this.ipRecoveryTimer = this.setTimeout(() => {
       this.ipRecoveryTimer = undefined;
-      this.stopIpRecovery();
+      this.releaseBrowser();
 
       for (const conn of this.connections.values()) {
         if (!conn.wsAuthenticated && conn.wsFailCount > 0) {
@@ -854,21 +898,18 @@ export class HomeWizard extends utils.Adapter {
     }, IP_RECOVERY_TIMEOUT_MS);
   }
 
-  /** Stop mDNS IP recovery */
+  /** Stop mDNS IP recovery — the browser stays up while the pairing window needs it. */
   private stopIpRecovery(): void {
     if (this.ipRecoveryTimer) {
       this.clearTimeout(this.ipRecoveryTimer);
       this.ipRecoveryTimer = undefined;
     }
-    if (this.discovery && !this.pairingManager.active) {
-      this.discovery.stop();
-      this.discovery = null;
-    }
+    this.releaseBrowser();
   }
 
   /** Stop mDNS IP-recovery once every device is connected (main owns the discovery browser). */
   private onDeviceConnected(): void {
-    if (this.discovery && !this.pairingManager.active) {
+    if (this.ipRecoveryTimer) {
       const allConnected = Array.from(this.connections.values()).every(c => c.wsAuthenticated);
       if (allConnected) {
         this.stopIpRecovery();
