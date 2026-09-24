@@ -312,9 +312,10 @@ export class HomeWizardApiError extends Error {
     let description = body;
     try {
       const parsed: unknown = JSON.parse(body);
-      // The device's own shape is {"error":{"code":"…","description":"…"}}; a flat
-      // {"error":"…"} is accepted too. Anything that is not a string stays "unknown"
-      // — the field is typed string and is compared/logged as such.
+      // The documented shape is flat: {"error":"user:unauthorized"} (docs/v2/authorization);
+      // a nested {"error":{"code":"…","description":"…"}} is read too. Anything that is
+      // not a string stays "unknown" — the field is typed string and is compared/logged
+      // as such.
       const error = isPlainObject(parsed) ? parsed.error : undefined;
       const nested = isPlainObject(error) ? error : undefined;
       const code = nested ? nested.code : error;

@@ -1220,7 +1220,8 @@ describe("HomeWizard saveDeviceToObject", () => {
 
     expect(i.encrypt).toHaveBeenCalledWith("tok");
     // No options argument: `preserve` would freeze whatever name is stored, and the
-    // adapter owns every name in its own tree — this one follows the device.
+    // adapter owns every name in its own tree — this one is the product name the
+    // device reports.
     expect(i.extendObject).toHaveBeenCalledWith("hwe-p1_s1", {
       type: "device",
       common: { name: "Mein P1" },
@@ -1270,9 +1271,8 @@ describe("HomeWizard initDevice", () => {
     expect(conn.config.productName).toBe("New Name");
     expect(client.getDeviceInfo).toHaveBeenCalledTimes(1); // initDevice's fetch only — no extra drift fetch
     expect(i.extendObject).toHaveBeenCalled(); // persisted via saveDeviceToObject
-    // …and the data point that shows the device's own name follows along. Without
-    // this it kept the name from the last adapter start: the object's own name is
-    // the user's (preserve), so the state was the only place it could show at all.
+    // …and the data point that shows the device's product name follows along.
+    // Without this it kept the name from the last adapter start.
     expect(stateMgr.setProductName).toHaveBeenCalledWith(conn.config);
   });
 

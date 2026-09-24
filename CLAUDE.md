@@ -23,8 +23,8 @@
 - Pairing: `POST /api/user` → 403 bis physischer Button gedrückt → 200 + Token
 - WebSocket: `wss://<IP>/api/ws` → auth → subscribe `measurement` → Push ~1/s
 - Endpoints: `/api` (info), `/api/user` (POST pair / DELETE revoke), `/api/measurement`, `/api/system`, `/api/batteries`, `/api/ws`
-- WS topics subscribed nach `authorized`: `measurement` (~1/s) + `system` + `batteries` (explizit, nicht `*`). system/batteries pushen nur bei Control-State-Änderung → REST-Poll bleibt für uptime/rssi-Frische
-- Battery-Modi: `zero` / `to_full` / `standby` / `predictive` + `charge_to_full` (boolean, one-shot). Whitelist ist nur User-Frühwarnung — das Gerät lehnt unbekannte Modi selbst per `ERR` ab
+- WS topics subscribed nach `authorized`: `measurement` (~1/s) + `system` + `batteries` (explizit, nicht `*`; `batteries` nicht am HWE-BAT, DD42). system/batteries pushen nur bei Control-State-Änderung → REST-Poll bleibt für uptime/rssi-Frische
+- Battery-Modi: `zero` (Netto-Null: lädt ODER entlädt) / `to_full` / `standby` (beide laut Doku legacy) / `predictive` + `charge_to_full` (boolean, one-shot). `target_power_w` positiv = laden. Whitelist ist nur User-Frühwarnung — das Gerät lehnt unbekannte Modi selbst per `ERR` ab
 
 ## Architektur
 
@@ -67,7 +67,7 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
    Instanzobjekt weiterlebt. Mechanik: Memory `reference_stopinstance_verhindert_onunload`.
 10. **measurement/ Channel** (seit v0.4.0) — Messdaten unter `measurement/`, nicht lose im Device-Root. `cleanupMovedStates()` räumt alte Pfade auf
 11. **WS-Echtzeit für system/batteries additiv, nicht ersetzend** (seit v0.10.0) — WS pusht system/batteries nur bei Control-State-Änderung (uptime/rssi pushen NICHT laufend), darum bleibt der 60s-REST-System-Poll erhalten. `setStateChangedAsync` für langsame Felder verhindert die REST/WS-Doppel-Writes der überlappenden Felder
-12. **Token-Revoke beim Entfernen** (seit v0.10.0) — `removeDevice` ruft best-effort `DELETE /api/user` (`{name:"local/iobroker"}`) bevor das Device-Object gelöscht wird, damit auf dem Gerät keine toten `local/iobroker`-User-Tokens bei jedem Pair/Unpair zurückbleiben
+12. **Token-Revoke beim Entfernen** (seit v0.10.0) — `removeDevice` ruft best-effort `DELETE /api/user` mit dem gespeicherten Nutzernamen (DD43; ein Altgerät ohne Feld: `local/iobroker`), bevor das Device-Object gelöscht wird, damit auf dem Gerät keine toten Nutzer bei jedem Pair/Unpair zurückbleiben
 13. **Summen-Datenpunkte** (seit v0.16.0) — `info.devicesTotal`/`devicesOnline`/`devicesAllOnline`, abgeleitet
     in `updateGlobalConnection()`, also in derselben Runde und aus derselben Quelle wie `info.connection` und
     die Einzelmarker; eine zweite Rechenstelle würde driften. `devicesTotal` überlebt das Beenden (wie viele
@@ -114,9 +114,10 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     und Kanal eines externen Zählers). Der Flottenstandard (krobi 2026-09-02) sagt: Namen und
     Beschreibungen gehören dem Adapter, der Platz des Nutzers ist `0_userdata`. Die beiden Namen, die
     vom GERÄT kommen (Produktname, Typ eines nicht dokumentierten externen Zählers), werden deshalb aus
-    dem aktuellen Gerätewert GESCHRIEBEN statt eingefroren: eine Umbenennung in der HomeWizard-App
-    erreicht den Objektbaum jetzt (vorher nirgends außer `info.productName`), eine Umbenennung im
-    Objektbaum wird beim nächsten Abgleich zurückgesetzt. Ein Test hält die Liste der `preserve`-Stellen
+    dem aktuellen Gerätewert GESCHRIEBEN statt eingefroren; eine Umbenennung im Objektbaum wird beim
+    nächsten Start zurückgesetzt. ⚠️ Der Produktname ist laut Doku FEST (`product_name`: „This name is
+    not the same that is set by the user in the app“) — die API liefert den App-Namen nirgends, die
+    Zusage „folgt der App“ aus 0.18.2/0.19.0 war falsch (v0.20.0 korrigiert, Logzeilen tragen `Name (id)`). Ein Test hält die Liste der `preserve`-Stellen
     als LEER fest; kein Gate sieht diesen Fehler sonst (Flotten-Fund: das Prüfpaket hat keine Regel
     dafür).
 22. **`supportedMessages` wird GELÖSCHT, nicht auf `false` gesetzt** (seit v0.18.0). Die Liste ist eine
@@ -162,10 +163,10 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     ist ja das, was scheiterte —, und genau das sagt die Logzeile, statt eine saubere Entfernung
     vorzutäuschen. Das Überspringen beim Laden meldet sich seitdem ebenfalls (vorher: nichts).
 29. **Name und Firmware folgen dem Gerät im laufenden Betrieb** (seit v0.18.2). `syncDeviceInfo`
-    ist die eine Stelle für beide Aufrufer (Erstverbindung + jeder zehnte System-Poll). Vorher
-    wurde bei einer Umbenennung nur die gespeicherte Konfiguration fortgeschrieben — der Datenpunkt
-    `info.productName` behielt den Namen vom letzten Adapterstart, und weil der sichtbare
-    Objektname bewusst dem Nutzer gehört (DD21), war der neue Name NIRGENDS zu sehen.
+    ist die eine Stelle für beide Aufrufer (Erstverbindung + jeder zehnte System-Poll). Der Name
+    ändert sich nur, wenn eine Firmware einen anderen `product_name` meldet (DD21); vorher wurde dann
+    nur die gespeicherte Konfiguration fortgeschrieben und `info.productName` behielt den Namen vom
+    letzten Adapterstart.
     `info.firmware` wurde überhaupt nur beim Start geschrieben, obwohl der Poll die Antwort mit der
     Version ohnehin holt: ein Gerät, das sich selbst aktualisiert, zeigte die alte Version bis zum
     nächsten Neustart. `firmware_version` ist dabei optional getypt und wird am Schreibort geprüft —
@@ -199,7 +200,8 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     (`gas_meter`, `water_meter`, `warm_water_meter`, `heat_meter`, `inlet_heat_meter` — genau die
     Union in `types.ts`), ist also adapter-eigener Text und wird wie jedes andere Label übersetzt
     und nachgezogen — ohne `preserve`. Nur ein Typ AUSSERHALB der Liste ist wirklich
-    gerätegegeben: der behält den Rohwert (mit CR/LF-Strip) und `preserve`. Gefunden hat das das
+    gerätegegeben: der wird mit dem Rohwert benannt (mit CR/LF-Strip), seit v0.19.0 ohne `preserve`
+    (DD21). Gefunden hat das das
     Objekt-Inventar-Gate beim allerersten Lauf.
 34. **Jeder Datenpunkt hat eine Beschreibung oder einen begründeten Verzicht** (seit v0.18.2;
     Entscheidungs-Ablage seit 2026-09-07 in `test/self-explaining.json`). Erklärt sind
@@ -228,6 +230,10 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     erreicht `onWsDisconnected` also nicht mehr (kein Zombie-Socket, kein zweiter Reconnect-Timer).
     Der Test dazu geht über den PRODUKTIVPFAD (`connectWebSocket` mit `wsFailCount = 3`), nicht über
     ein von Hand gesetztes Feld — der alte Test setzte das Feld und schrieb damit den Defekt fest.
+    **Seit v0.20.0 teilen Wiederfindung und Kopplung EINEN Browser, und eine weitere Anfrage startet ihn
+    neu (frische Abfrage, frische `up`-Ereignisse) statt früh zurückzukehren**; er fällt erst, wenn
+    beide Fenster zu sind, und `main.onDiscovered` verteilt: bekanntes Gerät → neue Adresse, Gerät im
+    Auth-Stopp oder unbekannt → Kopplung, bekanntes gesundes → einmal „already paired“.
 
 36. **Die Agenten eines entfernten Geräts fallen ERST nach dem Widerruf** (seit v0.19.0). Der Widerruf
     (`DELETE /api/user`) reitet auf dem gepinnten TLS-Agenten des Geräts; `dropDeviceAgent` eine Anweisung
@@ -236,7 +242,8 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     Räumung hängt deshalb im `.finally` des Widerrufs und wird übersprungen, wenn unter demselben
     Schlüssel inzwischen wieder ein Gerät steht (Neu-Koppeln). Ein Fehlschlag ist `info`, nicht `warn`:
     ein Gerät, das beim Entfernen offline ist, ist der Normalfall — der Satz ist derselbe wie beim Gerät
-    ohne lesbaren Token, weil der Nutzer den Rest in der App erledigen muss.
+    ohne lesbaren Token und nennt den Nutzer, der auf dem Gerät bleibt (eine Löschung in der App ist
+    nirgends dokumentiert, nur `DELETE /api/user`).
 
 37. **Ein 404 auf `/api/batteries` ist eine andere Aussage als `battery_count: 0`** (seit v0.19.0).
     Die offizielle API-Doku (`docs/v2/batteries`, live geprüft 2026-09-15) sagt: „Despite its name, the
@@ -276,32 +283,34 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     bei einer neu angelegten Instanz. **Der Adapter schreibt das NICHT nach** — das überschriebe eine
     Nutzer-Einstellung; die Flottenregel „ein Update erreicht den Bestand" gilt den Datenpunkten, die
     der Adapter verantwortet, nicht den Instanz-Einstellungen, die die Plattform dem Nutzer zuordnet.
-41. **Ein externer Zähler, der einen Tag lang UND in 100 empfangenen Messungen fehlt, wird entfernt** (seit v0.20.0) —
-    der P1 meldet jeden Zähler in jeder Messung (`external`, docs/v2/measurement); ohne Abräumen stünde ein getauschter
-    Zähler für immer mit eingefrorenem Wert da. Beide Schwellen, weil jede allein falsch liest (Zeit allein räumt bei
-    einem Tag offline alles ab, Messungen allein nach 100 s Busstörung); gezählt wird nur eine Messung, die das Feld
-    trägt; Bestandskanäle werden beim Start aus dem Baum eingesetzt (`seedExternalMeters`).
+41. **Ein externer Zähler, der einen Tag lang UND in 100 empfangenen Messungen mit `external`-Feld fehlt, wird entfernt** (seit v0.20.0) — Bestandskanäle werden beim Start aus dem Baum eingesetzt (`seedExternalMeters`).
+42. **Jedes Gerät bekommt nur die Steuerungen, die sein Typ laut Doku hat** (seit v0.20.0) — kWh-Zähler ohne Identify (ein alter Knopf wird gelöscht), Plug-In Battery ohne Reboot, ohne `/api/batteries`-Abfrage und ohne `batteries`-Thema (`supportsIdentify`, `servesBatteryGroup`).
+43. **Jede Instanz koppelt unter eigenem Nutzernamen `local/iobroker_<host>_<instance>`** (seit v0.20.0) — gespeichert in `native.userName`; beim Neu-Koppeln wird ein abweichender alter Nutzer mit SEINEM alten Token gelöscht, nie mit dem neuen.
+44. **Ein Kopplungs-Token wird nur widerrufen, solange das Gerät nicht gespeichert ist** (seit v0.20.0) — danach verzögert ein Fehler nur die Datenpunkte; ein Durchlauf endet nach jedem `await`, wenn das Fenster zu ist, und das Fenster schließt mit seinem Ergebnis auf info.
+45. **Ein Gerät, das nicht antwortet (NETWORK, TIMEOUT), loggt auf debug; nur ein gewarnter Fehler bekommt „connection restored“** (seit v0.20.0) — Flottenregel „offline ist ein Zustand“ (2026-09-22), ersetzt das warn-einmal-Muster aus v0.7.3.
+
+_Belege zu 41–45: `.claude/dev-history.md`, Eintrag „2026-09-24 — v0.20.0: Belege zu DD41–45“._
 
 ## Error-Handling (seit v0.3.5)
 
 Folgt beszel/parcelapp Pattern:
 
-- **`classifyError()`** → Kategorien: NETWORK, TIMEOUT, AUTH, HTTP_xxx, UNKNOWN
+- **`classifyError()`** → Kategorien: NETWORK, TIMEOUT, AUTH, IDENTITY (fehlgeschlagener Zertifikats-Pin `HW_CERT_IDENTITY` oder TLS-Kettencode — ein anderes Gerät an der Adresse), HTTP_xxx, UNKNOWN
 - **Dedup per Device:** `lastErrorCode` = Kategorie (NICHT `${context}:${code}`)
-- **Erster Fehler** = warn, **Wiederholung** = debug, **Recovery** = info "connection restored"
-- **REST-Fallback stoppt** bei NETWORK-Error (kein Bombardieren unerreichbarer Geräte)
-- **System-Poll** nur für WS-verbundene Geräte
+- **NETWORK/TIMEOUT** = debug (DD45); **andere Kategorie, erster Fehler** = warn (Cooldown 1 h je Gerät), **Wiederholung** = debug, **Recovery** = info „connection restored“ nur nach einer Warnung
+- **REST-Fallback stoppt** bei NETWORK (stabile Geräte) und bei IDENTITY (alle Geräte)
+- **System-Poll** für jedes Gerät, das antwortet (WS oder Rückfall, DD20)
 
 ## Reconnect-Workflow (seit v0.5.0)
 
-1. WS disconnected → warn einmal → REST-Fallback + WS-Reconnect (exponential backoff, max 5 min)
+1. WS disconnected → debug (DD45) → REST-Fallback + WS-Reconnect (exponential backoff, max 5 min)
 2. REST bekommt NETWORK-Error → REST stoppt (WS-Reconnect läuft weiter)
 3. Nach 3 WS-Failures → mDNS IP-Recovery (60s Timeout)
 4. mDNS findet neue IP → Update + Reconnect
 5. mDNS findet nichts → **WS-Reconnect läuft weiter** (alle 5 min), mDNS-Retry ~stündlich
 6. **Adapter gibt NIE auf** — designed für Geräte mit schlechtem WiFi (stundenlange Ausfälle)
-7. Auth-Backoff: nach 3 Auth-Failures Stopp, warn "token invalid — re-pair"
-8. **Im LAUFENDEN Betrieb steuert nur der WebSocket `info.connected`** — der REST-Rückfall liefert Daten, flippt aber nicht den Online-Status. Außerhalb des Betriebs schreiben ihn drei weitere Stellen (Start-Stempel, Neu-Koppeln, Beenden) — s. Design-Entscheidung 9, die Marker-Kette.
+7. Auth-Backoff: nach 3 Auth-Failures Stopp (WS UND laufender Rückfall), EINE warn "token invalid — re-pair"; ein Gerät im Auth-Stopp lässt sich per mDNS neu koppeln (DD35)
+8. **`info.connected` = WebSocket authentifiziert ODER REST-Rückfall antwortet** (DD20) — ein gescheiterter Neuversuch bei laufendem, antwortendem Rückfall setzt ihn nicht zurück. Außerhalb des Betriebs schreiben ihn drei weitere Stellen (Start-Stempel, Neu-Koppeln, Beenden) — s. Design-Entscheidung 9, die Marker-Kette.
 
 ## Adaptive Unstable-Mode (seit v0.6.0)
 

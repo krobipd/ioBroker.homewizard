@@ -94,8 +94,8 @@ function batteryModeStates(): Record<string, string> {
 export class StateManager {
   private readonly adapter: utils.AdapterInstance;
   /**
-   * Cache of state / channel IDs that have already passed
-   * `setObjectNotExistsAsync`. Skips repeat DB lookups on the hot path —
+   * Cache of state / channel IDs whose object this run has already written
+   * (`extendObject`). Skips repeat DB writes on the hot path —
    * a P1 meter pushes ~1 measurement/s with up to ~30 active fields, which
    * otherwise meant ~30 Redis lookups per second just to ask „does it
    * exist". On `removeDevice(prefix)` all `prefix.*` IDs are dropped.
@@ -164,7 +164,7 @@ export class StateManager {
       native: {},
     });
 
-    // No `preserve` (ensureChannel only preserves for a device-owned name): the
+    // No `preserve` (no write in this adapter carries one, see DD21): the
     // channel name is the adapter's own translated text, so preserving the existing
     // one would freeze it on every upgraded install and a renamed channel would
     // only ever reach fresh installations. Going through `ensureChannel` also puts
@@ -1157,8 +1157,9 @@ export class StateManager {
     // the adapter's own translated text. Preserving would freeze it on each
     // existing installation, so a corrected or newly translated label would
     // reach fresh installs only — and no gate sees that, because the source
-    // shows the correct tName() call either way. `preserve` belongs where the
-    // name comes from outside (the device object's productName).
+    // shows the correct tName() call either way. The two names that come from
+    // the device (product name, an undocumented meter type) are written from the
+    // device's current value instead — no write in this adapter carries `preserve`.
     await this.adapter.extendObject(def.id, {
       type: "state",
       common,
@@ -1167,8 +1168,8 @@ export class StateManager {
     if (def.states) {
       // Existing datapoints from earlier releases may carry translation-object
       // VALUES in `common.states` (v0.7.0 introduced tLabel-as-string casts).
-      // setObjectNotExistsAsync is a no-op for those — actively replace if any
-      // value is not plain-string. Admin renders states-values as React child:
+      // The extendObject above merges and cannot drop a key the new map no longer
+      // has — actively replace if any value is not plain-string. Admin renders states-values as React child:
       // an object triggers React Error #31 → fatal "Error in GUI" on dropdown.
       await this.repairCommonStatesIfBuggy(def.id, def.states);
     }

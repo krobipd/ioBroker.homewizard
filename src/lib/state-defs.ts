@@ -142,7 +142,7 @@ export const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
     role: "value.energy",
     unit: "kWh",
   },
-  // Tariff (common.states applied separately in updateMeasurement for translation labels)
+  // Tariff (common.states applied separately in setMeasurementField for translation labels)
   { key: "tariff", id: "tariff", nameKey: "tariff", descKey: "tariffDesc", type: "number", role: "value" },
   // Power quality
   {
@@ -513,9 +513,11 @@ export interface LabelledObject {
  * pass over every writing path and fails if it produces an object that is missing
  * here. A new datapoint therefore cannot silently escape the retrofit.
  *
- * Deliberately absent: the device object itself and the external-meter channels —
- * their names come from the device, not from this adapter (see the `preserve`
- * argument of {@link StateManager.ensureChannel}).
+ * Deliberately absent: the device object itself and the external-meter channels.
+ * The device object's name is the product name the device reports and is written at
+ * every start by `createDeviceStates`; an external-meter channel's id carries the
+ * meter, so there is no fixed id to list — its name is written by `ensureChannel`
+ * with every measurement that reports the meter.
  */
 export const DEVICE_LABELLED_OBJECTS: LabelledObject[] = [
   { id: "info", kind: "channel", nameKey: "deviceInformation" },
@@ -562,7 +564,8 @@ export const LABELLED_OBJECT_IDS: readonly string[] = DEVICE_LABELLED_OBJECTS.ma
  * They cannot sit in {@link DEVICE_LABELLED_OBJECTS} because the channel segment
  * between them and the prefix is device-supplied and only known at runtime — but
  * the leaf labels are the adapter's own, so the retrofit has to reach them by
- * pattern. The channel itself keeps its device-given name.
+ * pattern. The channel itself gets its name from `ensureChannel` (a translated label
+ * for a documented meter type, the device's text for any other).
  */
 export const EXTERNAL_METER_LEAVES: Record<string, { nameKey: I18nKey; descKey?: I18nKey }> = {
   value: { nameKey: "externalValue", descKey: "externalValueDesc" },
@@ -573,8 +576,8 @@ export const EXTERNAL_METER_LEAVES: Record<string, { nameKey: I18nKey; descKey?:
 /**
  * The external-meter types the API documents, and the label the adapter gives the
  * channel for each. The set is CLOSED (`ExternalMeter["type"]`), so these names are
- * the adapter's own translated text — not a device-supplied string that has to be
- * preserved. A type outside the list keeps its raw value, because then it really is
+ * the adapter's own translated text — not a device-supplied string. A type outside
+ * the list is named with its raw value (CR/LF stripped), because then it really is
  * something only the device knows.
  */
 export const EXTERNAL_METER_TYPE_NAMES: Record<string, I18nKey> = {
