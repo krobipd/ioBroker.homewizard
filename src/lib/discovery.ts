@@ -1,5 +1,6 @@
+import type { EventEmitter } from "node:events";
 import Bonjour from "bonjour-service";
-import { isLanDeviceIpv4, sanitizeForLog } from "./coerce";
+import { errText, isLanDeviceIpv4, sanitizeForLog } from "./coerce";
 import type { DiscoveredDevice } from "./types";
 
 type BonjourService = ReturnType<InstanceType<typeof Bonjour>["publish"]>;
@@ -33,6 +34,12 @@ export type DiscoveryCallback = (device: DiscoveredDevice) => void;
  * this adapter is v2-only.
  */
 export class HomeWizardDiscovery {
+  /**
+   * Whether the "mDNS search is not possible" warning was already given in this
+   * process. The browser is recreated for every search, and a port that is taken
+   * stays taken — one line says it, every later attempt stays at debug.
+   */
+  private static socketErrorReported = false;
   private bonjour: Bonjour | null = null;
   private browser: ReturnType<Bonjour["find"]> | null = null;
   private readonly log: {
@@ -58,6 +65,7 @@ export class HomeWizardDiscovery {
     this.stop();
 
     this.bonjour = new Bonjour();
+    this.watchSocketErrors(this.bonjour);
     this.log.debug("mDNS: browsing for _homewizard._tcp (v2)");
 
     this.browser = this.bonjour.find({ type: "homewizard", protocol: "tcp" }, (service: BonjourService) => {
@@ -68,6 +76,38 @@ export class HomeWizardDiscovery {
         );
         callback(device);
       }
+    });
+  }
+
+  /**
+   * Catch errors of the multicast socket behind the browser.
+   *
+   * `multicast-dns` emits `error` when it cannot bind UDP port 5353 (EADDRINUSE,
+   * EACCES — another program holds the port exclusively), and `bonjour-service`
+   * registers no listener for it. An `error` event without a listener is thrown by
+   * Node, asynchronously, so no try/catch around `start()` would see it: the whole
+   * adapter process would crash and the host would restart it into the same crash.
+   * The emitter is private in the library's typings, hence the guarded access.
+   *
+   * @param bonjour The freshly created Bonjour instance.
+   */
+  private watchSocketErrors(bonjour: Bonjour): void {
+    const mdns = (bonjour as unknown as { server?: { mdns?: EventEmitter } }).server?.mdns;
+    if (!mdns || typeof mdns.on !== "function") {
+      this.log.debug("mDNS: socket emitter not found — socket errors are not intercepted");
+      return;
+    }
+    mdns.on("error", (err: unknown) => {
+      if (HomeWizardDiscovery.socketErrorReported) {
+        this.log.debug(`mDNS: search not possible: ${errText(err)}`);
+      } else {
+        HomeWizardDiscovery.socketErrorReported = true;
+        this.log.warn(
+          `mDNS search is not possible: ${errText(err)} — another program holds UDP port 5353? ` +
+            `Pair devices with 'pairingIp' instead`,
+        );
+      }
+      this.stop();
     });
   }
 

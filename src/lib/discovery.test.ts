@@ -6,11 +6,23 @@ import { vi } from "vitest";
 // The fake keeps the callback the adapter passes, so the path from an announcement
 // to the adapter's callback can be driven — without it, a regression that never calls
 // back (or hands over the raw service) stays green.
-const announced: { emit: ((service: unknown) => void) | null } = { emit: null };
+const announced: {
+  emit: ((service: unknown) => void) | null;
+  opts: unknown;
+  mdns: import("node:events").EventEmitter | null;
+} = { emit: null, opts: null, mdns: null };
 
-vi.mock("bonjour-service", () => {
+vi.mock("bonjour-service", async () => {
+  const { EventEmitter } = await import("node:events");
   class FakeBonjour {
-    find(_opts: unknown, cb: (service: unknown) => void): { stop: () => void } {
+    // Same shape as the real library: the multicast socket's emitter sits on
+    // `server.mdns`, and it throws an `error` event nobody listens to.
+    server = { mdns: new EventEmitter() };
+    constructor() {
+      announced.mdns = this.server.mdns;
+    }
+    find(opts: unknown, cb: (service: unknown) => void): { stop: () => void } {
+      announced.opts = opts;
       announced.emit = cb;
       return { stop: (): void => {} };
     }
@@ -62,6 +74,31 @@ describe("HomeWizardDiscovery", () => {
   describe("constructor", () => {
     it("should create an instance", () => {
       expect(discovery).toBeInstanceOf(HomeWizardDiscovery);
+    });
+  });
+
+  describe("what it searches for", () => {
+    it("browses the API v2 service type, never the v1 type (DD4/DD5)", () => {
+      discovery.start(() => {});
+      expect(announced.opts).toEqual({ type: "homewizard", protocol: "tcp" });
+    });
+  });
+
+  describe("socket errors of the multicast browser", () => {
+    it("catches a taken UDP port instead of letting Node throw, warns once and stops", () => {
+      discovery.start(() => {});
+      const err = Object.assign(new Error("bind EADDRINUSE 0.0.0.0:5353"), { code: "EADDRINUSE" });
+      // Without a listener this emit would throw — the adapter process would crash.
+      expect(() => announced.mdns!.emit("error", err)).not.toThrow();
+      const warns = log._logs.filter(l => l.level === "warn");
+      expect(warns).toHaveLength(1);
+      expect(warns[0].msg).toContain("EADDRINUSE");
+      expect(warns[0].msg).toContain("pairingIp");
+
+      // A later search hits the same taken port: no second warning.
+      discovery.start(() => {});
+      expect(() => announced.mdns!.emit("error", err)).not.toThrow();
+      expect(log._logs.filter(l => l.level === "warn")).toHaveLength(1);
     });
   });
 
