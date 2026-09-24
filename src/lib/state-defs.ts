@@ -447,7 +447,7 @@ export const MEASUREMENT_STATE_DEFS: MeasurementStateDef[] = [
 ];
 
 // Instantaneous electrical values — change on (almost) every ~1/s push, so a setStateChanged
-// read-compare buys nothing. These stay on setStateAsync; every other measurement field
+// read-compare buys nothing. These stay on setState; every other measurement field
 // (energy totals, tariff, power-quality counts, capacity tariff, SoC/cycles, model/timestamp)
 // is slow/static and uses setStateChangedAsync to skip redundant 1/s writes.
 // Exported for unit-tests only (subset-invariant against MEASUREMENT_STATE_DEFS).

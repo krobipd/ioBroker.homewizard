@@ -94,7 +94,7 @@ export class HomeWizard extends utils.Adapter {
   }
   private systemPollTimer: ioBroker.Interval | undefined = undefined;
   private ipRecoveryTimer: ioBroker.Timeout | undefined = undefined;
-  /** Set during onUnload — async paths bail before further setStateAsync calls. */
+  /** Set during onUnload — async paths bail before further setState calls. */
   private unloading = false;
   /**
    * Factories for the REST/WS clients — default to the real constructors. Test seams:
@@ -234,37 +234,37 @@ export class HomeWizard extends utils.Adapter {
    * drift apart.
    */
   private async ensureManifestObjects(): Promise<void> {
-    await this.extendObjectAsync("info", {
+    await this.extendObject("info", {
       type: "channel",
       common: { name: tName("info") },
       native: {},
     });
-    await this.extendObjectAsync("info.connection", {
+    await this.extendObject("info.connection", {
       type: "state",
       common: { name: tName("infoConnection"), desc: tName("infoConnectionDesc") },
       native: {},
     });
-    await this.extendObjectAsync("info.devicesTotal", {
+    await this.extendObject("info.devicesTotal", {
       type: "state",
       common: { name: tName("devicesTotal"), desc: tName("devicesTotalDesc") },
       native: {},
     });
-    await this.extendObjectAsync("info.devicesOnline", {
+    await this.extendObject("info.devicesOnline", {
       type: "state",
       common: { name: tName("devicesOnline"), desc: tName("devicesOnlineDesc") },
       native: {},
     });
-    await this.extendObjectAsync("info.devicesAllOnline", {
+    await this.extendObject("info.devicesAllOnline", {
       type: "state",
       common: { name: tName("devicesAllOnline"), desc: tName("devicesAllOnlineDesc") },
       native: {},
     });
-    await this.extendObjectAsync("startPairing", {
+    await this.extendObject("startPairing", {
       type: "state",
       common: { name: tName("startPairing"), desc: tName("startPairingDesc") },
       native: {},
     });
-    await this.extendObjectAsync("pairingIp", {
+    await this.extendObject("pairingIp", {
       type: "state",
       common: { name: tName("pairingIp"), desc: tName("pairingIpDesc") },
       native: {},
@@ -327,8 +327,8 @@ export class HomeWizard extends utils.Adapter {
         );
       }
 
-      await this.setStateAsync("startPairing", { val: false, ack: true });
-      await this.setStateAsync("pairingIp", { val: "", ack: true });
+      await this.setState("startPairing", { val: false, ack: true });
+      await this.setState("pairingIp", { val: "", ack: true });
 
       await this.subscribeStatesAsync("startPairing");
       await this.subscribeStatesAsync("*.system.reboot");
@@ -504,7 +504,7 @@ export class HomeWizard extends utils.Adapter {
   private async saveDeviceToObject(config: DeviceConfig): Promise<void> {
     const prefix = this.stateManager.devicePrefix(config);
     const encryptedToken = this.encrypt(config.token);
-    await this.extendObjectAsync(prefix, {
+    await this.extendObject(prefix, {
       type: "device",
       // No `preserve`: the name follows the device (i.e. the HomeWizard app), like
       // every other label in this tree — see DD21.
@@ -537,7 +537,7 @@ export class HomeWizard extends utils.Adapter {
   private onUnload(callback: () => void): void {
     // Set first, before any clearTimeout — in-flight async paths
     // (REST poll, getMeasurement, getSystem) check this after each await
-    // and bail out before further setStateAsync on a tearing-down adapter.
+    // and bail out before further setState on a tearing-down adapter.
     this.unloading = true;
     try {
       this.pairingManager.stop();
@@ -595,7 +595,7 @@ export class HomeWizard extends utils.Adapter {
    */
   private async resetButton(id: string): Promise<void> {
     try {
-      await this.setStateAsync(id, { val: false, ack: true });
+      await this.setState(id, { val: false, ack: true });
     } catch (err: unknown) {
       this.log.debug(`Could not reset the button ${id}: ${errText(err)}`);
     }
@@ -759,7 +759,7 @@ export class HomeWizard extends utils.Adapter {
       try {
         const ack = await command.send({ client, state, conn });
         if (ack !== null) {
-          await this.setStateAsync(id, { val: ack, ack: true });
+          await this.setState(id, { val: ack, ack: true });
         }
       } catch (err) {
         this.log.warn(`Failed to set ${id}: ${errText(err)}`);
@@ -969,7 +969,7 @@ export class HomeWizard extends utils.Adapter {
 
     // Mark as removed FIRST — async tasks (in-flight WS frames, REST polls,
     // outstanding pollSystemInfo) check this flag after each await and bail
-    // out before recreating just-deleted objects via setStateAsync.
+    // out before recreating just-deleted objects via setState.
     conn.removed = true;
 
     // Best-effort token revoke on the device (DELETE /api/user) so the local/iobroker user

@@ -1,7 +1,7 @@
 import type * as https from "node:https";
 import WebSocket from "ws";
 import { HW_AGENT } from "./cacert";
-import { isPlainObject, sanitizeForLog } from "./coerce";
+import { errText, isPlainObject, sanitizeForLog } from "./coerce";
 import { HomeWizardApiError } from "./homewizard-client";
 import type { BatteryControl, Measurement, SystemInfo } from "./types";
 
@@ -140,7 +140,7 @@ export class HomeWizardWebSocket {
       try {
         this.handleMessage(raw);
       } catch (err) {
-        this.callbacks.log.warn(`WS message handler error: ${err instanceof Error ? err.message : String(err)}`);
+        this.callbacks.log.warn(`WS message handler error: ${errText(err)}`);
       }
     });
 
@@ -164,7 +164,7 @@ export class HomeWizardWebSocket {
     });
 
     this.ws.on("error", (err: Error) => {
-      this.callbacks.log.debug(`WS error: ${err.message}`);
+      this.callbacks.log.debug(`WS error: ${errText(err)}`);
       // close event will follow
     });
   }
@@ -338,7 +338,7 @@ export class HomeWizardWebSocket {
       try {
         this.ws.ping();
       } catch (err) {
-        this.callbacks.log.debug(`WS ping send failed: ${err instanceof Error ? err.message : String(err)}`);
+        this.callbacks.log.debug(`WS ping send failed: ${errText(err)}`);
       }
     }, PING_INTERVAL_MS);
   }

@@ -10,7 +10,6 @@ vi.mock("@iobroker/adapter-core", () => {
     public adapterDir = "/tmp";
     public config: Record<string, unknown> = {};
     public on = vi.fn();
-    public setStateAsync = vi.fn(async () => {});
     public setStateChangedAsync = vi.fn(async () => {});
     public getStateAsync = vi.fn(() => Promise.resolve(null));
     public subscribeStatesAsync = vi.fn(async () => {});
@@ -21,7 +20,7 @@ vi.mock("@iobroker/adapter-core", () => {
     public encrypt = vi.fn((t: string) => t);
     public decrypt = vi.fn((t: string) => t);
     public getAdapterObjectsAsync = vi.fn(() => Promise.resolve({}));
-    public extendObjectAsync = vi.fn(async () => {});
+    public extendObject = vi.fn(async () => {});
     public getForeignObjectAsync = vi.fn((): Promise<unknown> => Promise.resolve(null));
     public extendForeignObjectAsync = vi.fn(async () => {});
     public delObjectAsync = vi.fn(async () => {});
@@ -269,7 +268,7 @@ describe("HomeWizard onStateChange routing", () => {
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.reboot", active(true));
     expect(client.reboot).toHaveBeenCalled();
     // Button must not stay stuck `true, ack=false` — it resets so it stays clickable.
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", { val: false, ack: true });
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", { val: false, ack: true });
   });
 
   it("system.cloud_enabled: forwards the boolean to setSystem", async () => {
@@ -629,7 +628,6 @@ function internalOf(hw: HomeWizard): {
     warn: ReturnType<typeof vi.fn>;
     error: ReturnType<typeof vi.fn>;
   };
-  setStateAsync: ReturnType<typeof vi.fn>;
   getStateAsync: ReturnType<typeof vi.fn>;
   setTimeout: ReturnType<typeof vi.fn>;
   setInterval: ReturnType<typeof vi.fn>;
@@ -640,7 +638,7 @@ function internalOf(hw: HomeWizard): {
   getAdapterObjectsAsync: ReturnType<typeof vi.fn>;
   getObjectAsync: ReturnType<typeof vi.fn>;
   delObjectAsync: ReturnType<typeof vi.fn>;
-  extendObjectAsync: ReturnType<typeof vi.fn>;
+  extendObject: ReturnType<typeof vi.fn>;
   getForeignObjectAsync: ReturnType<typeof vi.fn>;
   extendForeignObjectAsync: ReturnType<typeof vi.fn>;
   setState: ReturnType<typeof vi.fn>;
@@ -680,7 +678,7 @@ describe("HomeWizard startPairing", () => {
     const i = internalOf(hw);
     await i.pairingManager.start();
 
-    expect(i.setStateAsync).toHaveBeenCalledWith("startPairing", { val: false, ack: true });
+    expect(i.setState).toHaveBeenCalledWith("startPairing", { val: false, ack: true });
     expect(discovery.start).toHaveBeenCalledTimes(1);
     expect(i.setInterval).toHaveBeenCalled(); // pairing poll
     expect(i.setTimeout).toHaveBeenCalled(); // 60 s window
@@ -703,7 +701,7 @@ describe("HomeWizard startPairing", () => {
 
     expect(i.pairingManager.discovered).toHaveLength(1);
     expect(i.pairingManager.discovered[0].ip).toBe("192.168.1.50");
-    expect(i.setStateAsync).toHaveBeenCalledWith("pairingIp", { val: "", ack: true });
+    expect(i.setState).toHaveBeenCalledWith("pairingIp", { val: "", ack: true });
     expect(discovery.start).not.toHaveBeenCalled();
   });
 
@@ -806,7 +804,7 @@ describe("HomeWizard pollPairing", () => {
 
     expect(client.requestPairing).toHaveBeenCalled();
     expect(i.encrypt).toHaveBeenCalledWith("fresh-token");
-    expect(i.extendObjectAsync).toHaveBeenCalled(); // saveDeviceToObject
+    expect(i.extendObject).toHaveBeenCalled(); // saveDeviceToObject
     expect(stateMgr.createDeviceStates).toHaveBeenCalled();
     expect(i.connections.has("hwe-p1_new01")).toBe(true);
     expect(i.pairingManager.discovered).toHaveLength(0);
@@ -1019,7 +1017,7 @@ describe("HomeWizard loadDevicesFromObjects", () => {
 
     expect(devices).toHaveLength(1);
     expect(devices[0].serial).toBe("leg01");
-    expect(i.extendObjectAsync).toHaveBeenCalled(); // saveDeviceToObject
+    expect(i.extendObject).toHaveBeenCalled(); // saveDeviceToObject
     expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.homewizard.0", {
       native: { devices: [] },
     });
@@ -1035,7 +1033,7 @@ describe("HomeWizard saveDeviceToObject", () => {
     expect(i.encrypt).toHaveBeenCalledWith("tok");
     // No options argument: `preserve` would freeze whatever name is stored, and the
     // adapter owns every name in its own tree — this one follows the device.
-    expect(i.extendObjectAsync).toHaveBeenCalledWith("hwe-p1_s1", {
+    expect(i.extendObject).toHaveBeenCalledWith("hwe-p1_s1", {
       type: "device",
       common: { name: "Mein P1" },
       native: expect.objectContaining({ encryptedToken: "tok", serial: "s1" }),
@@ -1067,7 +1065,7 @@ describe("HomeWizard initDevice", () => {
     await settle();
 
     expect(conn.config.certCn).toBe("appliance/p1dongle/aabb");
-    expect(i.extendObjectAsync).toHaveBeenCalledWith(
+    expect(i.extendObject).toHaveBeenCalledWith(
       "hwe-p1_aabb",
       expect.objectContaining({ native: expect.objectContaining({ certCn: "appliance/p1dongle/aabb" }) }),
     );
@@ -1083,7 +1081,7 @@ describe("HomeWizard initDevice", () => {
 
     expect(conn.config.productName).toBe("New Name");
     expect(client.getDeviceInfo).toHaveBeenCalledTimes(1); // initDevice's fetch only — no extra drift fetch
-    expect(i.extendObjectAsync).toHaveBeenCalled(); // persisted via saveDeviceToObject
+    expect(i.extendObject).toHaveBeenCalled(); // persisted via saveDeviceToObject
     // …and the data point that shows the device's own name follows along. Without
     // this it kept the name from the last adapter start: the object's own name is
     // the user's (preserve), so the state was the only place it could show at all.
@@ -1147,7 +1145,7 @@ describe("HomeWizard startIpRecovery", () => {
 
     expect(conn.ip).toBe("10.0.0.99");
     expect(conn.wsFailCount).toBe(0);
-    expect(i.extendObjectAsync).toHaveBeenCalled(); // IP persisted
+    expect(i.extendObject).toHaveBeenCalled(); // IP persisted
     expect(wsInstances).toHaveLength(1); // immediate reconnect
   });
 
@@ -1179,7 +1177,7 @@ describe("HomeWizard startIpRecovery", () => {
     expect(conn.ip).toBe("10.0.0.99");
     expect(conn.config.ip).toBe("10.0.0.99");
     expect(conn.wsFailCount).toBe(0);
-    expect(i.extendObjectAsync).toHaveBeenCalled(); // new IP persisted
+    expect(i.extendObject).toHaveBeenCalled(); // new IP persisted
     expect(wsInstances).toHaveLength(2); // reconnect to the new address
     expect(wsInstances[0].close).toHaveBeenCalled(); // the pending one is dropped
     expect(conn.reconnectTimer).toBeUndefined(); // and so is its backoff timer
@@ -1203,7 +1201,7 @@ describe("HomeWizard onReady", () => {
     await i.onReady();
     await settle();
 
-    expect(i.setStateAsync).toHaveBeenCalledWith("startPairing", { val: false, ack: true });
+    expect(i.setState).toHaveBeenCalledWith("startPairing", { val: false, ack: true });
     expect(i.subscribeStatesAsync).toHaveBeenCalledWith("startPairing");
     expect(i.subscribeStatesAsync).toHaveBeenCalledWith("*.system.reboot");
     expect(i.subscribeStatesAsync).toHaveBeenCalledWith("*.battery.mode");
@@ -1268,8 +1266,8 @@ describe("HomeWizard onReady", () => {
     // `info.legacyMigrated` existed only to skip ~62 getObject probes per device.
     // The object list the device load fetches anyway does that job, so the marker
     // is gone — adapter bookkeeping has no place in a user's object tree.
-    expect(i.setStateAsync).not.toHaveBeenCalledWith("info.legacyMigrated", expect.anything());
-    expect(i.setStateAsync).not.toHaveBeenCalledWith("info.labelsVersion", expect.anything());
+    expect(i.setState).not.toHaveBeenCalledWith("info.legacyMigrated", expect.anything());
+    expect(i.setState).not.toHaveBeenCalledWith("info.labelsVersion", expect.anything());
   });
 });
 
@@ -1375,7 +1373,7 @@ describe("HomeWizard onStateChange acks the value it sent, not the raw write", (
     const i = internalOf(hw);
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.cloud_enabled", active("true"));
     expect(client.setSystem).toHaveBeenCalledWith({ cloud_enabled: true });
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.cloud_enabled", {
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.cloud_enabled", {
       val: true,
       ack: true,
     });
@@ -1386,7 +1384,7 @@ describe("HomeWizard onStateChange acks the value it sent, not the raw write", (
     const i = internalOf(hw);
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.charge_to_full", active(0));
     expect(client.setBatteries).toHaveBeenCalledWith({ charge_to_full: false });
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.battery.charge_to_full", {
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.battery.charge_to_full", {
       val: false,
       ack: true,
     });
@@ -1397,7 +1395,7 @@ describe("HomeWizard onStateChange acks the value it sent, not the raw write", (
     const i = internalOf(hw);
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.api_v1_enabled", active(1));
     expect(client.setSystem).toHaveBeenCalledWith({ api_v1_enabled: true });
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.api_v1_enabled", {
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.api_v1_enabled", {
       val: true,
       ack: true,
     });
@@ -1451,7 +1449,7 @@ describe("HomeWizard pollSystemInfo", () => {
 
     expect(client.getDeviceInfo).toHaveBeenCalled();
     expect(conn.config.productName).toBe("P1 Umbenannt");
-    expect(i.extendObjectAsync).toHaveBeenCalled(); // persisted
+    expect(i.extendObject).toHaveBeenCalled(); // persisted
     expect(stateMgr.setProductName).toHaveBeenCalledWith(conn.config);
   });
 
@@ -1522,7 +1520,7 @@ describe("v0.12.2 regressions", () => {
     const i = internalOf(hw);
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.reboot", active(true));
     expect(client.reboot).toHaveBeenCalled();
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", { val: false, ack: true });
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", { val: false, ack: true });
   });
 
   it("identify button is reset to false/ack after a successful identify", async () => {
@@ -1530,7 +1528,7 @@ describe("v0.12.2 regressions", () => {
     const i = internalOf(hw);
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.identify", active(true));
     expect(client.identify).toHaveBeenCalled();
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.identify", {
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.identify", {
       val: false,
       ack: true,
     });
@@ -1544,7 +1542,7 @@ describe("v0.12.2 regressions", () => {
     const i = internalOf(hw);
     client.reboot.mockRejectedValueOnce(new Error("boom"));
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.reboot", active(true));
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", {
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", {
       val: false,
       ack: true,
     });
@@ -1556,7 +1554,7 @@ describe("v0.12.2 regressions", () => {
     const i = internalOf(hw);
     client.identify.mockRejectedValueOnce(new Error("boom"));
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.identify", active(true));
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.identify", {
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.identify", {
       val: false,
       ack: true,
     });
@@ -1568,11 +1566,11 @@ describe("v0.12.2 regressions", () => {
     const { hw } = setup();
     const i = internalOf(hw);
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", active(40));
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", {
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", {
       val: 40,
       ack: true,
     });
-    expect(i.setStateAsync).not.toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", {
+    expect(i.setState).not.toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.status_led_brightness_pct", {
       val: false,
       ack: true,
     });
@@ -2260,7 +2258,7 @@ describe("acks carry the value that was sent", () => {
     const i = internalOf(hw);
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.permissions", active('["a" ,  "b"]'));
     expect(client.setBatteries).toHaveBeenCalledWith({ permissions: ["a", "b"] });
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.battery.permissions", {
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.battery.permissions", {
       val: '["a","b"]',
       ack: true,
     });
@@ -2271,7 +2269,7 @@ describe("acks carry the value that was sent", () => {
     const i = internalOf(hw);
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.mode", active("to_full"));
     expect(client.setBatteries).toHaveBeenCalledWith({ mode: "to_full" });
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.battery.mode", {
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.battery.mode", {
       val: "to_full",
       ack: true,
     });
@@ -2448,7 +2446,7 @@ describe("manifest objects reach an existing installation", () => {
       ["pairingIp", "pairingIp", "pairingIpDesc"],
     ];
     for (const [id, nameKey, descKey] of expected) {
-      const call = i.extendObjectAsync.mock.calls.find((c: unknown[]) => c[0] === id);
+      const call = i.extendObject.mock.calls.find((c: unknown[]) => c[0] === id);
       expect(call, `no extendObject for ${id}`).toBeDefined();
       const common = (call![1] as { common: { name: unknown; desc?: unknown } }).common;
       expect(common.name, `${id} carries the wrong label`).toEqual({ en: nameKey });
@@ -2612,7 +2610,7 @@ describe("a device the adapter could not load is still removable", () => {
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_ghost.remove", active(true));
 
     expect(stateMgr.removeDeviceByPrefix).not.toHaveBeenCalled();
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_ghost.remove", { val: false, ack: true });
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_ghost.remove", { val: false, ack: true });
   });
 
   it("refuses an id that is not a device-level remove button", async () => {
@@ -2632,11 +2630,11 @@ describe("a button never stays pressed", () => {
     const { hw } = setup();
     const i = internalOf(hw);
     await i.pairingManager.start();
-    i.setStateAsync.mockClear();
+    i.setState.mockClear();
 
     await i.pairingManager.start();
 
-    expect(i.setStateAsync).toHaveBeenCalledWith("startPairing", { val: false, ack: true });
+    expect(i.setState).toHaveBeenCalledWith("startPairing", { val: false, ack: true });
   });
 
   it("a button pressed for an unreachable device is released again", async () => {
@@ -2647,7 +2645,7 @@ describe("a button never stays pressed", () => {
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.reboot", active(true));
 
     expect(client.reboot).not.toHaveBeenCalled();
-    expect(i.setStateAsync).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", { val: false, ack: true });
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", { val: false, ack: true });
   });
 
   it("a VALUE state for an unreachable device is not written back to false", async () => {
@@ -2659,7 +2657,7 @@ describe("a button never stays pressed", () => {
 
     // The button rule must never touch a value state — that would overwrite the
     // LED percentage and every switch with `false`.
-    expect(i.setStateAsync).not.toHaveBeenCalled();
+    expect(i.setState).not.toHaveBeenCalled();
   });
 
   it("a write to a state this adapter does not control is ignored", async () => {

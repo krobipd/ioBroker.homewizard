@@ -46,9 +46,9 @@ interface ObjectDef {
 
 interface MockAdapterMetrics {
   setObjectNotExistsCalls: number;
-  /** Count of extendObjectAsync calls — the DP-retrofit create path for states (createState). */
+  /** Count of extendObject calls — the DP-retrofit create path for states (createState). */
   extendObjectCalls: number;
-  /** Count of actual state writes (setStateAsync always; setStateChangedAsync only on change). */
+  /** Count of actual state writes (setState always; setStateChangedAsync only on change). */
   stateWrites: number;
 }
 
@@ -66,15 +66,11 @@ interface MockAdapter {
   /** Ids of every extendObject call that carried `preserve.common` — see the preserve-scope test. */
   preservedIds: string[];
   log: { debug: (msg: string) => void };
-  extendObjectAsync: (
-    id: string,
-    obj: Partial<ObjectDef>,
-    options?: { preserve?: { common?: string[] } },
-  ) => Promise<void>;
+  extendObject: (id: string, obj: Partial<ObjectDef>, options?: { preserve?: { common?: string[] } }) => Promise<void>;
   setObjectNotExistsAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
-  setObjectAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
+  setForeignObject: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
   getObjectAsync: (id: string) => Promise<ObjectDef | null>;
-  setStateAsync: (id: string, state: StateValue) => Promise<void>;
+  setState: (id: string, state: StateValue) => Promise<void>;
   setStateChangedAsync: (id: string, state: StateValue) => Promise<void>;
   delObjectAsync: (id: string, opts?: { recursive: boolean }) => Promise<void>;
 }
@@ -169,7 +165,7 @@ function createMockAdapter(): MockAdapter {
     metrics,
     preservedIds,
     log: { debug: (): void => {} },
-    extendObjectAsync: (
+    extendObject: (
       id: string,
       obj: Partial<ObjectDef>,
       options?: { preserve?: { common?: string[] } },
@@ -209,7 +205,9 @@ function createMockAdapter(): MockAdapter {
       });
       return Promise.resolve();
     },
-    setObjectAsync: (id: string, obj: Partial<ObjectDef>): Promise<void> => {
+    // The adapter writes whole objects only through setForeignObject, with the full id.
+    setForeignObject: (fullId: string, obj: Partial<ObjectDef>): Promise<void> => {
+      const id = fullId.startsWith("homewizard.0.") ? fullId.slice("homewizard.0.".length) : fullId;
       objects.set(id, {
         type: obj.type || "",
         common: obj.common || {},
@@ -217,33 +215,41 @@ function createMockAdapter(): MockAdapter {
       });
       return Promise.resolve();
     },
+    // Like the controller, every read hands out a fresh copy — a change the code makes
+    // on what it read must not reach the store without a write.
     getObjectAsync: (id: string): Promise<ObjectDef | null> => {
-      return Promise.resolve(objects.get(id) || null);
+      const obj = objects.get(id);
+      return Promise.resolve(obj ? structuredClone(obj) : null);
     },
-    setStateAsync: (id: string, state: StateValue): Promise<void> => {
+    setState: (id: string, state: StateValue): Promise<void> => {
       metrics.stateWrites++;
       states.set(id, state);
       return Promise.resolve();
     },
-    // Faithful to ioBroker: write only when the value actually changed.
+    // Faithful to ioBroker: write only when the value OR the ack flag changed — the
+    // controller compares both, so an unconfirmed user value equal to the device value
+    // still gets confirmed.
     setStateChangedAsync: (id: string, state: StateValue): Promise<void> => {
       const prev = states.get(id);
-      if (prev && prev.val === state.val) {
+      if (prev && prev.val === state.val && prev.ack === state.ack) {
         return Promise.resolve();
       }
       metrics.stateWrites++;
       states.set(id, state);
       return Promise.resolve();
     },
-    delObjectAsync: (id: string, _opts?: { recursive: boolean }): Promise<void> => {
-      // Delete the object and all children
+    // As in js-controller: without `recursive` only the object itself (and its value)
+    // goes; with it, every object below the id goes too — even when the id itself has
+    // no object any more.
+    delObjectAsync: (id: string, opts?: { recursive: boolean }): Promise<void> => {
+      const hit = (key: string): boolean => key === id || (!!opts?.recursive && key.startsWith(`${id}.`));
       for (const key of objects.keys()) {
-        if (key === id || key.startsWith(`${id}.`)) {
+        if (hit(key)) {
           objects.delete(key);
         }
       }
       for (const key of states.keys()) {
-        if (key === id || key.startsWith(`${id}.`)) {
+        if (hit(key)) {
           states.delete(key);
         }
       }
@@ -1011,7 +1017,7 @@ describe("StateManager", () => {
 
   describe("createdIds cache (hot-path performance)", () => {
     it("creates each measurement state only once across repeated updateMeasurement calls", async () => {
-      // First call creates 4 states (DP-retrofit path = extendObjectAsync).
+      // First call creates 4 states (DP-retrofit path = extendObject).
       await manager.updateMeasurement(testDevice, {
         power_w: 100,
         voltage_l1_v: 230,
@@ -1076,7 +1082,7 @@ describe("StateManager", () => {
         status_led_brightness_pct: 50,
       });
       const obj = adapter.objects.get(id);
-      // extendObjectAsync retrofit reached the existing state...
+      // extendObject retrofit reached the existing state...
       expect(obj?.common.role).toBe("indicator");
       // ...and so did the label: this name is the adapter's own translated text,
       // so it must NOT be preserved — otherwise a corrected wording reaches

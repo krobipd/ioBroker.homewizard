@@ -154,6 +154,32 @@ describe("errText", () => {
     const weird = { toJSON: () => undefined };
     expect(errText(weird)).toBe("[object Object]");
   });
+
+  it("uses the error code when the message is empty (connect to localhost rejects that way)", () => {
+    const err = Object.assign(new AggregateError([], ""), { code: "ECONNREFUSED" });
+    expect(errText(err)).toBe("ECONNREFUSED");
+  });
+
+  it("adds the cause one level deep — fetch keeps the real reason there", () => {
+    const err = new TypeError("fetch failed", { cause: new Error("getaddrinfo ENOTFOUND host") });
+    expect(errText(err)).toBe("fetch failed (getaddrinfo ENOTFOUND host)");
+  });
+
+  it("uses the cause's code when the cause has no message", () => {
+    const cause = Object.assign(new Error(""), { code: "ECONNRESET" });
+    expect(errText(new Error("socket closed", { cause }))).toBe("socket closed (ECONNRESET)");
+  });
+
+  it("does not repeat a cause the message already carries, and follows only one level", () => {
+    const inner = new Error("deep reason");
+    const cause = new Error("middle", { cause: inner });
+    expect(errText(new Error("outer: middle", { cause }))).toBe("outer: middle");
+    expect(errText(new Error("outer", { cause }))).toBe("outer (middle)");
+  });
+
+  it("renders a non-Error cause through the helper itself", () => {
+    expect(errText(new Error("outer", { cause: { status: 503 } }))).toBe('outer ({"status":503})');
+  });
 });
 
 describe("sanitizeForLog", () => {

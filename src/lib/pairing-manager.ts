@@ -127,7 +127,7 @@ export class PairingManager {
     }
 
     // Reset startPairing immediately so it doesn't survive a restart
-    await this.adapter.setStateAsync("startPairing", { val: false, ack: true });
+    await this.adapter.setState("startPairing", { val: false, ack: true });
 
     // I9: stop IP recovery BEFORE setting the flag — stopIpRecovery only tears
     // down the discovery browser while pairing is inactive, so doing it after
@@ -140,7 +140,7 @@ export class PairingManager {
     // Check if manual IP is set, then clear pairingIp immediately
     const ipState = await this.adapter.getStateAsync("pairingIp");
     this.manualIp = ipState?.val ? String(ipState.val).trim() : "";
-    await this.adapter.setStateAsync("pairingIp", { val: "", ack: true });
+    await this.adapter.setState("pairingIp", { val: "", ack: true });
 
     if (this.manualIp) {
       // Validate manual-IP up front — better to fail fast than wait 60s while

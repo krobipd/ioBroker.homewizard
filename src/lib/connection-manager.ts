@@ -631,7 +631,7 @@ export class ConnectionManager {
 
     conn.pollTimer = this.adapter.setInterval(async () => {
       // Bail out if device was removed or adapter is shutting down — the
-      // setStateAsync chain inside updateMeasurement would otherwise either
+      // setState chain inside updateMeasurement would otherwise either
       // recreate deleted objects or hit a torn-down adapter.
       if (conn.removed || this.host.isUnloading()) {
         return;

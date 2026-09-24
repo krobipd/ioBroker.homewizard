@@ -225,7 +225,28 @@ export function parseBatteryPermissions(raw: string): BatteryPermissionsResult {
  */
 export function errText(err: unknown): string {
   if (err instanceof Error) {
-    return err.message;
+    // An Error's text is its message — or its string `code` when the message is
+    // empty (`net.connect` to localhost rejects with an empty AggregateError whose
+    // reason is only `code: "ECONNREFUSED"`) — plus, one level deep, its `cause`:
+    // `fetch` reports every network failure as "fetch failed" and keeps the actual
+    // reason there. Only one level: a cause's own cause is not followed.
+    const code: unknown = (err as { code?: unknown }).code;
+    const own = err.message || (typeof code === "string" ? code : "");
+    const cause: unknown = (err as { cause?: unknown }).cause;
+    if (cause === undefined || cause === null) {
+      return own || err.name;
+    }
+    let causeText: string;
+    if (cause instanceof Error) {
+      const causeCode: unknown = (cause as { code?: unknown }).code;
+      causeText = cause.message || (typeof causeCode === "string" ? causeCode : "");
+    } else {
+      causeText = errText(cause);
+    }
+    if (!causeText || own.includes(causeText)) {
+      return own || err.name;
+    }
+    return own ? `${own} (${causeText})` : causeText;
   }
   if (err === null) {
     return "null";

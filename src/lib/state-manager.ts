@@ -43,7 +43,7 @@ interface StateDef {
 interface StateSet extends StateDef {
   /** Value to write */
   value: ioBroker.StateValue;
-  /** Use setStateChangedAsync (skip redundant writes) instead of setStateAsync */
+  /** Use setStateChangedAsync (skip redundant writes) instead of setState */
   changedOnly?: boolean;
 }
 
@@ -142,7 +142,7 @@ export class StateManager {
     // The name's SOURCE is the device — it follows the name in the HomeWizard app,
     // and a rename made in the object tree is put back at the next sync, like every
     // other label. A user's own data points belong in `0_userdata`.
-    await this.adapter.extendObjectAsync(prefix, {
+    await this.adapter.extendObject(prefix, {
       type: "device",
       common: {
         name: config.productName || config.productType,
@@ -273,7 +273,7 @@ export class StateManager {
     }
 
     // Main measurement values — coerce per declared type. Once a state's object
-    // is in the cache, ensureAndSet only does one setStateAsync per field — those
+    // is in the cache, ensureAndSet only does one setState per field — those
     // are independent and run in parallel via Promise.all instead of sequentially.
     const record = data;
     // M2: the power-quality states live under measurement.quality — ensure the
@@ -719,13 +719,13 @@ export class StateManager {
       // either — the full create path (role/type/unit/min/max) must still run when
       // the device reports the field.
       if (spec.kind === "channel") {
-        await this.adapter.extendObjectAsync(id, {
+        await this.adapter.extendObject(id, {
           type: "channel",
           common: common,
           native: {},
         });
       } else {
-        await this.adapter.extendObjectAsync(id, {
+        await this.adapter.extendObject(id, {
           type: "state",
           common: common,
           native: {},
@@ -756,7 +756,7 @@ export class StateManager {
         if (!typeKey || this.createdIds.has(localId)) {
           continue;
         }
-        await this.adapter.extendObjectAsync(localId, {
+        await this.adapter.extendObject(localId, {
           type: "channel",
           common: { name: tName(EXTERNAL_METER_TYPE_NAMES[typeKey]) },
           native: {},
@@ -779,7 +779,7 @@ export class StateManager {
       if (leaf.descKey) {
         leafCommon.desc = tName(leaf.descKey);
       }
-      await this.adapter.extendObjectAsync(localId, {
+      await this.adapter.extendObject(localId, {
         type: "state",
         common: leafCommon,
         native: {},
@@ -936,7 +936,7 @@ export class StateManager {
     // No `preserve` anywhere: the adapter owns every name in its own tree. Where the
     // text comes from the device (a meter type the API does not define) the adapter
     // writes the device's current value — it does not freeze whatever stood there.
-    await this.adapter.extendObjectAsync(id, {
+    await this.adapter.extendObject(id, {
       type: "channel" as const,
       common: { name: name() },
       native: {},
@@ -988,7 +988,7 @@ export class StateManager {
     // reach fresh installs only — and no gate sees that, because the source
     // shows the correct tName() call either way. `preserve` belongs where the
     // name comes from outside (the device object's productName).
-    await this.adapter.extendObjectAsync(def.id, {
+    await this.adapter.extendObject(def.id, {
       type: "state",
       common,
       native: {},
@@ -1007,7 +1007,12 @@ export class StateManager {
   /**
    * If the persisted object at `id` has `common.states` values that are not
    * plain-string (= translation objects from older releases), replace
-   * `common.states` wholesale via `setObjectAsync`. Otherwise no-op.
+   * `common.states` wholesale: read the object, change a copy, write the copy back
+   * with `setForeignObject`. Otherwise no-op.
+   *
+   * One write of the whole object, never a delete + create pair: deleting a state
+   * object also removes its value and drops it from every enum (the user's rooms
+   * and functions). `setForeignObject` writes only the object.
    *
    * Why a full write is needed, measured against the object store's only merge
    * site (`node.extend(true, …)` in `objectsInRedisClient._extendObject`): a
@@ -1027,7 +1032,7 @@ export class StateManager {
    */
   private async repairCommonStatesIfBuggy(id: string, fresh: Record<string, string>): Promise<void> {
     const existing = await this.adapter.getObjectAsync(id);
-    if (!existing) {
+    if (existing?.type !== "state") {
       return;
     }
     const states = existing.common?.states;
@@ -1038,8 +1043,9 @@ export class StateManager {
     if (!buggy) {
       return;
     }
-    existing.common = { ...existing.common, states: fresh } as ioBroker.StateCommon;
-    await this.adapter.setObjectAsync(id, existing);
+    const copy = structuredClone(existing);
+    copy.common = { ...copy.common, states: fresh };
+    await this.adapter.setForeignObject(`${this.adapter.namespace}.${id}`, copy);
   }
 
   /**
@@ -1070,12 +1076,12 @@ export class StateManager {
     // extendObject without `preserve`, like createState: label and description
     // are the adapter's own translated texts, and a create-only write would
     // leave every upgraded installation on the old wording forever.
-    await this.adapter.extendObjectAsync(id, {
+    await this.adapter.extendObject(id, {
       type: "state",
       common,
       native: {},
     });
-    await this.adapter.setStateAsync(id, { val: false, ack: true });
+    await this.adapter.setState(id, { val: false, ack: true });
     this.createdIds.add(id);
   }
 
@@ -1085,7 +1091,7 @@ export class StateManager {
    * `changedOnly` routes through `setStateChangedAsync` (skips the write when the value is
    * unchanged) — used for slow/static fields (energy totals, system, battery control) so the
    * ~1/s push doesn't churn the DB. Momentary 1 Hz values (power/voltage/current/…) stay on
-   * `setStateAsync`. `changedOnly` also prevents double-writes when REST poll + WS push the
+   * `setState`. `changedOnly` also prevents double-writes when REST poll + WS push the
    * same field.
    *
    * @param def State definition + value + optional `changedOnly` flag.
@@ -1095,7 +1101,7 @@ export class StateManager {
     if (def.changedOnly) {
       await this.adapter.setStateChangedAsync(def.id, { val: def.value, ack: true });
     } else {
-      await this.adapter.setStateAsync(def.id, { val: def.value, ack: true });
+      await this.adapter.setState(def.id, { val: def.value, ack: true });
     }
   }
 
@@ -1107,7 +1113,7 @@ export class StateManager {
    * `tariffStates()` allocation — the eager per-field `tName()` in the old
    * `ensureAndSet` loop was thrown away on every push after the first.
    *
-   * Momentary 1 Hz fields (power/voltage/current/…) use `setStateAsync`;
+   * Momentary 1 Hz fields (power/voltage/current/…) use `setState`;
    * slow fields (energy totals) use `setStateChangedAsync` — same routing as
    * the old `changedOnly: !MOMENTARY_KEYS.has(def.key)`.
    *
@@ -1131,7 +1137,7 @@ export class StateManager {
       });
     }
     if (MOMENTARY_KEYS.has(def.key)) {
-      await this.adapter.setStateAsync(id, { val: value, ack: true });
+      await this.adapter.setState(id, { val: value, ack: true });
     } else {
       await this.adapter.setStateChangedAsync(id, { val: value, ack: true });
     }
