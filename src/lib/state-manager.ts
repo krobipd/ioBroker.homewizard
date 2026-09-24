@@ -198,7 +198,7 @@ export class StateManager {
       name: tName("wifiRssi"),
       desc: tName("wifiRssiDesc"),
       type: "number",
-      role: "value",
+      role: "value.rssi",
       unit: "dBm",
     });
     await this.createState({

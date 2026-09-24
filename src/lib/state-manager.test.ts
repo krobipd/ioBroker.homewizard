@@ -1612,6 +1612,16 @@ describe("StateManager", () => {
       expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.charge_to_full")?.val).toBe(true);
     });
 
+    it("the WiFi signal strength carries the catalog role for a radio signal (value.rssi, dBm)", async () => {
+      await manager.createDeviceStates(testDevice);
+      expect(adapter.objects.get("hwe-p1_aabbccddeeff.info.wifi_rssi_db")?.common).toMatchObject({
+        role: "value.rssi",
+        unit: "dBm",
+      });
+      await manager.updateSystem({ ...testDevice, serial: "rs01" }, fullSystem);
+      expect(adapter.objects.get("hwe-p1_rs01.info.wifi_rssi_db")?.common.role).toBe("value.rssi");
+    });
+
     it("stops writing as soon as the device is removed mid-update — no orphans after the delete", async () => {
       let checks = 0;
       const removedAfterFirstWrite = (): boolean => checks++ >= 1;

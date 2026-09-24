@@ -608,7 +608,15 @@ export const SYSTEM_INFO_FIELDS: Array<{
   unit?: string;
 }> = [
   { key: "wifi_ssid", nameKey: "wifiSsid", type: "string", role: "text" },
-  { key: "wifi_rssi_db", nameKey: "wifiRssi", descKey: "wifiRssiDesc", type: "number", role: "value", unit: "dBm" },
+  {
+    key: "wifi_rssi_db",
+    nameKey: "wifiRssi",
+    descKey: "wifiRssiDesc",
+    type: "number",
+    // Role catalog: "received signal strength of a radio device (unit: dBm)".
+    role: "value.rssi",
+    unit: "dBm",
+  },
   { key: "uptime_s", nameKey: "uptime", descKey: "uptimeDesc", type: "number", role: "value", unit: "s" },
 ];
 
