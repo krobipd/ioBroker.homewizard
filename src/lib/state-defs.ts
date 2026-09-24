@@ -547,7 +547,7 @@ export const DEVICE_LABELLED_OBJECTS: LabelledObject[] = [
   { id: "battery.permissions", kind: "state", nameKey: "batteryPermissions", descKey: "batteryPermissionsDesc" },
   { id: "battery.charge_to_full", kind: "state", nameKey: "batteryChargeToFull", descKey: "batteryChargeToFullDesc" },
   { id: "battery.battery_count", kind: "state", nameKey: "batteryCount" },
-  { id: "battery.power_w", kind: "state", nameKey: "batteryPower" },
+  { id: "battery.power_w", kind: "state", nameKey: "batteryPower", descKey: "batteryPowerDesc" },
   { id: "battery.target_power_w", kind: "state", nameKey: "batteryTargetPower", descKey: "batteryTargetPowerDesc" },
   { id: "battery.max_consumption_w", kind: "state", nameKey: "batteryMaxConsumption", descKey: "batteryLimitDesc" },
   { id: "battery.max_production_w", kind: "state", nameKey: "batteryMaxProduction", descKey: "batteryLimitDesc" },

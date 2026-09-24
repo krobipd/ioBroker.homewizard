@@ -543,7 +543,14 @@ export class StateManager {
       unit?: string;
     }> = [
       { key: "battery_count", id: "battery_count", nameKey: "batteryCount", role: "value" },
-      { key: "power_w", id: "power_w", nameKey: "batteryPower", role: "value.power", unit: "W" },
+      {
+        key: "power_w",
+        id: "power_w",
+        nameKey: "batteryPower",
+        descKey: "batteryPowerDesc",
+        role: "value.power",
+        unit: "W",
+      },
       {
         key: "target_power_w",
         id: "target_power_w",

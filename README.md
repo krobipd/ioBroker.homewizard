@@ -15,7 +15,7 @@ Real-time energy monitoring for [HomeWizard](https://www.homewizard.com) Energy 
 - **HomeWizard API v2** — HTTPS + WebSocket, bearer-token authentication
 - **mDNS pairing** — `_homewizard._tcp` discovery, press the device button to pair
 - **WebSocket push** — measurements arrive ~1/s, with system and battery changes pushed in real time; REST polling takes over while the WebSocket reconnects
-- **Plug-In Battery control** — charge/discharge mode (including forecast-based `predictive` and a one-shot charge-to-full) and grid-feed permissions through the paired P1/kWh meter
+- **Plug-In Battery control** — operating mode (including forecast-based `predictive` and a one-shot charge-to-full) and charge/discharge permissions through the paired P1/kWh meter
 - **Adaptive reconnect** — devices with weak WiFi switch to a faster reconnect interval and keep REST polling running so data keeps flowing
 - **Encrypted device tokens** — stored per device object, no adapter restart on pairing or removal
 
@@ -34,7 +34,7 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 - **Node.js >= 22**
 - **ioBroker js-controller >= 7.2.2**
 - **ioBroker Admin >= 8.0.11**
-- **HomeWizard device with API v2 support** (firmware 4.x+ with local API enabled)
+- **HomeWizard device with API v2 support** — see the [compatibility list](https://api-documentation.homewizard.com/docs/introduction); nothing has to be switched on in the app
 
 > The adapter CANNOT be installed via GitHub: The adapter must be installed via the ioBroker repository (stable or latest).
 
@@ -49,7 +49,7 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 | kWh Meter 3-Phase | HWE-KWH3 (also sold as SDM630) |
 | Plug-In Battery   | HWE-BAT                        |
 
-The Plug-In Battery is paired separately and shows up as its own device. To control charge/discharge mode and grid-feed permissions, you write to the `battery.*` data points of the P1 or kWh meter — that's where HomeWizard exposes the battery commands. The `predictive` mode and the `charge_to_full` switch require recent device firmware (battery API 2.3.0+); older firmware rejects them and the value is simply not applied.
+The Plug-In Battery is paired separately and shows up as its own device. To control the operating mode and the charge/discharge permissions, you write to the `battery.*` data points of the P1 or kWh meter — that's where HomeWizard exposes the battery commands. The `predictive` mode and the `charge_to_full` switch require recent device firmware (battery API 2.3.0+); older firmware rejects them and the value is simply not applied.
 
 ---
 
@@ -57,16 +57,17 @@ The Plug-In Battery is paired separately and shows up as its own device. To cont
 
 ### Prerequisites
 
-The **local API** must be enabled on your HomeWizard device:
+The adapter uses the **local API v2** of the device. It needs no switch in the HomeWizard app — pairing is done by pressing the button on the device.
 
-1. Open the **HomeWizard app** on your phone
-2. Go to **Settings** > **Meters** > select your device > **Local API** > **Enable**
+The **Local API** switch in the HomeWizard app (Settings > Meters > your device) belongs to the old **v1 API**. It is not needed and should stay **off**: the v1 API has no encryption and no access token, so any host on your network could read and control the device.
+
+Each ioBroker system and adapter instance signs in on the device under its own name, so a test and a production system can use the same meter side by side.
 
 ### Adding a device (automatic via mDNS)
 
 1. Go to the **Objects** tab in ioBroker Admin
 2. Set `homewizard.0.startPairing` to `true`
-3. **Press the physical button** on your HomeWizard device within 60 seconds
+3. **Press the physical button** on your HomeWizard device within 60 seconds (kWh Meter: hold it for 1–3 seconds)
 4. The device is discovered automatically and appears under `homewizard.0`
 
 ### Adding a device (manual IP)
@@ -75,7 +76,7 @@ If mDNS is not available (e.g. different VLAN, Docker, or firewall blocking mult
 
 1. Set `homewizard.0.pairingIp` to the IP address of your device
 2. Set `homewizard.0.startPairing` to `true`
-3. **Press the physical button** on the device within 60 seconds
+3. **Press the physical button** on the device within 60 seconds (kWh Meter: hold it for 1–3 seconds)
 
 ### Managing devices
 
@@ -143,21 +144,21 @@ homewizard.0.
     │           ├── unit         — Unit (string)
     │           └── timestamp    — Last update (string)
     ├── battery/                 — Battery control (if batteries connected)
-    │   ├── mode                 — zero / to_full / standby / predictive (string, R/W)
+    │   ├── mode                 — zero / predictive, legacy: to_full / standby (string, R/W)
     │   ├── charge_to_full       — One-shot charge to 100% (bool, R/W)
     │   ├── permissions          — JSON array (string, R/W)
     │   ├── battery_count        — Connected batteries (number)
-    │   ├── power_w              — Battery power (number, W)
-    │   ├── target_power_w       — Target power (number, W)
+    │   ├── power_w              — Battery power, + charging / − discharging (number, W)
+    │   ├── target_power_w       — Target power, + charging / − discharging (number, W)
     │   ├── max_consumption_w    — Max consumption (number, W)
     │   └── max_production_w     — Max production (number, W)
     ├── remove                   — Remove device (button)
     └── system/                  — System settings
         ├── cloud_enabled        — Cloud communication (bool; R/W on meters, read-only on the Plug-In Battery)
-        ├── status_led_brightness_pct — LED brightness 0-100 (number, R/W)
-        ├── api_v1_enabled       — Toggle the device's deprecated v1 API (bool, R/W — leave off)
-        ├── reboot               — Reboot device (button)
-        └── identify             — Blink LED (button)
+        ├── status_led_brightness_pct — LED brightness 0-100 (number, R/W; not on the kWh Meter)
+        ├── api_v1_enabled       — Toggle the device's deprecated v1 API (bool, R/W — leave off; not on the Plug-In Battery)
+        ├── reboot               — Reboot device (button; not on the Plug-In Battery)
+        └── identify             — Blink LED (button; not on the kWh Meter)
 ```
 
 > States are created dynamically based on what the device reports. Not all devices have all states. kWh meters additionally provide apparent/reactive current, apparent/reactive power, and power factor states.
@@ -181,7 +182,8 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 ### Device not found during pairing
 
 - Make sure the device is on the same network/VLAN as the ioBroker server
-- Verify that **local API** is enabled in the HomeWizard app (Settings > Meters > your device > Local API)
+- Make sure the device speaks API v2 (see the compatibility list above); the Local API switch in the app is not needed
+- kWh Meter: hold the button for 1–3 seconds, a short press is not enough
 - Check that multicast/mDNS traffic is not blocked by your router/firewall
 
 ### WebSocket keeps disconnecting
@@ -193,7 +195,7 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 
 ### Token invalid after factory reset
 
-- Set the device's `remove` data point to `true`, then pair again
+- Pair the device again: set `startPairing` to `true` and press the button — the adapter accepts a device whose token no longer works, and its existing data points are kept. If mDNS does not reach it, set `pairingIp` first.
 
 ---
 

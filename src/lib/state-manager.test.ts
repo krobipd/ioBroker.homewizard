@@ -826,7 +826,7 @@ describe("StateManager", () => {
       const states = mode!.common.states as Record<string, string>;
       expect(states.zero).toContain("Zero");
       expect(states.to_full).toContain("To full");
-      expect(states.standby).toBe("Standby");
+      expect(states.standby).toBe("Standby (legacy)");
       for (const v of Object.values(states)) {
         expect(typeof v).toBe("string");
       }
@@ -859,6 +859,18 @@ describe("StateManager", () => {
       const powerObj = adapter.objects.get("hwe-p1_aabbccddeeff.battery.power_w");
       expect(powerObj?.common.unit).toBe("W");
       expect(powerObj?.common.role).toBe("value.power");
+    });
+
+    it("explains the sign of both battery power values the way the API reports it — charging is positive", async () => {
+      // Official API v2 docs (docs/v2/batteries): with only charging allowed the
+      // group reports target_power_w 400, with only discharging allowed -400, and
+      // charge_to_full reports the positive consumption maximum.
+      await manager.updateBattery(testDevice, battery);
+      for (const id of ["battery.power_w", "battery.target_power_w"]) {
+        const desc = adapter.objects.get(`hwe-p1_aabbccddeeff.${id}`)?.common.desc as Record<string, string>;
+        expect(desc.en).toMatch(/positive means charging, negative means discharging/);
+        expect(desc.de).toMatch(/positiv bedeutet Laden, negativ Entladen/);
+      }
     });
 
     it("should skip optional fields when undefined", async () => {

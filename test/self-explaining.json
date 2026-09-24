@@ -9,7 +9,6 @@
   "*.system.identify": "A button whose label already says what pressing it does.",
   "*.system.status_led_brightness_pct": "The name says what it sets, the percent unit gives the scale.",
   "*.battery.battery_count": "A count of exactly what the name says — the batteries the device reports.",
-  "*.battery.power_w": "A battery basic: the name names the quantity, the W unit gives the scale.",
   "*.measurement.state_of_charge_pct": "A battery basic: the name names the quantity, the percent unit gives the scale.",
   "*.measurement.power_w": "An electrical basic: the name names the quantity, the W unit gives the scale — unlike apparent and reactive power, which do carry a description.",
   "*.measurement.power_l1_w": "An electrical basic: the name names the quantity, the W unit gives the scale — unlike apparent and reactive power, which do carry a description.",

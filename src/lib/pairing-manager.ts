@@ -334,7 +334,7 @@ export class PairingManager {
         if (!this.warnedIps.has(device.ip)) {
           this.warnedIps.add(device.ip);
           this.adapter.log.warn(
-            `Pairing with ${device.ip} failed — device unreachable, or its local API v2 turned off? ` +
+            `Pairing with ${device.ip} failed — device unreachable, or it does not speak API v2? ` +
               `(${errText(err)})`,
           );
         } else {

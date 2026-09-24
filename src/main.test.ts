@@ -786,6 +786,10 @@ describe("HomeWizard pollPairing", () => {
     const warns = i.log.warn.mock.calls.filter((c: unknown[]) => String(c[0]).includes("192.168.1.70"));
     expect(warns, "one warning per device and window").toHaveLength(1);
     expect(String(warns[0][0])).toContain("ECONNREFUSED");
+    // The hint names the real cause. The app's "Local API" switch is the old v1 API
+    // and has nothing to do with v2 pairing (official docs, getting-started).
+    expect(String(warns[0][0])).toContain("does not speak API v2");
+    expect(String(warns[0][0])).not.toMatch(/local API/i);
 
     // A new window starts the count over — the user may have fixed the address.
     i.pairingManager.stop();
