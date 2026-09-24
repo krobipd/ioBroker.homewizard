@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   coerceFiniteNumber,
   errText,
+  isPlainObject,
   isValidIpv4,
   parseBatteryPermissions,
   sanitizeForLog,
@@ -349,25 +350,35 @@ export class HomeWizard extends utils.Adapter {
         await this.setStateChangedAsync("info.connection", { val: false, ack: true });
       }
 
+      // One device that cannot be set up (a failed object write, a damaged entry
+      // the load let through) must not cost the others their start — nor the
+      // system poll timer and the summary below, which sit after this loop.
       for (const device of devices) {
-        const key = this.stateManager.devicePrefix(device);
-        await this.stateManager.cleanupMovedStates(device, existingIds);
-        await this.stateManager.createDeviceStates(device);
-        // Stamp before the first connection attempt: the previous run's value
-        // survives in the database, so without this a device that was green when
-        // the adapter died stays green until its first WebSocket result — and
-        // forever if it never reconnects.
-        await this.stateManager.setDeviceConnected(device, false);
-        const conn = createDeviceConnection(device, device.ip || "");
-        this.connections.set(key, conn);
+        try {
+          const key = this.stateManager.devicePrefix(device);
+          await this.stateManager.cleanupMovedStates(device, existingIds);
+          await this.stateManager.createDeviceStates(device);
+          // Stamp before the first connection attempt: the previous run's value
+          // survives in the database, so without this a device that was green when
+          // the adapter died stays green until its first WebSocket result — and
+          // forever if it never reconnects.
+          await this.stateManager.setDeviceConnected(device, false);
+          const conn = createDeviceConnection(device, device.ip || "");
+          this.connections.set(key, conn);
 
-        if (conn.ip) {
-          this.log.debug(`Using stored IP ${conn.ip} for ${deviceLabel(device)}`);
-          void this.connectionManager
-            .initDevice(conn)
-            .catch((err: unknown) =>
-              this.log.error(`initDevice failed for ${deviceLabel(conn.config)}: ${errText(err)}`),
-            );
+          if (conn.ip) {
+            this.log.debug(`Using stored IP ${conn.ip} for ${deviceLabel(device)}`);
+            void this.connectionManager
+              .initDevice(conn)
+              .catch((err: unknown) =>
+                this.log.error(`initDevice failed for ${deviceLabel(conn.config)}: ${errText(err)}`),
+              );
+          }
+        } catch (err: unknown) {
+          this.log.warn(
+            `${deviceLabel(device)}: could not be set up (${errText(err)}) — the other devices continue; ` +
+              `restart the adapter to try again`,
+          );
         }
       }
 
@@ -447,14 +458,24 @@ export class HomeWizard extends utils.Adapter {
         continue;
       }
       const localId = id.replace(`${this.namespace}.`, "");
-      const native = obj.native as Record<string, string> | undefined;
-      if (!native?.encryptedToken || !native.serial) {
+      // The stored fields are read as what they are, not cast: a hand-edited or
+      // damaged entry can carry a number or an object where a string belongs, and
+      // a cast lets that through to `sanitize()`/`decrypt()`, which then throw.
+      const native: Record<string, unknown> = isPlainObject(obj.native) ? obj.native : {};
+      const text = (value: unknown): string => (typeof value === "string" ? value : "");
+      const encryptedToken = text(native.encryptedToken);
+      const serial = text(native.serial);
+      const productType = text(native.productType);
+      const productName = text(native.productName);
+      const ip = text(native.ip);
+      const certCn = text(native.certCn);
+      if (!encryptedToken || !serial) {
         // Every device object this adapter writes carries both fields, so one
         // without them is damaged (a hand-edited database, an interrupted write).
         // Say so: the device silently disappears from the adapter otherwise, and
         // the user is left with a folder full of data points that never update.
         this.log.warn(
-          `${localId}: device entry is incomplete (no stored token or serial) — it is skipped. ` +
+          `${localId}: device entry is incomplete (no readable token or serial) — it is skipped. ` +
             `Set its 'remove' data point to true to delete it, then pair the device again.`,
         );
         continue;
@@ -462,7 +483,7 @@ export class HomeWizard extends utils.Adapter {
       this.log.debug(`Loading device from object: ${localId}`);
       let token: string;
       try {
-        token = this.decrypt(native.encryptedToken);
+        token = this.decrypt(encryptedToken);
       } catch (err) {
         this.log.warn(
           `Cannot decrypt token for ${localId} — pair the device again, or set its 'remove' data point ` +
@@ -472,13 +493,13 @@ export class HomeWizard extends utils.Adapter {
       }
       devices.push({
         token,
-        productType: native.productType || "unknown",
-        serial: native.serial,
+        productType: productType || "unknown",
+        serial,
         // L9: clean a possibly-dirty stored name on load too (pre-fix install or
         // a manual DB edit) — keeps the object name and every log line newline-free.
-        productName: sanitizeForLog(native.productName || native.productType || "unknown"),
-        ...(native.ip && isValidIpv4(native.ip) ? { ip: native.ip } : {}),
-        ...(native.certCn ? { certCn: native.certCn } : {}),
+        productName: sanitizeForLog(productName || productType || "unknown"),
+        ...(ip && isValidIpv4(ip) ? { ip } : {}),
+        ...(certCn ? { certCn } : {}),
       });
     }
 
@@ -495,7 +516,7 @@ export class HomeWizard extends utils.Adapter {
     const encryptedToken = this.encrypt(config.token);
     await this.extendObject(prefix, {
       type: "device",
-      // No `preserve`: the name follows the device (i.e. the HomeWizard app), like
+      // No `preserve`: the name is the product name the device reports, like
       // every other label in this tree — see DD21.
       common: { name: deviceObjectName(config) },
       native: {

@@ -129,13 +129,14 @@ export class StateManager {
 
     this.adapter.log.debug(`state-manager: createDeviceStates ${prefix} (productType=${config.productType})`);
 
-    // Device-Object: common.name keeps the user-supplied product name (or product type as fallback) —
-    // these are device-specific identifiers, NOT translatable.
+    // Device object: common.name is the product name the device reports (product type as
+    // fallback) — a device-given text, NOT translatable.
     const icon = deviceIcon(config.productType);
     // No `preserve`: the adapter owns every name in its own tree, this one included.
-    // The name's SOURCE is the device — it follows the name in the HomeWizard app,
-    // and a rename made in the object tree is put back at the next sync, like every
-    // other label. A user's own data points belong in `0_userdata`.
+    // The name's SOURCE is the device's fixed `product_name` (the API has no field for
+    // the name set in the HomeWizard app); a rename made in the object tree is put
+    // back at the next start, like every other label. A user's own data points
+    // belong in `0_userdata`.
     await this.adapter.extendObject(prefix, {
       type: "device",
       common: {

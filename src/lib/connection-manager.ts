@@ -726,8 +726,8 @@ export class ConnectionManager {
         .getStateManager()
         .updateSystem(conn.config, system, () => conn.removed || this.host.isUnloading());
 
-      // Pick up identity drift while running: the user renames the device in the
-      // HomeWizard app, or the device updates its own firmware. I7/F3: the
+      // Pick up identity drift while running: a firmware update changes the
+      // product name or the version the device reports. I7/F3: the
       // downtime-rename is already caught in initDevice from its getDeviceInfo, so
       // the poll only needs the running case — every Nth poll (~10 min) is plenty
       // and avoids a redundant getDeviceInfo on the first poll after initDevice.

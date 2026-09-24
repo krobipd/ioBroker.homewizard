@@ -1280,6 +1280,62 @@ describe("HomeWizard onReady", () => {
     expect(wsInstances.length).toBeGreaterThanOrEqual(1); // initDevice → connectWebSocket
   });
 
+  it("skips a device entry whose serial is not text and starts the others", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      "homewizard.0.hwe-p1_bad": {
+        type: "device",
+        native: { encryptedToken: "tokX", serial: 12345, productType: "HWE-P1", ip: "192.168.1.9" },
+      },
+      "homewizard.0.hwe-p1_dev1": {
+        type: "device",
+        native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
+      },
+    });
+    await i.onReady();
+    await settle();
+
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("hwe-p1_bad: device entry is incomplete"));
+    expect([...i.connections.keys()]).toEqual(["hwe-p1_dev1"]);
+    expect(i.setInterval).toHaveBeenCalled(); // system poll
+  });
+
+  it("one device failing its setup does not stop the others, the poll timer or the summary", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      "homewizard.0.hwe-p1_dev1": {
+        type: "device",
+        native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
+      },
+      "homewizard.0.hwe-p1_dev2": {
+        type: "device",
+        native: { encryptedToken: "tok2", serial: "dev2", productType: "HWE-P1", productName: "P1", ip: "192.168.1.7" },
+      },
+    });
+    // onReady builds its own StateManager — make the object write for the first
+    // device's tree fail, the way a database hiccup would.
+    const realExtend = i.extendObject.getMockImplementation();
+    i.extendObject.mockImplementation((id: string, ...rest: unknown[]) =>
+      id === "hwe-p1_dev1"
+        ? Promise.reject(new Error("db write failed"))
+        : (realExtend?.(id, ...rest) ?? Promise.resolve()),
+    );
+    await i.onReady();
+    await settle();
+
+    expect(i.log.warn).toHaveBeenCalledWith(
+      expect.stringContaining("P1 (hwe-p1_dev1): could not be set up (db write failed)"),
+    );
+    expect(i.connections.has("hwe-p1_dev2")).toBe(true);
+    expect(i.setInterval).toHaveBeenCalled();
+    expect(i.setStateChangedAsync).toHaveBeenCalledWith("info.devicesTotal", { val: 1, ack: true });
+    expect(i.log.error).not.toHaveBeenCalledWith(expect.stringContaining("onReady failed"));
+  });
+
   it("sweeps a stored device's moved paths off the object list it already holds", async () => {
     const { hw } = setup();
     const i = internalOf(hw);
