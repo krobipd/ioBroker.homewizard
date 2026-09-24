@@ -803,22 +803,35 @@ export class StateManager {
    * owns its datapoint inventory, so it clears them instead of leaving them to
    * age. A battery that comes back re-creates the branch on the next poll.
    *
+   * The branch counts as present when the channel OR any object below it exists:
+   * a branch whose channel was lost (an interrupted delete, a hand edit) would
+   * otherwise keep its leaves for good. The recursive delete takes them without
+   * the channel — js-controller collects the children by id range, not through
+   * the parent. The id is marked removed BEFORE the delete: the label retrofit
+   * runs concurrently at start-up, and an `extendObject` on a leaf deleted a
+   * moment earlier would bring it back as a shell (DD38).
+   *
    * @param config Device configuration
    * @returns `true` when a branch was actually removed, `false` when there was none
    */
   async removeBatteryStates(config: DeviceConfig): Promise<boolean> {
     const prefix = this.devicePrefix(config);
     const channel = `${prefix}.battery`;
-    if (!(await this.adapter.getObjectAsync(channel))) {
+    let present = Boolean(await this.adapter.getObjectAsync(channel));
+    if (!present) {
+      const leaves = await this.adapter.getForeignObjectsAsync(`${this.adapter.namespace}.${channel}.*`);
+      present = Object.keys(leaves ?? {}).length > 0;
+    }
+    if (!present) {
       return false;
     }
+    this.removedIds.add(channel);
     await this.adapter.delObjectAsync(channel, { recursive: true });
     for (const id of this.createdIds) {
       if (id === channel || id.startsWith(`${channel}.`)) {
         this.createdIds.delete(id);
       }
     }
-    this.removedIds.add(channel);
     return true;
   }
 

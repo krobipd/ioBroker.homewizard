@@ -70,6 +70,7 @@ interface MockAdapter {
   setObjectNotExistsAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
   setForeignObject: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
   getObjectAsync: (id: string) => Promise<ObjectDef | null>;
+  getForeignObjectsAsync: (pattern: string) => Promise<Record<string, ObjectDef>>;
   setState: (id: string, state: StateValue) => Promise<void>;
   setStateChangedAsync: (id: string, state: StateValue) => Promise<void>;
   delObjectAsync: (id: string, opts?: { recursive: boolean }) => Promise<void>;
@@ -220,6 +221,22 @@ function createMockAdapter(): MockAdapter {
     getObjectAsync: (id: string): Promise<ObjectDef | null> => {
       const obj = objects.get(id);
       return Promise.resolve(obj ? structuredClone(obj) : null);
+    },
+    // Glob over full ids, `*` = any run of characters — the controller's pattern form.
+    getForeignObjectsAsync: (pattern: string): Promise<Record<string, ObjectDef>> => {
+      const re = new RegExp(
+        `^${pattern
+          .split("*")
+          .map(p => p.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
+          .join(".*")}$`,
+      );
+      const hits: Record<string, ObjectDef> = {};
+      for (const [id, obj] of objects) {
+        if (re.test(`homewizard.0.${id}`)) {
+          hits[`homewizard.0.${id}`] = structuredClone(obj);
+        }
+      }
+      return Promise.resolve(hits);
     },
     setState: (id: string, state: StateValue): Promise<void> => {
       metrics.stateWrites++;
@@ -1237,6 +1254,38 @@ describe("StateManager", () => {
       expect([...adapter.objects.keys()].filter(id => id.includes(".battery"))).toEqual([]);
       // The rest of the device is untouched — this removes a branch, not a device.
       expect(adapter.objects.has("hwe-p1_aabbccddeeff")).toBe(true);
+    });
+
+    it("removes leaves whose channel is already gone — a lost channel must not keep them for good", async () => {
+      adapter.objects.set("hwe-p1_aabbccddeeff.battery.mode", { type: "state", common: {}, native: {} });
+      adapter.objects.set("hwe-p1_aabbccddeeff.battery.power_w", { type: "state", common: {}, native: {} });
+
+      expect(await manager.removeBatteryStates(testDevice)).toBe(true);
+      expect([...adapter.objects.keys()].filter(id => id.includes(".battery"))).toEqual([]);
+    });
+
+    it("the label retrofit running during the delete brings nothing back (removed is marked first)", async () => {
+      const base = "hwe-p1_aabbccddeeff";
+      for (const id of ["battery", "battery.mode", "battery.power_w"]) {
+        adapter.objects.set(`${base}.${id}`, { type: id === "battery" ? "channel" : "state", common: {}, native: {} });
+      }
+      const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+      // The controller removes the objects first and answers later — the retrofit
+      // gets its turn in between.
+      const realDel = adapter.delObjectAsync;
+      let release!: () => void;
+      adapter.delObjectAsync = async (id, opts) => {
+        await realDel(id, opts);
+        await new Promise<void>(resolve => (release = resolve));
+      };
+
+      const removal = manager.removeBatteryStates(testDevice);
+      await vi.waitFor(() => expect(adapter.objects.has(`${base}.battery.mode`)).toBe(false));
+      await manager.refreshExistingNames(testDevice, existing);
+      release();
+      await removal;
+
+      expect([...adapter.objects.keys()].filter(id => id.includes(".battery"))).toEqual([]);
     });
 
     it("reports false when there is no battery branch — the caller must not log a removal", async () => {
