@@ -1720,7 +1720,12 @@ describe("StateManager", () => {
           return origSetState(id, state);
         };
         const isStale = (): boolean => stale;
-        await manager.updateSystem(device, fullSystem, isStale);
+        // Every field the device can report, so every write the method can make happens.
+        await manager.updateSystem(
+          device,
+          { ...fullSystem, api_v1_enabled: false, status_led_brightness_pct: 50 },
+          isStale,
+        );
         writes = 0;
         stale = false;
         flipId = "";
