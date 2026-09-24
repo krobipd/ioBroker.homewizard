@@ -1517,6 +1517,25 @@ describe("StateManager", () => {
       expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.charge_to_full")?.val).toBe(true);
     });
 
+    it("stops writing as soon as the device is removed mid-update — no orphans after the delete", async () => {
+      let checks = 0;
+      const removedAfterFirstWrite = (): boolean => checks++ >= 1;
+      await manager.updateSystem(testDevice, fullSystem, removedAfterFirstWrite);
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff.info.wifi_ssid")).toBe(true);
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff.info.wifi_rssi_db")).toBe(false);
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff.system.cloud_enabled")).toBe(false);
+
+      checks = 0;
+      await manager.updateBattery(
+        testDevice,
+        { mode: "zero", battery_count: 1, power_w: 5, permissions: [] } as unknown as BatteryControl,
+        removedAfterFirstWrite,
+      );
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff.battery.mode")).toBe(true);
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff.battery.permissions")).toBe(false);
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff.battery.power_w")).toBe(false);
+    });
+
     it("a kWh Meter gets no Identify button — the device has no such action (docs/v2/system)", async () => {
       const kwh: DeviceConfig = { ...testDevice, productType: "HWE-KWH1", serial: "kwh001" };
       await manager.updateSystem(kwh, fullSystem);

@@ -451,6 +451,26 @@ describe("HomeWizard onWsDisconnected", () => {
     expect(setTimeoutSpy).not.toHaveBeenCalled(); // auth-stop → no reconnect scheduled
   });
 
+  it("a WebSocket auth-stop also ends a running fallback, and says so once", async () => {
+    const { hw, client, conn } = setup();
+    const i = internalOf(hw);
+    const authErr = new HomeWizardApiError(401, JSON.stringify({ error: { code: "user:unauthorized" } }), "ws");
+    // The fallback from an earlier drop is running.
+    i.connectionManager.startRestFallback(conn);
+    const poll = i.setInterval.mock.calls.at(-1)![0] as () => Promise<void>;
+    expect(conn.pollTimer).toBeDefined();
+
+    conn.authFailCount = 2;
+    i.connectionManager.onWsDisconnected(conn, authErr);
+    expect(conn.pollTimer, "the fallback would keep sending the rejected token").toBeUndefined();
+
+    // A request already in flight on the fallback is rejected too — same news.
+    client.getMeasurement.mockRejectedValue(authErr);
+    await poll();
+    const tokenWarnings = i.log.warn.mock.calls.filter(c => String(c[0]).includes("token invalid"));
+    expect(tokenWarnings).toHaveLength(1);
+  });
+
   it("F1: a bare 401 with a non-canonical body also auth-stops after repeated failures", () => {
     const { hw, conn } = setup();
     conn.authFailCount = 2; // one more reaches MAX_AUTH_FAILURES (3)
@@ -669,6 +689,7 @@ function internalOf(hw: HomeWizard): {
     connectWebSocket: (c: DeviceConnection) => void;
     dropCooldowns: (serial: string) => void;
     handleAuthFailure: (c: DeviceConnection, e: unknown, cleanupTimers: boolean) => boolean;
+    refreshGroup: (c: DeviceConnection, group: "system" | "battery") => Promise<void>;
   };
 } {
   return hw as unknown as ReturnType<typeof internalOf>;
@@ -1566,6 +1587,19 @@ describe("HomeWizard onWsMeasurement", () => {
   });
 });
 
+describe("HomeWizard refreshGroup", () => {
+  it("a battery read-back with no battery on the meter creates no battery branch", async () => {
+    const { hw, client, conn, stateMgr } = setup();
+    client.getBatteries.mockResolvedValue({ mode: "zero", battery_count: 0 });
+    await internalOf(hw).connectionManager.refreshGroup(conn, "battery");
+    expect(stateMgr.updateBattery).not.toHaveBeenCalled();
+
+    client.getBatteries.mockResolvedValue({ mode: "zero", battery_count: 1 });
+    await internalOf(hw).connectionManager.refreshGroup(conn, "battery");
+    expect(stateMgr.updateBattery).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("HomeWizard pollSystemInfo", () => {
   it("updates system states and skips batteries on 404 (device does not manage any)", async () => {
     const { hw, client, conn, stateMgr } = setup();
@@ -1591,7 +1625,24 @@ describe("HomeWizard pollSystemInfo", () => {
     const { hw, client, conn, stateMgr } = setup();
     client.getBatteries.mockResolvedValue({ mode: "zero", battery_count: 2 });
     await internalOf(hw).connectionManager.pollSystemInfo(conn);
-    expect(stateMgr.updateBattery).toHaveBeenCalledWith(conn.config, { mode: "zero", battery_count: 2 });
+    expect(stateMgr.updateBattery).toHaveBeenCalledWith(
+      conn.config,
+      { mode: "zero", battery_count: 2 },
+      expect.any(Function),
+    );
+  });
+
+  it("a device removed while its system poll hangs logs nothing when the request then fails", async () => {
+    const { hw, client, conn } = setup();
+    const i = internalOf(hw);
+    let fail!: (e: unknown) => void;
+    client.getSystem.mockReturnValue(new Promise((_resolve, reject) => (fail = reject)));
+    const poll = i.connectionManager.pollSystemInfo(conn);
+    conn.removed = true;
+    fail(Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }));
+    await poll;
+    expect(i.log.warn).not.toHaveBeenCalled();
+    expect(i.log.info).not.toHaveBeenCalled();
   });
 
   it("syncs productName drift on the periodic (every 10th) poll (I7/F3)", async () => {
@@ -1841,6 +1892,37 @@ describe("HomeWizard startRestFallback (poll body)", () => {
     await poll();
     expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("token invalid"));
     expect(conn.pollTimer).toBeUndefined();
+  });
+
+  it("another device at the address stops the fallback — even for an unstable device — with one clear warning", async () => {
+    const { hw, client, conn } = setup();
+    const i = internalOf(hw);
+    conn.recentDisconnects = 3; // unstable: a network error would keep it polling
+    client.getMeasurement.mockRejectedValue(
+      Object.assign(new Error('HomeWizard certificate CN mismatch: expected "a", got "b"'), {
+        code: "HW_CERT_IDENTITY",
+      }),
+    );
+    const poll = startAndCapture(hw, conn);
+    await poll();
+    expect(conn.pollTimer).toBeUndefined();
+    expect(i.log.warn).toHaveBeenCalledWith(
+      expect.stringMatching(/another device answers at .* — its address has probably changed$/),
+    );
+  });
+
+  it("a device removed while its poll hangs logs nothing when the request then fails", async () => {
+    const { hw, client, conn } = setup();
+    const i = internalOf(hw);
+    let fail!: (e: unknown) => void;
+    client.getMeasurement.mockReturnValue(new Promise((_resolve, reject) => (fail = reject)));
+    const poll = startAndCapture(hw, conn);
+    const running = poll();
+    conn.removed = true;
+    fail(new HomeWizardApiError(500, "{}", "GET /api/measurement"));
+    await running;
+    expect(i.log.warn).not.toHaveBeenCalled();
+    expect(i.log.info).not.toHaveBeenCalled();
   });
 
   it("does not fetch for a removed device or during unload", async () => {

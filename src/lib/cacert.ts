@@ -85,7 +85,7 @@ export function createDeviceAgent(expectedCn: string): https.Agent {
         if (cn === expectedCn) {
           return undefined;
         }
-        return new Error(`HomeWizard certificate CN mismatch: expected "${expectedCn}", got "${cn ?? "?"}"`);
+        return identityError(`HomeWizard certificate CN mismatch: expected "${expectedCn}", got "${cn ?? "?"}"`);
       },
     });
     deviceAgents.set(expectedCn, agent);
@@ -94,6 +94,17 @@ export function createDeviceAgent(expectedCn: string): https.Agent {
 }
 
 const serialDeviceAgents = new Map<string, https.Agent>();
+
+/**
+ * The error a failed certificate pin reports. TLS hands it through unchanged, so
+ * its `code` reaches `classifyError` — which files it as IDENTITY (another device
+ * answers at the stored address) instead of an anonymous UNKNOWN.
+ *
+ * @param message What did not match
+ */
+function identityError(message: string): Error {
+  return Object.assign(new Error(message), { code: "HW_CERT_IDENTITY" });
+}
 
 /**
  * Per-device HTTPS agent that pins by the certificate's serial SUFFIX instead of a
@@ -124,7 +135,7 @@ export function createDeviceAgentForSerial(serial: string): https.Agent {
         if (cn && cn.endsWith(expectedSuffix)) {
           return undefined;
         }
-        return new Error(`HomeWizard certificate CN "${cn ?? "?"}" does not match device serial "${serial}"`);
+        return identityError(`HomeWizard certificate CN "${cn ?? "?"}" does not match device serial "${serial}"`);
       },
     });
     serialDeviceAgents.set(serial, agent);

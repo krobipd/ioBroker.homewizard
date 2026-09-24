@@ -10,6 +10,16 @@ const testConfig: DeviceConfig = {
 };
 
 describe("classifyError", () => {
+  it.each([
+    "HW_CERT_IDENTITY",
+    "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+    "SELF_SIGNED_CERT_IN_CHAIN",
+    "DEPTH_ZERO_SELF_SIGNED_CERT",
+    "ERR_TLS_CERT_ALTNAME_INVALID",
+  ])("files %s as IDENTITY — another device answers at the address", code => {
+    expect(classifyError(Object.assign(new Error("x"), { code }))).toBe("IDENTITY");
+  });
+
   describe("HomeWizardApiError", () => {
     it("should classify unauthorized as AUTH", () => {
       const body = JSON.stringify({ error: { code: "user:unauthorized" } });

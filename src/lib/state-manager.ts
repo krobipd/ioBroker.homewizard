@@ -382,8 +382,8 @@ export class StateManager {
    * @param config  Device configuration
    * @param system  System info data
    * @param isStale L1: optional guard `() => conn.removed || this.unloading` —
-   *   re-checked after the system-channel create so a device removed mid-poll
-   *   doesn't get its `system.*` control states re-created as orphans.
+   *   re-checked before every write so a device removed mid-poll doesn't get its
+   *   `info.*`/`system.*` states re-created as orphans.
    */
   async updateSystem(config: DeviceConfig, system: SystemInfo, isStale?: () => boolean): Promise<void> {
     if (!isPlainObject(system)) {
@@ -399,6 +399,9 @@ export class StateManager {
       const value = field.type === "number" ? coerceFiniteNumber(record[field.key]) : coerceString(record[field.key]);
       if (value === null) {
         continue;
+      }
+      if (isStale?.()) {
+        return;
       }
       await this.ensureAndSet({
         id: `${prefix}.info.${field.key}`,
@@ -437,6 +440,9 @@ export class StateManager {
       });
     }
     const ledPct = coerceFiniteNumber(record.status_led_brightness_pct);
+    if (isStale?.()) {
+      return;
+    }
     if (ledPct !== null) {
       await this.ensureAndSet({
         id: `${prefix}.system.status_led_brightness_pct`,
@@ -453,6 +459,9 @@ export class StateManager {
     }
 
     const apiV1 = coerceBoolean(record.api_v1_enabled);
+    if (isStale?.()) {
+      return;
+    }
     if (apiV1 !== null) {
       await this.ensureAndSet({
         id: `${prefix}.system.api_v1_enabled`,
@@ -467,10 +476,16 @@ export class StateManager {
     }
 
     // Action buttons (reboot is unsupported on the Plug-In Battery)
+    if (isStale?.()) {
+      return;
+    }
     if (!isBattery) {
       await this.createButton(`${prefix}.system.reboot`, tName("rebootDevice"));
     }
     // The kWh Meter has no Identify action (official docs, docs/v2/system).
+    if (isStale?.()) {
+      return;
+    }
     if (supportsIdentify(config.productType)) {
       await this.createButton(`${prefix}.system.identify`, tName("identify"));
     }
@@ -481,8 +496,11 @@ export class StateManager {
    *
    * @param config Device configuration
    * @param battery Battery control data
+   * @param isStale Optional guard `() => conn.removed || this.unloading`, re-checked
+   *   before every write (like {@link updateSystem}): a device removed while its
+   *   battery group is being written must not get the branch back as orphans.
    */
-  async updateBattery(config: DeviceConfig, battery: BatteryControl): Promise<void> {
+  async updateBattery(config: DeviceConfig, battery: BatteryControl, isStale?: () => boolean): Promise<void> {
     if (!isPlainObject(battery)) {
       return;
     }
@@ -492,6 +510,9 @@ export class StateManager {
     await this.ensureChannel(`${prefix}.battery`, () => tName("batteryControl"));
 
     const mode = coerceString(record.mode);
+    if (isStale?.()) {
+      return;
+    }
     if (mode) {
       await this.ensureAndSet({
         id: `${prefix}.battery.mode`,
@@ -504,6 +525,9 @@ export class StateManager {
         states: batteryModeStates(),
         changedOnly: true,
       });
+    }
+    if (isStale?.()) {
+      return;
     }
     if (Array.isArray(record.permissions)) {
       await this.ensureAndSet({
@@ -519,6 +543,9 @@ export class StateManager {
     }
     // charge_to_full (API 2.3.0) — writable switch: charge all batteries to 100%.
     const chargeToFull = coerceBoolean(record.charge_to_full);
+    if (isStale?.()) {
+      return;
+    }
     if (chargeToFull !== null) {
       await this.ensureAndSet({
         id: `${prefix}.battery.charge_to_full`,
@@ -575,6 +602,9 @@ export class StateManager {
       },
     ];
     for (const field of numberFields) {
+      if (isStale?.()) {
+        return;
+      }
       const coerced = coerceFiniteNumber(record[field.key]);
       if (coerced !== null) {
         await this.ensureAndSet({

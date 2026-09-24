@@ -29,6 +29,20 @@ export function createDeviceConnection(config: DeviceConfig, ip: string): Device
 }
 
 /**
+ * Error codes that say "the device at this address is not the paired one": the
+ * certificate pin failed (`HW_CERT_IDENTITY`, set in cacert.ts), or the answer does
+ * not come from a HomeWizard certificate chain at all (another host took the
+ * address — Node's TLS verification codes).
+ */
+const IDENTITY_CODES = new Set([
+  "HW_CERT_IDENTITY",
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  "SELF_SIGNED_CERT_IN_CHAIN",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+  "ERR_TLS_CERT_ALTNAME_INVALID",
+]);
+
+/**
  * Classify an error for deduplication and log-level decisions.
  * Returns a stable category string regardless of error message details.
  *
@@ -55,6 +69,9 @@ export function classifyError(err: unknown): string {
     }
     if (code === "ETIMEDOUT" || err.message.includes("Timeout")) {
       return "TIMEOUT";
+    }
+    if (code && IDENTITY_CODES.has(code)) {
+      return "IDENTITY";
     }
     return code || "UNKNOWN";
   }

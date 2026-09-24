@@ -1,5 +1,7 @@
 import * as https from "node:https";
 import type { AddressInfo } from "node:net";
+import { createDeviceAgent } from "./cacert";
+import { classifyError } from "./connection-utils";
 import { HomeWizardApiError, HomeWizardClient } from "./homewizard-client";
 
 // Pre-generated self-signed RSA-2048 cert/key pair for `localhost` (CN+SAN), 100-year validity.
@@ -426,6 +428,39 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
       const req = stub.requests[0];
       expect(req.method).toBe("PUT");
       expect(JSON.parse(req.body)).toEqual({ mode: "to_full" });
+    });
+  });
+
+  describe("another device at the address (real TLS handshake)", () => {
+    it("a certificate for a different device is reported as IDENTITY, not as an anonymous error", async () => {
+      // The pin check of a real device agent, over a chain this stub can satisfy —
+      // the stub's certificate is trusted, but its CN is not the paired device.
+      const pin = (
+        createDeviceAgent("appliance/p1dongle/aabbccddeeff").options as {
+          checkServerIdentity: https.AgentOptions["checkServerIdentity"];
+        }
+      ).checkServerIdentity;
+      const agent = new https.Agent({ ca: TEST_CERT_PEM, rejectUnauthorized: true, checkServerIdentity: pin });
+      const pinned = new HomeWizardClient("127.0.0.1", "test-token", { agent, port: stub.port });
+
+      const err = await pinned.getDeviceInfo().then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+      expect((err as { code?: unknown }).code).toBe("HW_CERT_IDENTITY");
+      expect(classifyError(err)).toBe("IDENTITY");
+      expect(stub.requests, "the token must never reach the wrong device").toHaveLength(0);
+    });
+
+    it("an answer without a HomeWizard certificate chain is IDENTITY too", async () => {
+      const agent = new https.Agent({ rejectUnauthorized: true });
+      const strict = new HomeWizardClient("127.0.0.1", "test-token", { agent, port: stub.port });
+
+      const err = await strict.getDeviceInfo().then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+      expect(classifyError(err)).toBe("IDENTITY");
     });
   });
 

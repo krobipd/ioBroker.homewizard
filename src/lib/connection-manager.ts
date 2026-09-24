@@ -483,7 +483,7 @@ export class ConnectionManager {
     conn.batteryBusy = true;
     this.host
       .getStateManager()
-      .updateBattery(conn.config, data)
+      .updateBattery(conn.config, data, () => conn.removed || this.host.isUnloading())
       .catch((err: unknown) => {
         this.adapter.log.debug(`updateBattery (ws) failed for ${deviceLabel(conn.config)}: ${errText(err)}`);
       })
@@ -602,8 +602,13 @@ export class ConnectionManager {
       this.logDeviceError(conn, "ws", error);
     }
 
-    // Auth failure → stop the reconnect path.
+    // Auth failure → stop the reconnect path — and a fallback started by an
+    // earlier drop, which would otherwise keep sending the rejected token.
     if (!this.handleAuthFailure(conn, error, /* cleanupTimers */ false)) {
+      if (conn.pollTimer) {
+        this.adapter.clearInterval(conn.pollTimer);
+        conn.pollTimer = undefined;
+      }
       return;
     }
 
@@ -664,7 +669,8 @@ export class ConnectionManager {
           .getStateManager()
           .updateMeasurement(conn.config, data, () => conn.removed || this.host.isUnloading());
       } catch (err) {
-        if (this.host.isUnloading()) {
+        // A removed device's late answer is not news — its tree and timers are gone.
+        if (this.host.isUnloading() || conn.removed) {
           return;
         }
         // No answer — the fallback no longer proves the device is there.
@@ -678,8 +684,11 @@ export class ConnectionManager {
         }
 
         // Stop REST polling on network errors for stable devices.
-        // Unstable devices keep polling (slower) to minimize data gaps.
-        if (!unstable && classifyError(err) === "NETWORK" && conn.pollTimer) {
+        // Unstable devices keep polling (slower) to minimize data gaps. Another
+        // device at the address stops it for every device: polling the wrong
+        // device again is no data gap closed, weak signal or not.
+        const category = classifyError(err);
+        if ((category === "IDENTITY" || (!unstable && category === "NETWORK")) && conn.pollTimer) {
           this.adapter.clearInterval(conn.pollTimer);
           conn.pollTimer = undefined;
         }
@@ -769,7 +778,9 @@ export class ConnectionManager {
         if (battery && battery.battery_count && battery.battery_count > 0) {
           conn.batteryAbsentPolls = 0;
           conn.batteryUnsupported = false;
-          await this.host.getStateManager().updateBattery(conn.config, battery);
+          await this.host
+            .getStateManager()
+            .updateBattery(conn.config, battery, () => conn.removed || this.host.isUnloading());
         } else if (battery) {
           // The meter answered and says there is no battery. Once that holds
           // across two consecutive polls — a single frame could be a firmware
@@ -810,7 +821,7 @@ export class ConnectionManager {
         this.adapter.log.debug(`${deviceLabel(conn.config)} batteries: ${errText(err)}`);
       }
     } catch (err) {
-      if (this.host.isUnloading()) {
+      if (this.host.isUnloading() || conn.removed) {
         return;
       }
       this.logDeviceError(conn, "system", err);
@@ -848,8 +859,12 @@ export class ConnectionManager {
         if (conn.removed || this.host.isUnloading()) {
           return;
         }
-        if (battery) {
-          await this.host.getStateManager().updateBattery(conn.config, battery);
+        // Same rule as the poll: no battery on the meter, no battery branch — a
+        // read-back must not create it where the poll would not (or just removed it).
+        if (battery && battery.battery_count && battery.battery_count > 0) {
+          await this.host
+            .getStateManager()
+            .updateBattery(conn.config, battery, () => conn.removed || this.host.isUnloading());
         }
       }
     } catch (err) {
@@ -931,7 +946,11 @@ export class ConnectionManager {
     if (conn.authFailCount < MAX_AUTH_FAILURES) {
       return true;
     }
-    this.adapter.log.warn(`${deviceLabel(conn.config)}: token invalid — re-pair device to fix`);
+    // Once: a rejection that still arrives after the stop (a request already in
+    // flight on the other path) is the same news.
+    if (conn.authFailCount === MAX_AUTH_FAILURES) {
+      this.adapter.log.warn(`${deviceLabel(conn.config)}: token invalid — re-pair device to fix`);
+    }
     if (cleanupTimers) {
       // L13: same close-WS + clear-poll/reconnect-timer sequence as teardownConnection.
       this.teardownConnection(conn);
@@ -983,6 +1002,11 @@ export class ConnectionManager {
     this.lastWarnAt.set(conn.config.serial, now);
     if (errorCode === "NETWORK") {
       this.adapter.log.warn(`${deviceLabel(conn.config)}: device unreachable — will keep retrying`);
+    } else if (errorCode === "IDENTITY") {
+      this.adapter.log.warn(
+        `${deviceLabel(conn.config)}: another device answers at ${conn.ip} (${errText(err)}) — ` +
+          `its address has probably changed`,
+      );
     } else {
       this.adapter.log.warn(`${deviceLabel(conn.config)} ${context}: ${errText(err)}`);
     }
