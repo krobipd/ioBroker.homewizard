@@ -7,11 +7,12 @@ on:
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
       - v[0-9]+.[0-9]+.[0-9]+-**
-    # Reine Doku-Pushes lösen keinen Lauf aus: an einer Textzeile kann kein
-    # Test fallen. Laut GitHub-Doku gilt "Path filters are not evaluated for
-    # pushes of tags" — der Release-Lauf am Tag bleibt also unberührt. Bewusst
-    # NUR unter `push`, nicht unter `pull_request`: dort liefert der Lauf den
-    # Pflicht-Prüfauftrag der Branch-Sperre (Dependabot-Zusammenführung).
+    # A documentation-only push starts no run. The repository standard checks DO read these files
+    # (README changelog, docs/, .gitignore) — the local pre-push guard runs them for such a push.
+    # GitHub's docs state "Path filters are not evaluated for pushes of tags", so the
+    # release run on a tag is unaffected. Deliberately only under `push`, never under
+    # `pull_request` — there this run is the required check of the branch protection
+    # (which is what lets Dependabot merges through).
     paths-ignore:
       - "**.md"
       - "docs/**"
@@ -19,6 +20,10 @@ on:
       - ".gitattributes"
       - ".editorconfig"
       - "LICENSE"
+      # No job reads the Dependabot configuration; the pre-push guard rightly refuses a
+      # skip-CI marker for it, so the filter is the only thing that keeps a config
+      # change from running the full matrix (seven such runs on 2026-09-15).
+      - ".github/dependabot.yml"
   pull_request:
     branches:
       - main
