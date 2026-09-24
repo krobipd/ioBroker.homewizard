@@ -573,10 +573,18 @@ export class ConnectionManager {
 
     conn.wsAuthenticated = false;
     conn.wsClient = null;
-    // The fallback has not answered yet at this point, so the derived state is
-    // false here — it flips back to online as soon as the first fallback poll
-    // gets a reply, which is what the reachability indicator has to say.
-    conn.restHealthy = false;
+    // Two different situations end up here:
+    //  • an established WebSocket dropped — no fallback timer runs yet, a REST
+    //    answer from before belongs to the old picture, so the claim is dropped and
+    //    the first fallback reply sets it again;
+    //  • a reconnect ATTEMPT failed while the fallback is already running and
+    //    answering — ws emits `close` for a failed handshake too. The device IS
+    //    reachable; dropping the claim here flipped the indicator to false on every
+    //    attempt until the next fallback tick (up to 30 s on a weak-signal device).
+    //    The fallback's own failure clears the flag, so it cannot go stale.
+    if (!conn.pollTimer) {
+      conn.restHealthy = false;
+    }
     // M1: reset the connect-timestamp AFTER the stability block above has read it.
     // A FAILED reconnect never re-authenticates (onWsConnected is not called), so
     // lastConnectedAt would otherwise still hold the FIRST connect's time and every

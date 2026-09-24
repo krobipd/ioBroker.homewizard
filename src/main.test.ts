@@ -2538,6 +2538,24 @@ describe("the fallback claim does not survive a WebSocket drop", () => {
     expect(conn.restHealthy).toBe(false);
     expect(i.connectionManager.isDeviceOnline(conn)).toBe(false);
   });
+
+  it("keeps the device online when a reconnect attempt fails while the fallback answers", () => {
+    const { hw, conn, stateMgr } = setup();
+    const i = internalOf(hw);
+    // Situation after a drop: the WebSocket is down, the REST fallback runs and
+    // has answered. A reconnect attempt now fails — ws emits `close` for a failed
+    // handshake as well, which lands in onWsDisconnected.
+    conn.wsAuthenticated = false;
+    conn.restHealthy = true;
+    conn.pollTimer = {} as ioBroker.Interval;
+    stateMgr.setDeviceConnected.mockClear();
+
+    i.connectionManager.onWsDisconnected(conn);
+
+    expect(conn.restHealthy).toBe(true);
+    expect(i.connectionManager.isDeviceOnline(conn)).toBe(true);
+    expect(stateMgr.setDeviceConnected).not.toHaveBeenCalledWith(conn.config, false);
+  });
 });
 
 describe("labels of existing objects are brought up to date at start", () => {
