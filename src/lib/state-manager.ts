@@ -10,6 +10,8 @@ import {
   EXTERNAL_METER_LEAVES,
   EXTERNAL_METER_TYPE_NAMES,
   MEASUREMENT_STATE_DEFS,
+  servesBatteryGroup,
+  supportsIdentify,
   MOMENTARY_KEYS,
   QUALITY_KEYS,
   SYSTEM_INFO_FIELDS,
@@ -467,7 +469,10 @@ export class StateManager {
     if (!isBattery) {
       await this.createButton(`${prefix}.system.reboot`, tName("rebootDevice"));
     }
-    await this.createButton(`${prefix}.system.identify`, tName("identify"));
+    // The kWh Meter has no Identify action (official docs, docs/v2/system).
+    if (supportsIdentify(config.productType)) {
+      await this.createButton(`${prefix}.system.identify`, tName("identify"));
+    }
   }
 
   /**
@@ -850,6 +855,17 @@ export class StateManager {
     oldIds.push(`${prefix}.external`);
     // Retired in v0.11.0: raw P1 telegram (DSMR passthrough, not part of the v2 data model)
     oldIds.push(`${prefix}.measurement.telegram`);
+    // Retired in v0.20.0: the Identify button on a kWh Meter, which does not have the
+    // action (official docs, docs/v2/system) — every press ended in a warning.
+    if (!supportsIdentify(config.productType)) {
+      oldIds.push(`${prefix}.system.identify`);
+    }
+    // A battery branch on the Plug-In Battery itself belongs to no endpoint: the battery
+    // group lives on the P1/kWh Meter (docs/v2/batteries), and the battery is no longer
+    // asked for it. A leftover from an earlier version goes at start-up.
+    if (!servesBatteryGroup(config.productType)) {
+      oldIds.push(`${prefix}.battery`);
+    }
 
     // Decided against the object store: the caller already holds every id in this
     // namespace, so the ~62 `getObject` probes this used to fire per device are a

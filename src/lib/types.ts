@@ -203,14 +203,14 @@ export interface ExternalMeter {
 export interface SystemInfo {
   /** WiFi SSID */
   wifi_ssid: string;
-  /** WiFi signal strength in dB */
+  /** WiFi signal strength in dBm */
   wifi_rssi_db: number;
   /** Uptime in seconds */
   uptime_s: number;
   /** Cloud communication enabled */
   cloud_enabled: boolean;
-  /** Status LED brightness 0-100% */
-  status_led_brightness_pct: number;
+  /** Status LED brightness 0-100% — not on the kWh Meter (docs/v2/system) */
+  status_led_brightness_pct?: number;
   /** Legacy API v1 enabled */
   api_v1_enabled?: boolean;
 }

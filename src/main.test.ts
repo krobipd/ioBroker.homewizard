@@ -1486,6 +1486,15 @@ describe("HomeWizard pollSystemInfo", () => {
     expect(i.log.warn).not.toHaveBeenCalled();
   });
 
+  it("never asks a Plug-In Battery for /api/batteries — the route lives on the meter (docs/v2/batteries)", async () => {
+    const { hw, client, conn, stateMgr } = setup();
+    conn.config.productType = "HWE-BAT";
+    await internalOf(hw).connectionManager.pollSystemInfo(conn);
+    expect(stateMgr.updateSystem).toHaveBeenCalled();
+    expect(client.getBatteries).not.toHaveBeenCalled();
+    expect(stateMgr.updateBattery).not.toHaveBeenCalled();
+  });
+
   it("updates battery states when batteries are connected", async () => {
     const { hw, client, conn, stateMgr } = setup();
     client.getBatteries.mockResolvedValue({ mode: "zero", battery_count: 2 });
@@ -1834,6 +1843,15 @@ describe("HomeWizard startRestFallback (poll body)", () => {
 });
 
 describe("HomeWizard connectWebSocket wiring", () => {
+  it("gives a Plug-In Battery no battery callback — so it subscribes no batteries topic", () => {
+    const { hw, conn, wsArgs } = setup();
+    conn.config.productType = "HWE-BAT";
+    internalOf(hw).connectionManager.connectWebSocket(conn);
+    expect(wsArgs).toHaveLength(1);
+    expect("onBattery" in wsArgs[0].callbacks).toBe(false);
+    expect(typeof wsArgs[0].callbacks.onSystem).toBe("function");
+  });
+
   it("wires the WS callbacks to the push handlers and the timer deps to adapter timers", () => {
     const { hw, conn, stateMgr, wsArgs } = setup();
     const i = internalOf(hw);

@@ -2,6 +2,7 @@ import type * as utils from "@iobroker/adapter-core";
 import { classifyError, isAuthError, UNSTABLE_DISCONNECT_THRESHOLD } from "./connection-utils";
 import { coerceString, errText, sanitizeForLog } from "./coerce";
 import { HomeWizardApiError, type HomeWizardClient } from "./homewizard-client";
+import { servesBatteryGroup } from "./state-defs";
 import {
   computeReconnectDelay,
   deviceLabel,
@@ -369,7 +370,10 @@ export class ConnectionManager {
       {
         onMeasurement: data => this.onWsMeasurement(conn, data),
         onSystem: data => this.onWsSystem(conn, data),
-        onBattery: data => this.onWsBattery(conn, data),
+        // The Plug-In Battery has no battery-group endpoint, so no topic for it either.
+        ...(servesBatteryGroup(conn.config.productType)
+          ? { onBattery: (data: BatteryControl) => this.onWsBattery(conn, data) }
+          : {}),
         onConnected: () => this.onWsConnected(conn),
         onDisconnected: error => this.onWsDisconnected(conn, error),
         log: this.adapter.log,
@@ -742,6 +746,11 @@ export class ConnectionManager {
         }
       }
 
+      // The Plug-In Battery has no battery-group endpoint (docs/v2/batteries) — asking
+      // it every minute only ever earned a 404.
+      if (!servesBatteryGroup(conn.config.productType)) {
+        return;
+      }
       // Also poll battery if device supports it. 404 = no battery — silent.
       // Other errors (500, timeout, malformed body) used to be swallowed
       // entirely; now they surface at debug so post-mortem diagnosis is

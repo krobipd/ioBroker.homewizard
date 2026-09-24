@@ -1185,6 +1185,32 @@ describe("StateManager", () => {
       expect(adapter.objects.has(`${prefix}.measurement.power_w`)).toBe(true);
     });
 
+    it("removes the Identify button a kWh Meter got from an earlier version", async () => {
+      const kwh: DeviceConfig = { ...testDevice, productType: "HWE-KWH3", serial: "kwh003" };
+      adapter.objects.set("hwe-kwh3_kwh003.system.identify", { type: "state", common: {}, native: {} });
+      adapter.objects.set("hwe-kwh3_kwh003.system.reboot", { type: "state", common: {}, native: {} });
+      const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+
+      await manager.cleanupMovedStates(kwh, existing);
+
+      expect(adapter.objects.has("hwe-kwh3_kwh003.system.identify")).toBe(false);
+      expect(adapter.objects.has("hwe-kwh3_kwh003.system.reboot")).toBe(true);
+    });
+
+    it("removes a battery branch left on the Plug-In Battery itself — the group lives on the meter", async () => {
+      const bat: DeviceConfig = { ...testDevice, productType: "HWE-BAT", serial: "bat009" };
+      adapter.objects.set("hwe-bat_bat009.battery", { type: "channel", common: {}, native: {} });
+      adapter.objects.set("hwe-bat_bat009.battery.mode", { type: "state", common: {}, native: {} });
+      adapter.objects.set("hwe-bat_bat009.system.identify", { type: "state", common: {}, native: {} });
+      const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+
+      await manager.cleanupMovedStates(bat, existing);
+
+      expect(adapter.objects.has("hwe-bat_bat009.battery")).toBe(false);
+      expect(adapter.objects.has("hwe-bat_bat009.battery.mode")).toBe(false);
+      expect(adapter.objects.has("hwe-bat_bat009.system.identify"), "the battery does have Identify").toBe(true);
+    });
+
     it("deletes nothing when the tree holds none of the old paths", async () => {
       adapter.objects.set("hwe-p1_aabbccddeeff.measurement.power_w", { type: "state", common: {}, native: {} });
       const before = adapter.objects.size;
@@ -1440,6 +1466,17 @@ describe("StateManager", () => {
       expect(obj?.common.role).toBe("switch");
       expect(obj?.common.write).toBe(true);
       expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.charge_to_full")?.val).toBe(true);
+    });
+
+    it("a kWh Meter gets no Identify button — the device has no such action (docs/v2/system)", async () => {
+      const kwh: DeviceConfig = { ...testDevice, productType: "HWE-KWH1", serial: "kwh001" };
+      await manager.updateSystem(kwh, fullSystem);
+      expect(adapter.objects.has("hwe-kwh1_kwh001.system.identify")).toBe(false);
+      expect(adapter.objects.has("hwe-kwh1_kwh001.system.reboot")).toBe(true);
+      // Same for the older product identifiers of the kWh family.
+      const sdm: DeviceConfig = { ...testDevice, productType: "SDM630-wifi", serial: "sdm001" };
+      await manager.updateSystem(sdm, fullSystem);
+      expect(adapter.objects.has("sdm630-wifi_sdm001.system.identify")).toBe(false);
     });
 
     it("A6: HWE-BAT gets no reboot button and a read-only cloud_enabled", async () => {

@@ -619,3 +619,33 @@ export const SYSTEM_INFO_FIELDS: Array<{
  * reports no power-quality counters at all.
  */
 export const QUALITY_KEYS: string[] = MEASUREMENT_STATE_DEFS.filter(d => d.id.startsWith("quality.")).map(d => d.key);
+
+/**
+ * Product types of the kWh Meter family. The official API v2 docs (docs/v2/system,
+ * availability badges) mark two system features as not available on them: the
+ * status LED brightness and the Identify action.
+ */
+export const KWH_PRODUCT_TYPES: ReadonlySet<string> = new Set(["HWE-KWH1", "HWE-KWH3", "SDM230-wifi", "SDM630-wifi"]);
+
+/** The Plug-In Battery. It has no `/api/batteries` endpoint of its own (docs/v2/batteries). */
+export const BATTERY_PRODUCT_TYPE = "HWE-BAT";
+
+/**
+ * Whether a product type offers the Identify action (docs/v2/system: not on the kWh Meter).
+ *
+ * @param productType Product type as the device reports it.
+ */
+export function supportsIdentify(productType: string): boolean {
+  return !KWH_PRODUCT_TYPES.has(productType);
+}
+
+/**
+ * Whether a product type serves the battery group (`/api/batteries` and the
+ * `batteries` WebSocket topic). The endpoint lives on the P1 and kWh Meter; the
+ * Plug-In Battery itself does not have it (docs/v2/batteries).
+ *
+ * @param productType Product type as the device reports it.
+ */
+export function servesBatteryGroup(productType: string): boolean {
+  return productType !== BATTERY_PRODUCT_TYPE;
+}

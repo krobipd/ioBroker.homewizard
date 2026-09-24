@@ -176,7 +176,12 @@ function startDevice(device) {
         Object.assign(system, JSON.parse((await readBody(req)) || "{}"));
         return send(200, system);
       }
-      if (req.method === "PUT" && (url === "/api/system/reboot" || url === "/api/system/identify")) {
+      // docs/v2/system: the kWh Meter has no Identify action, the Plug-In Battery no reboot.
+      const type = device.api.product_type;
+      if (req.method === "PUT" && url === "/api/system/identify" && !/^(HWE-KWH|SDM)/.test(type)) {
+        return send(200, {});
+      }
+      if (req.method === "PUT" && url === "/api/system/reboot" && type !== "HWE-BAT") {
         return send(200, {});
       }
       if (url === "/api/batteries") {

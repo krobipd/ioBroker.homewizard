@@ -502,6 +502,41 @@ describe("HomeWizardWebSocket", () => {
       (ws as unknown as { handleMessage: (raw: Buffer) => void }).handleMessage(raw);
     }
 
+    it("subscribes only to the topics someone listens to — no battery topic without onBattery", () => {
+      // Topics correspond to endpoints (docs/v2/websocket), and the Plug-In Battery
+      // has no battery-group endpoint (docs/v2/batteries): its connection leaves
+      // onBattery out, so the client must not ask for the topic.
+      const subscribed = (withBattery: boolean): string[] => {
+        const { callbacks } = createCallbackTracker();
+        const cbs = withBattery ? callbacks : { ...callbacks, onBattery: undefined };
+        const ws = new HomeWizardWebSocket("192.168.1.1", "tok", cbs, {
+          schedule: () => Symbol("t"),
+          cancel: () => {},
+          scheduleRepeating: () => Symbol("i"),
+          cancelRepeating: () => {},
+        });
+        const sent: string[] = [];
+        const fakeWs = {
+          send: (s: string): void => {
+            sent.push(s);
+          },
+          terminate: vi.fn(),
+          removeAllListeners: vi.fn(),
+          on: vi.fn(),
+          readyState: 1,
+        };
+        (ws as unknown as { ws: unknown }).ws = fakeWs;
+        callHandleMessage(ws, { type: "authorized" });
+        ws.close();
+        return sent
+          .map(s => JSON.parse(s) as { type: string; data: string })
+          .filter(m => m.type === "subscribe")
+          .map(m => m.data);
+      };
+      expect(subscribed(true)).toEqual(["measurement", "system", "batteries"]);
+      expect(subscribed(false)).toEqual(["measurement", "system"]);
+    });
+
     it("should complete auth flow: auth_requested → authorized → measurement", () => {
       const { callbacks, tracker } = createCallbackTracker();
       const ws = new HomeWizardWebSocket("192.168.1.1", "mytoken", callbacks, createNativeTimerDeps());

@@ -121,7 +121,6 @@
         "wifi_rssi_db": -61,
         "uptime_s": 43200,
         "cloud_enabled": false,
-        "status_led_brightness_pct": 40,
         "api_v1_enabled": false
       }
     },
@@ -170,7 +169,6 @@
         "wifi_rssi_db": -49,
         "uptime_s": 7200,
         "cloud_enabled": true,
-        "status_led_brightness_pct": 0,
         "api_v1_enabled": true
       }
     },
