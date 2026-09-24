@@ -305,6 +305,11 @@ export interface DeviceConnection {
   lastConnectedAt: number;
   /** Count of short-lived connections (< STABLE_THRESHOLD) */
   recentDisconnects: number;
+  /**
+   * A warning about this device went out since it last connected — only then does
+   * the reconnect earn an info line ("connection restored") that closes it.
+   */
+  warnedSinceConnect?: boolean;
   /** True after the device was removed — async tasks (in-flight REST/WS) check this before writing further state. */
   removed: boolean;
   /** True once `/api/batteries` answered 404 — the device does not manage batteries; set per connection so the cleanup runs once. */

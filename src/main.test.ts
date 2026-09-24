@@ -513,18 +513,44 @@ describe("HomeWizard onWsDisconnected", () => {
     expect(conn.authFailCount).toBe(0);
   });
 
+  it("a device that does not answer logs no warning — offline is a state, info.connected carries it", () => {
+    const { hw, conn } = setup();
+    const i = internalOf(hw);
+    i.connectionManager.onWsDisconnected(
+      conn,
+      Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }),
+    );
+    i.connectionManager.onWsDisconnected(conn, Object.assign(new Error("Timeout: GET /api"), { code: "ETIMEDOUT" }));
+    expect(i.log.warn).not.toHaveBeenCalled();
+    expect(i.log.info).not.toHaveBeenCalled();
+    expect(i.log.debug).toHaveBeenCalledWith(expect.stringContaining("device unreachable (connect ECONNREFUSED)"));
+
+    // …and its return is no news either: nothing was warned that it could close.
+    i.connectionManager.onWsConnected(conn);
+    expect(i.log.info).not.toHaveBeenCalledWith(expect.stringContaining("connection restored"));
+  });
+
+  it("a device error that was warned is closed by one 'connection restored' line", () => {
+    const { hw, conn } = setup();
+    const i = internalOf(hw);
+    i.connectionManager.onWsDisconnected(conn, new HomeWizardApiError(500, "{}", "ws"));
+    expect(i.log.warn).toHaveBeenCalledTimes(1);
+    i.connectionManager.onWsConnected(conn);
+    expect(i.log.info).toHaveBeenCalledWith("P1 (hwe-p1_aabb): connection restored");
+  });
+
   it("repeats of the same error stay on debug — one warn per outage", () => {
     const { hw, conn } = setup();
     const warn = (hw as unknown as { log: { warn: ReturnType<typeof vi.fn> } }).log.warn;
-    const netErr = Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+    const srvErr = new HomeWizardApiError(503, "{}", "ws");
     warn.mockClear();
 
-    internalOf(hw).connectionManager.onWsDisconnected(conn, netErr);
-    internalOf(hw).connectionManager.onWsDisconnected(conn, netErr);
-    internalOf(hw).connectionManager.onWsDisconnected(conn, netErr);
-    // A device with bad WiFi drops all day — a warn per drop floods the log
+    internalOf(hw).connectionManager.onWsDisconnected(conn, srvErr);
+    internalOf(hw).connectionManager.onWsDisconnected(conn, srvErr);
+    internalOf(hw).connectionManager.onWsDisconnected(conn, srvErr);
+    // A device that keeps failing the same way — a warn per failure floods the log
     // that a real problem would have to be found in.
-    expect(warn.mock.calls.length, "one warn for a repeating outage").toBe(1);
+    expect(warn.mock.calls.length, "one warn for a repeating failure").toBe(1);
 
     // The repeats must go down the plain repeat-path, NOT the cooldown path:
     // "(cooldown)" means "a NEW error category, suppressed for now" and sends
@@ -1815,11 +1841,9 @@ describe("HomeWizard pollSystemInfo", () => {
   it("routes a failing system poll through the dedup logger (first occurrence warns)", async () => {
     const { hw, client, conn } = setup();
     const i = internalOf(hw);
-    const err = new Error("connect EHOSTUNREACH") as NodeJS.ErrnoException;
-    err.code = "EHOSTUNREACH";
-    client.getSystem.mockRejectedValue(err);
+    client.getSystem.mockRejectedValue(new HomeWizardApiError(500, "{}", "GET /api/system"));
     await i.connectionManager.pollSystemInfo(conn);
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("unreachable"));
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("P1 (hwe-p1_aabb) system:"));
   });
 });
 
@@ -2137,6 +2161,17 @@ describe("HomeWizard startRestFallback (poll body)", () => {
 });
 
 describe("HomeWizard connectWebSocket wiring", () => {
+  it("the WebSocket client's own log lines name the device", () => {
+    const { hw, conn, wsArgs } = setup();
+    const i = internalOf(hw);
+    i.connectionManager.connectWebSocket(conn);
+    const log = wsArgs[0].callbacks.log as { warn: (m: string) => void; debug: (m: string) => void };
+    log.warn("WS error: bad frame");
+    log.debug("WS open");
+    expect(i.log.warn).toHaveBeenCalledWith("P1 (hwe-p1_aabb): WS error: bad frame");
+    expect(i.log.debug).toHaveBeenCalledWith("P1 (hwe-p1_aabb): WS open");
+  });
+
   it("gives a Plug-In Battery no battery callback — so it subscribes no batteries topic", () => {
     const { hw, conn, wsArgs } = setup();
     conn.config.productType = "HWE-BAT";
@@ -2505,10 +2540,10 @@ describe("log volume under a chronic fault", () => {
     const i = internalOf(hw);
     i.log.warn.mockClear();
 
-    // Three DIFFERENT categories (network, timeout, server) — each one is a first
-    // occurrence for the repeat-dedup, so only the per-device cooldown holds the line.
-    i.connectionManager.onWsDisconnected(conn, Object.assign(new Error("a"), { code: "ECONNREFUSED" }));
-    i.connectionManager.onWsDisconnected(conn, Object.assign(new Error("b"), { code: "ETIMEDOUT" }));
+    // Three DIFFERENT categories that each warn — each one is a first occurrence for
+    // the repeat-dedup, so only the per-device cooldown holds the line.
+    i.connectionManager.onWsDisconnected(conn, new HomeWizardApiError(503, "{}", "ws"));
+    i.connectionManager.onWsDisconnected(conn, Object.assign(new Error("b"), { code: "HW_CERT_IDENTITY" }));
     i.connectionManager.onWsDisconnected(conn, new HomeWizardApiError(500, "{}", "ws"));
 
     expect(i.log.warn.mock.calls.length, "one warn per device and hour").toBe(1);
@@ -2518,14 +2553,14 @@ describe("log volume under a chronic fault", () => {
   it("a device that is removed and paired again warns immediately, not after the old cooldown", () => {
     const { hw, conn } = setup();
     const i = internalOf(hw);
-    i.connectionManager.onWsDisconnected(conn, Object.assign(new Error("a"), { code: "ECONNREFUSED" }));
+    i.connectionManager.onWsDisconnected(conn, new HomeWizardApiError(503, "{}", "ws"));
     i.log.warn.mockClear();
 
     // Re-pairing builds a FRESH connection for the same serial; without dropping the
     // stamp it would inherit the old device's cooldown and swallow its first warning.
     i.connectionManager.dropCooldowns(conn.config.serial);
     const fresh = makeConn();
-    i.connectionManager.onWsDisconnected(fresh, Object.assign(new Error("b"), { code: "ETIMEDOUT" }));
+    i.connectionManager.onWsDisconnected(fresh, new HomeWizardApiError(500, "{}", "ws"));
 
     expect(i.log.warn.mock.calls.length).toBe(1);
   });

@@ -397,7 +397,10 @@ export class HomeWizard extends utils.Adapter {
       // single line saying so. Say it, and start the mDNS search once.
       if (devices.some(device => !device.ip)) {
         for (const device of devices.filter(d => !d.ip)) {
-          this.log.warn(`${deviceLabel(device)}: no usable IP address stored — searching for the device via mDNS`);
+          this.log.warn(
+            `${deviceLabel(device)}: no usable IP address stored — it stays offline until mDNS finds it ` +
+              `or it is paired again`,
+          );
         }
         this.startIpRecovery();
       }

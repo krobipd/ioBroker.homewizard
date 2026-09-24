@@ -34,11 +34,11 @@ const WS_RECONNECT_MAX_UNSTABLE_MS = 60_000;
 /** REST fallback interval for unstable devices (slower, not stopped) */
 const REST_POLL_UNSTABLE_MS = 30_000;
 /**
- * Cooldown window for `device unreachable` warns. Per-device, category-
- * spanning: bouncing hardware should produce max 1× warn per window, regardless
- * of whether each cycle's failure was TIMEOUT, NETWORK, or HTTP_503. Survives
- * the lastErrorCode-reset on recovery so chronic bouncing doesn't flap warn /
- * debug at every cycle.
+ * Cooldown window for device-error warns (an HTTP error, a rejected token, another
+ * device at the address — a device that simply does not answer is logged at debug).
+ * Per-device, category-spanning: bouncing hardware should produce max 1× warn per
+ * window, whatever each cycle's failure was. Survives the lastErrorCode-reset on
+ * recovery so chronic bouncing doesn't flap warn / debug at every cycle.
  */
 const WARN_COOLDOWN_MS = 60 * 60 * 1000;
 /** Cooldown window for `connection restored` infos — analog to warn cooldown. */
@@ -376,7 +376,12 @@ export class ConnectionManager {
           : {}),
         onConnected: () => this.onWsConnected(conn),
         onDisconnected: error => this.onWsDisconnected(conn, error),
-        log: this.adapter.log,
+        // The client's own lines ("WS error: …", "WS invalid JSON: …") carry no device
+        // — with two meters nobody could tell which one sent it.
+        log: {
+          debug: msg => this.adapter.log.debug(`${deviceLabel(conn.config)}: ${msg}`),
+          warn: msg => this.adapter.log.warn(`${deviceLabel(conn.config)}: ${msg}`),
+        },
       },
       {
         schedule: (cb, ms) => this.adapter.setTimeout(cb, ms),
@@ -520,15 +525,21 @@ export class ConnectionManager {
     // Main owns the mDNS browser — it stops IP recovery once all devices are connected.
     this.host.onDeviceConnected();
 
-    // Log restoration if we had errors before. Per-device cooldown so chronic bouncing
+    // Log restoration if a WARNING went out before — it closes that warning. A device
+    // that merely was offline gets no line: its data point carries that state (the
+    // outage itself is only logged at debug). Per-device cooldown so chronic bouncing
     // doesn't emit one info per cycle — repeats go to debug.
     if (conn.lastErrorCode) {
+      const warned = conn.warnedSinceConnect === true;
+      conn.warnedSinceConnect = false;
       const now = Date.now();
       const lastInfo = this.lastInfoAt.get(conn.config.serial) ?? 0;
       const msg = this.isUnstable(conn)
         ? `${deviceLabel(conn.config)}: connection restored (unstable mode)`
         : `${deviceLabel(conn.config)}: connection restored`;
-      if (shouldEmitAfterCooldown(lastInfo, now, INFO_COOLDOWN_MS)) {
+      if (!warned) {
+        this.adapter.log.debug(msg);
+      } else if (shouldEmitAfterCooldown(lastInfo, now, INFO_COOLDOWN_MS)) {
         this.lastInfoAt.set(conn.config.serial, now);
         this.adapter.log.info(msg);
       } else {
@@ -973,7 +984,11 @@ export class ConnectionManager {
    *    hour per device.
    *
    * Cooldown key is the device serial — category-spanning. A flapping P1 that
-   * cycles TIMEOUT→NETWORK→TIMEOUT is one phenomenon, one warn-budget.
+   * cycles HTTP_503→IDENTITY→HTTP_503 is one phenomenon, one warn-budget.
+   *
+   * A device that does not answer (NETWORK, TIMEOUT) never warns: being offline is
+   * a state, and `info.connected` carries it — the log would only repeat the data
+   * point (fleet rule 2026-09-22). Those failures go to debug.
    *
    * @param conn Device connection.
    * @param context Error context (for debug messages only).
@@ -999,10 +1014,16 @@ export class ConnectionManager {
       return;
     }
 
+    if (errorCode === "NETWORK" || errorCode === "TIMEOUT") {
+      // The device does not answer: that is a STATE, and `info.connected` carries it.
+      // A log line would only repeat the data point — and read as spam on a meter
+      // with weak signal, which drops out every day (fleet rule 2026-09-22).
+      this.adapter.log.debug(`${deviceLabel(conn.config)} ${context}: device unreachable (${errText(err)})`);
+      return;
+    }
     this.lastWarnAt.set(conn.config.serial, now);
-    if (errorCode === "NETWORK") {
-      this.adapter.log.warn(`${deviceLabel(conn.config)}: device unreachable — will keep retrying`);
-    } else if (errorCode === "IDENTITY") {
+    conn.warnedSinceConnect = true;
+    if (errorCode === "IDENTITY") {
       this.adapter.log.warn(
         `${deviceLabel(conn.config)}: another device answers at ${conn.ip} (${errText(err)}) — ` +
           `its address has probably changed`,

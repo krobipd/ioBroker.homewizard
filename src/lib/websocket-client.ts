@@ -220,20 +220,7 @@ export class HomeWizardWebSocket {
           break;
         }
         this.authorized = true;
-        // Subscribe to the three real-time topics this adapter consumes (explicit, not "*",
-        // to avoid device/user-topic noise). system/batteries push control-state changes;
-        // measurement is the ~1/s data feed.
-        this.callbacks.log.debug("WS authorized, subscribing to measurement + system + batteries");
-        this.sendRaw({ type: "subscribe", data: "measurement" });
-        // A topic is only asked for when someone listens to it. The Plug-In Battery
-        // has no battery-group endpoint (docs/v2/batteries), and topics correspond to
-        // endpoints (docs/v2/websocket) — its connection leaves `onBattery` out.
-        if (this.callbacks.onSystem) {
-          this.sendRaw({ type: "subscribe", data: "system" });
-        }
-        if (this.callbacks.onBattery) {
-          this.sendRaw({ type: "subscribe", data: "batteries" });
-        }
+        this.subscribeTopics();
         // Auth complete — clear auth-watchdog and start the heartbeat.
         if (this.authTimer != null) {
           this.timers.cancel(this.authTimer);
@@ -301,6 +288,28 @@ export class HomeWizardWebSocket {
       default:
         this.callbacks.log.debug(`WS message type: ${sanitizeForLog(type)}`);
         break;
+    }
+  }
+
+  /**
+   * Subscribe to the real-time topics this adapter consumes (explicit, not "*", to
+   * avoid device/user-topic noise). system/batteries push control-state changes;
+   * measurement is the ~1/s data feed. A topic is only asked for when someone listens
+   * to it: the Plug-In Battery has no battery-group endpoint (docs/v2/batteries), and
+   * topics correspond to endpoints (docs/v2/websocket) — its connection leaves
+   * `onBattery` out.
+   */
+  private subscribeTopics(): void {
+    const topics = ["measurement"];
+    if (this.callbacks.onSystem) {
+      topics.push("system");
+    }
+    if (this.callbacks.onBattery) {
+      topics.push("batteries");
+    }
+    this.callbacks.log.debug(`WS authorized, subscribing to ${topics.join(" + ")}`);
+    for (const topic of topics) {
+      this.sendRaw({ type: "subscribe", data: topic });
     }
   }
 
