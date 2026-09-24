@@ -202,7 +202,7 @@
         "zh-cn": "WiFi 信号强度"
       },
       "type": "number",
-      "role": "value",
+      "role": "value.rssi",
       "read": true,
       "write": false,
       "unit": "dBm",
@@ -829,7 +829,7 @@
         "zh-cn": "WiFi 信号强度"
       },
       "type": "number",
-      "role": "value",
+      "role": "value.rssi",
       "read": true,
       "write": false,
       "unit": "dBm",
@@ -1364,30 +1364,6 @@
     "native": {},
     "_id": "homewizard.0.hwe-kwh1_5c2faf000012.system.cloud_enabled"
   },
-  "homewizard.0.hwe-kwh1_5c2faf000012.system.identify": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "Identifizieren (LED blinkt)",
-        "en": "Identify (blink LED)",
-        "es": "Identificar (LED parpadea)",
-        "fr": "Identifier (LED clignote)",
-        "it": "Identifica (LED lampeggia)",
-        "nl": "Identificeren (LED knippert)",
-        "pl": "Identyfikuj (mignięcie LED)",
-        "pt": "Identificar (piscar LED)",
-        "ru": "Идентифицировать (мигание светодиода)",
-        "uk": "Ідентифікувати (LED блимає)",
-        "zh-cn": "识别（LED 闪烁）"
-      },
-      "type": "boolean",
-      "role": "button",
-      "read": false,
-      "write": true
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-kwh1_5c2faf000012.system.identify"
-  },
   "homewizard.0.hwe-kwh1_5c2faf000012.system.reboot": {
     "type": "state",
     "common": {
@@ -1411,33 +1387,6 @@
     },
     "native": {},
     "_id": "homewizard.0.hwe-kwh1_5c2faf000012.system.reboot"
-  },
-  "homewizard.0.hwe-kwh1_5c2faf000012.system.status_led_brightness_pct": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "LED-Helligkeit",
-        "en": "LED brightness",
-        "es": "Brillo del LED",
-        "fr": "Luminosité de la LED",
-        "it": "Luminosità LED",
-        "nl": "LED-helderheid",
-        "pl": "Jasność LED",
-        "pt": "Brilho do LED",
-        "ru": "Яркость светодиода",
-        "uk": "Яскравість LED",
-        "zh-cn": "LED 亮度"
-      },
-      "type": "number",
-      "role": "level",
-      "read": true,
-      "write": true,
-      "unit": "%",
-      "min": 0,
-      "max": 100
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-kwh1_5c2faf000012.system.status_led_brightness_pct"
   },
   "homewizard.0.hwe-kwh3_5c2faf000013": {
     "type": "device",
@@ -1642,7 +1591,7 @@
         "zh-cn": "WiFi 信号强度"
       },
       "type": "number",
-      "role": "value",
+      "role": "value.rssi",
       "read": true,
       "write": false,
       "unit": "dBm",
@@ -2755,30 +2704,6 @@
     "native": {},
     "_id": "homewizard.0.hwe-kwh3_5c2faf000013.system.cloud_enabled"
   },
-  "homewizard.0.hwe-kwh3_5c2faf000013.system.identify": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "Identifizieren (LED blinkt)",
-        "en": "Identify (blink LED)",
-        "es": "Identificar (LED parpadea)",
-        "fr": "Identifier (LED clignote)",
-        "it": "Identifica (LED lampeggia)",
-        "nl": "Identificeren (LED knippert)",
-        "pl": "Identyfikuj (mignięcie LED)",
-        "pt": "Identificar (piscar LED)",
-        "ru": "Идентифицировать (мигание светодиода)",
-        "uk": "Ідентифікувати (LED блимає)",
-        "zh-cn": "识别（LED 闪烁）"
-      },
-      "type": "boolean",
-      "role": "button",
-      "read": false,
-      "write": true
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-kwh3_5c2faf000013.system.identify"
-  },
   "homewizard.0.hwe-kwh3_5c2faf000013.system.reboot": {
     "type": "state",
     "common": {
@@ -2802,33 +2727,6 @@
     },
     "native": {},
     "_id": "homewizard.0.hwe-kwh3_5c2faf000013.system.reboot"
-  },
-  "homewizard.0.hwe-kwh3_5c2faf000013.system.status_led_brightness_pct": {
-    "type": "state",
-    "common": {
-      "name": {
-        "de": "LED-Helligkeit",
-        "en": "LED brightness",
-        "es": "Brillo del LED",
-        "fr": "Luminosité de la LED",
-        "it": "Luminosità LED",
-        "nl": "LED-helderheid",
-        "pl": "Jasność LED",
-        "pt": "Brilho do LED",
-        "ru": "Яркость светодиода",
-        "uk": "Яскравість LED",
-        "zh-cn": "LED 亮度"
-      },
-      "type": "number",
-      "role": "level",
-      "read": true,
-      "write": true,
-      "unit": "%",
-      "min": 0,
-      "max": 100
-    },
-    "native": {},
-    "_id": "homewizard.0.hwe-kwh3_5c2faf000013.system.status_led_brightness_pct"
   },
   "homewizard.0.hwe-p1_5c2faf000011": {
     "type": "device",
@@ -3027,22 +2925,22 @@
       "read": true,
       "write": true,
       "desc": {
-        "de": "Betriebsmodus: zero (keine Netzeinspeisung), to_full (auf Maximum laden), standby, predictive (prognosebasiert)",
-        "en": "Operating mode: zero (no grid feed-in), to_full (charge to maximum), standby, predictive (forecast-based)",
-        "es": "Modo de operación: zero (sin inyección a red), to_full (cargar al máximo), standby, predictive (basado en previsión)",
-        "fr": "Mode de fonctionnement : zero (aucune injection au réseau), to_full (charge maximale), standby, predictive (basé sur les prévisions)",
-        "it": "Modalità operativa: zero (nessuna immissione in rete), to_full (carica al massimo), standby, predictive (basato su previsioni)",
-        "nl": "Bedrijfsmodus: zero (geen netinvoeding), to_full (volledig laden), standby, predictive (op prognose gebaseerd)",
-        "pl": "Tryb pracy: zero (bez oddawania do sieci), to_full (ładuj do pełna), standby, predictive (oparte na prognozie)",
-        "pt": "Modo de operação: zero (sem injeção na rede), to_full (carregar ao máximo), standby, predictive (baseado em previsão)",
-        "ru": "Режим работы: zero (без подачи в сеть), to_full (заряд до максимума), standby, predictive (на основе прогноза)",
-        "uk": "Режим роботи: zero (без подачі в мережу), to_full (заряд до максимуму), standby, predictive (на основі прогнозу)",
-        "zh-cn": "运行模式：zero（不向电网馈送）、to_full（充满）、standby（待机）, predictive (基于预测)"
+        "de": "Betriebsmodus: zero (lädt oder entlädt, um das Haus bei Netto-Null zu halten), predictive (prognosebasiert); standby und to_full sind veraltete Modi — stattdessen die Datenpunkte für Berechtigungen und Voll aufladen nutzen.",
+        "en": "Operating mode: zero (charges or discharges to keep the home at net zero), predictive (forecast-based); standby and to_full are legacy modes — use the permissions and charge-to-full data points instead.",
+        "es": "Modo de operación: zero (carga o descarga para mantener la casa en balance cero), predictive (basado en previsión); standby y to_full son modos heredados — use en su lugar los puntos de datos de permisos y carga completa.",
+        "fr": "Mode de fonctionnement : zero (charge ou décharge pour maintenir la maison à bilan nul), predictive (basé sur les prévisions) ; standby et to_full sont des modes obsolètes — utilisez plutôt les points de données des autorisations et de la charge complète.",
+        "it": "Modalità operativa: zero (carica o scarica per mantenere la casa a bilancio zero), predictive (basato su previsioni); standby e to_full sono modalità obsolete — usare invece i punti dati dei permessi e della carica completa.",
+        "nl": "Bedrijfsmodus: zero (laadt of ontlaadt om het huis op netto nul te houden), predictive (op prognose gebaseerd); standby en to_full zijn verouderde modi — gebruik in plaats daarvan de datapunten voor rechten en volledig laden.",
+        "pl": "Tryb pracy: zero (ładuje lub rozładowuje, aby utrzymać bilans domu na zero), predictive (oparty na prognozie); standby i to_full to przestarzałe tryby — zamiast nich użyj punktów danych uprawnień i ładowania do pełna.",
+        "pt": "Modo de operação: zero (carrega ou descarrega para manter a casa em balanço zero), predictive (baseado em previsão); standby e to_full são modos legados — use em vez disso os pontos de dados de permissões e carga completa.",
+        "ru": "Режим работы: zero (заряжает или разряжает, чтобы держать баланс дома на нуле), predictive (на основе прогноза); standby и to_full — устаревшие режимы, вместо них используйте точки данных разрешений и полного заряда.",
+        "uk": "Режим роботи: zero (заряджає або розряджає, щоб тримати баланс будинку на нулі), predictive (на основі прогнозу); standby і to_full — застарілі режими, натомість використовуйте точки даних дозволів і повного заряду.",
+        "zh-cn": "运行模式：zero（充电或放电以保持家庭净零）、predictive（基于预测）；standby 和 to_full 为旧版模式，请改用权限和充满数据点。"
       },
       "states": {
-        "zero": "Zero (no grid feed-in)",
-        "to_full": "To full (charge to maximum)",
-        "standby": "Standby",
+        "zero": "Zero (keep the home at net zero)",
+        "to_full": "To full (charge to maximum, legacy)",
+        "standby": "Standby (legacy)",
         "predictive": "Predictive (forecast-based)"
       }
     },
@@ -3106,7 +3004,20 @@
       "role": "value.power",
       "read": true,
       "write": false,
-      "unit": "W"
+      "unit": "W",
+      "desc": {
+        "de": "Aktuelle Leistung der Batteriegruppe; positiv bedeutet Laden, negativ Entladen.",
+        "en": "Current power of the battery group; positive means charging, negative means discharging.",
+        "es": "Potencia actual del grupo de baterías; positiva significa carga, negativa descarga.",
+        "fr": "Puissance actuelle du groupe de batteries ; positive signifie la charge, négative la décharge.",
+        "it": "Potenza attuale del gruppo batterie; positiva indica la carica, negativa la scarica.",
+        "nl": "Huidig vermogen van de accugroep; positief betekent laden, negatief ontladen.",
+        "pl": "Aktualna moc grupy akumulatorów; wartość dodatnia oznacza ładowanie, ujemna rozładowanie.",
+        "pt": "Potência atual do grupo de baterias; positiva significa carregar, negativa descarregar.",
+        "ru": "Текущая мощность группы батарей; положительное значение — заряд, отрицательное — разряд.",
+        "uk": "Поточна потужність групи батарей; додатне значення означає заряд, від'ємне — розряд.",
+        "zh-cn": "电池组当前功率；正值表示充电，负值表示放电。"
+      }
     },
     "native": {},
     "_id": "homewizard.0.hwe-p1_5c2faf000011.battery.power_w"
@@ -3133,17 +3044,17 @@
       "write": false,
       "unit": "W",
       "desc": {
-        "de": "Die Leistung, die die Batteriegruppe gerade anstrebt; ein negativer Wert bedeutet Laden.",
-        "en": "The power the battery group is aiming for right now; a negative value means charging.",
-        "es": "La potencia que busca ahora el grupo de baterías; un valor negativo significa carga.",
-        "fr": "La puissance visée actuellement par le groupe de batteries ; une valeur négative signifie la charge.",
-        "it": "La potenza a cui punta ora il gruppo batterie; un valore negativo indica la carica.",
-        "nl": "Het vermogen waar de accugroep nu naar streeft; een negatieve waarde betekent laden.",
-        "pl": "Moc, do której dąży teraz grupa akumulatorów; wartość ujemna oznacza ładowanie.",
-        "pt": "A potência que o grupo de baterias procura atingir; um valor negativo significa carregar.",
-        "ru": "Мощность, к которой сейчас стремится группа батарей; отрицательное значение — заряд.",
-        "uk": "Потужність, до якої зараз прагне група батарей; від'ємне значення означає заряд.",
-        "zh-cn": "电池组当前的目标功率；负值表示充电。"
+        "de": "Die Leistung, die die Batteriegruppe gerade anstrebt; positiv bedeutet Laden, negativ Entladen.",
+        "en": "The power the battery group is aiming for right now; positive means charging, negative means discharging.",
+        "es": "La potencia que busca ahora el grupo de baterías; positiva significa carga, negativa descarga.",
+        "fr": "La puissance visée actuellement par le groupe de batteries ; positive signifie la charge, négative la décharge.",
+        "it": "La potenza a cui punta ora il gruppo batterie; positiva indica la carica, negativa la scarica.",
+        "nl": "Het vermogen waar de accugroep nu naar streeft; positief betekent laden, negatief ontladen.",
+        "pl": "Moc, do której dąży teraz grupa akumulatorów; wartość dodatnia oznacza ładowanie, ujemna rozładowanie.",
+        "pt": "A potência que o grupo de baterias procura atingir; positiva significa carregar, negativa descarregar.",
+        "ru": "Мощность, к которой сейчас стремится группа батарей; положительное значение — заряд, отрицательное — разряд.",
+        "uk": "Потужність, до якої зараз прагне група батарей; додатне значення означає заряд, від'ємне — розряд.",
+        "zh-cn": "电池组当前的目标功率；正值表示充电，负值表示放电。"
       }
     },
     "native": {},
@@ -3333,7 +3244,7 @@
         "zh-cn": "WiFi 信号强度"
       },
       "type": "number",
-      "role": "value",
+      "role": "value.rssi",
       "read": true,
       "write": false,
       "unit": "dBm",

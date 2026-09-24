@@ -12,6 +12,7 @@ import {
   MEASUREMENT_STATE_DEFS,
   servesBatteryGroup,
   supportsIdentify,
+  supportsStatusLed,
   MOMENTARY_KEYS,
   QUALITY_KEYS,
   SYSTEM_INFO_FIELDS,
@@ -550,7 +551,9 @@ export class StateManager {
         changedOnly: true,
       });
     }
-    const ledPct = coerceFiniteNumber(record.status_led_brightness_pct);
+    // The kWh Meter has no status LED (docs/v2/system) — a value it reports anyway
+    // gets no control that could only fail.
+    const ledPct = supportsStatusLed(config.productType) ? coerceFiniteNumber(record.status_led_brightness_pct) : null;
     if (isStale?.()) {
       return;
     }
@@ -1016,6 +1019,10 @@ export class StateManager {
     if (!supportsIdentify(config.productType)) {
       oldIds.push(`${prefix}.system.identify`);
     }
+    // Same for the LED brightness: the kWh Meter has no status LED (docs/v2/system).
+    if (!supportsStatusLed(config.productType)) {
+      oldIds.push(`${prefix}.system.status_led_brightness_pct`);
+    }
     // A battery branch on the Plug-In Battery itself belongs to no endpoint: the battery
     // group lives on the P1/kWh Meter (docs/v2/batteries), and the battery is no longer
     // asked for it. A leftover from an earlier version goes at start-up.
@@ -1033,6 +1040,10 @@ export class StateManager {
       if (!existingIds.has(`${this.adapter.namespace}.${id}`)) {
         continue;
       }
+      // Marked BEFORE the delete: the label retrofit of this same start works off the
+      // id list read at start-up and would bring a just-deleted object back as a shell
+      // (DD38 — found by the upgrade suite for the kWh Identify button, v0.20.0).
+      this.removedIds.add(id);
       await this.adapter.delObjectAsync(id, { recursive: true });
       this.adapter.log.debug(`Removed obsolete state: ${id}`);
       removed++;

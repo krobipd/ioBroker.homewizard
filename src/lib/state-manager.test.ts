@@ -1297,6 +1297,39 @@ describe("StateManager", () => {
       expect(adapter.objects.has(`${prefix}.measurement.power_w`)).toBe(true);
     });
 
+    it("what the cleanup removed stays removed when the label retrofit runs in the same start (DD38)", async () => {
+      // Found by the upgrade suite: the retrofit works off the id list read at start-up,
+      // still containing the kWh Identify button — and extendObject on a deleted id
+      // creates it again, as a shell.
+      const kwh: DeviceConfig = { ...testDevice, productType: "HWE-KWH1", serial: "kwh009" };
+      for (const id of ["system", "system.identify", "system.status_led_brightness_pct", "system.reboot"]) {
+        adapter.objects.set(`hwe-kwh1_kwh009.${id}`, {
+          type: id === "system" ? "channel" : "state",
+          common: {},
+          native: {},
+        });
+      }
+      const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+
+      await manager.cleanupMovedStates(kwh, existing);
+      await manager.refreshExistingNames(kwh, existing);
+
+      expect(adapter.objects.has("hwe-kwh1_kwh009.system.identify")).toBe(false);
+      expect(adapter.objects.has("hwe-kwh1_kwh009.system.status_led_brightness_pct")).toBe(false);
+      expect(adapter.objects.has("hwe-kwh1_kwh009.system.reboot")).toBe(true);
+    });
+
+    it("a kWh Meter gets no LED brightness control even if it reports the field (docs/v2/system)", async () => {
+      const kwh: DeviceConfig = { ...testDevice, productType: "HWE-KWH3", serial: "kwh010" };
+      const system = { wifi_ssid: "x", cloud_enabled: true, status_led_brightness_pct: 40 } as unknown as SystemInfo;
+      await manager.updateSystem(kwh, system);
+      expect(adapter.objects.has("hwe-kwh3_kwh010.system.status_led_brightness_pct")).toBe(false);
+      expect(adapter.objects.has("hwe-kwh3_kwh010.system.cloud_enabled")).toBe(true);
+      // The P1 does have the LED.
+      await manager.updateSystem(testDevice, system);
+      expect(adapter.objects.has("hwe-p1_aabbccddeeff.system.status_led_brightness_pct")).toBe(true);
+    });
+
     it("removes the Identify button a kWh Meter got from an earlier version", async () => {
       const kwh: DeviceConfig = { ...testDevice, productType: "HWE-KWH3", serial: "kwh003" };
       adapter.objects.set("hwe-kwh3_kwh003.system.identify", { type: "state", common: {}, native: {} });
@@ -1610,6 +1643,24 @@ describe("StateManager", () => {
       expect(obj?.common.role).toBe("switch");
       expect(obj?.common.write).toBe(true);
       expect(adapter.states.get("hwe-p1_aabbccddeeff.battery.charge_to_full")?.val).toBe(true);
+    });
+
+    it("confirms a user write the device holds — same value, but ack:false becomes ack:true", async () => {
+      // What refreshGroup relies on after a refused write: the data point holds the
+      // user's value unconfirmed; the read-back must confirm it even though the VALUE
+      // is unchanged. js-controller compares val AND ack, so the write goes through.
+      await manager.updateSystem(testDevice, fullSystem);
+      const id = "hwe-p1_aabbccddeeff.system.cloud_enabled";
+      adapter.states.set(id, { val: fullSystem.cloud_enabled, ack: false });
+      await manager.updateSystem(testDevice, fullSystem);
+      expect(adapter.states.get(id)).toMatchObject({ val: fullSystem.cloud_enabled, ack: true });
+    });
+
+    it("the device object's status marker points at its own info.connected, with the full id (DD9)", async () => {
+      await manager.createDeviceStates(testDevice);
+      expect(adapter.objects.get("hwe-p1_aabbccddeeff")?.common.statusStates).toEqual({
+        onlineId: "homewizard.0.hwe-p1_aabbccddeeff.info.connected",
+      });
     });
 
     it("the WiFi signal strength carries the catalog role for a radio signal (value.rssi, dBm)", async () => {

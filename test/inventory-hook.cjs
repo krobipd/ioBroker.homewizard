@@ -217,7 +217,15 @@ function startDevice(device) {
       // The adapter subscribes to the three topics separately; answer each one
       // with the payload that topic carries, which is what creates the objects.
       if (msg.data === "measurement") {
-        ws.send(JSON.stringify({ type: "measurement", data: device.measurement }));
+        // `power_w` over the WebSocket differs from the REST answer by WS_POWER_MARK:
+        // the inventory run reads it back and so proves the data came over the socket,
+        // not from the REST fallback (which the online count accepts as well, DD20).
+        ws.send(
+          JSON.stringify({
+            type: "measurement",
+            data: { ...device.measurement, power_w: device.measurement.power_w + WS_POWER_MARK },
+          }),
+        );
       } else if (msg.data === "system") {
         ws.send(JSON.stringify({ type: "system", data: system }));
       } else if (msg.data === "batteries" && batteries) {
@@ -236,6 +244,9 @@ function startDevice(device) {
     ROUTES.set(device.ip, server.address().port);
   });
 }
+
+/** Added to `power_w` in every WebSocket measurement — see the subscribe handler. Mirrored in test/inventory.js. */
+const WS_POWER_MARK = 0.25;
 
 /** Fixture IP → local port, filled as the servers come up. */
 const ROUTES = new Map();

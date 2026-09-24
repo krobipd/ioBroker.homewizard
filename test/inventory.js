@@ -31,7 +31,21 @@ const ENCRYPTED_MARKER = "<encrypted with the installation secret>";
 // `icon` is in here on purpose: it is the one field an EXISTING device object has to
 // receive on an update, and only the upgrade suite can prove it does — a unit test
 // sees the call, not the tree.
-const COMPARED = ["name", "desc", "role", "type", "unit", "icon"];
+const COMPARED = ["name", "desc", "role", "type", "unit", "icon", "statusStates"];
+/** What the fixture WebSocket adds to `power_w` (test/inventory-hook.cjs) — the proof the socket carried the data. */
+const WS_POWER_MARK = 0.25;
+
+/**
+ * The object the first system poll writes last for a product type. The kWh Meter has
+ * no Identify action and the Plug-In Battery no reboot (docs/v2/system, DD42), so one
+ * marker for all types would wait for an object that never comes.
+ *
+ * @param {string} productType The fixture's product type.
+ * @returns {string} Device-relative id.
+ */
+function lastSystemObject(productType) {
+  return /^(HWE-KWH|SDM)/.test(productType) ? "system.reboot" : "system.identify";
+}
 
 const HOOK = path.join(__dirname, "inventory-hook.cjs");
 const DEVICES = JSON.parse(
@@ -153,7 +167,7 @@ async function feedFixtures(harness) {
     );
     // The system channel and its buttons come from the first system poll.
     await waitFor(`${device.api.product_type} system settings`, async () =>
-      Boolean(await harness.objects.getObjectAsync(`${NS}${prefix}.system.identify`)),
+      Boolean(await harness.objects.getObjectAsync(`${NS}${prefix}.${lastSystemObject(device.api.product_type)}`)),
     );
   }
   // `max_production_w` is the LAST object of the battery branch — waiting on the first one
@@ -228,12 +242,35 @@ tests.integration(ADAPTER_DIR, {
         fs.writeFileSync(INVENTORY, `${JSON.stringify(objects, null, 2)}\n`);
       });
 
-      it("covers every product type the adapter supports", async function () {
+      // The device objects are seeded by this file — their mere existence proves nothing.
+      // What the ADAPTER writes onto them (status marker, pictogram) and below them does.
+      it("covers every product type the adapter supports, written by the adapter", async function () {
         this.timeout(30000);
         const objects = await dumpObjects(harness);
         for (const device of DEVICES) {
           const prefix = `${NS}${prefixOf(device.api)}`;
-          assert.ok(objects[prefix], `no objects for ${device.api.product_type} — the fixture did not reach it`);
+          const type = device.api.product_type;
+          assert.strictEqual(
+            objects[prefix]?.common?.statusStates?.onlineId,
+            `${prefix}.info.connected`,
+            `${type}: the device object carries no status marker — createDeviceStates did not reach it`,
+          );
+          assert.ok(objects[prefix]?.common?.icon, `${type}: the device object carries no pictogram`);
+          assert.ok(objects[`${prefix}.measurement.power_w`], `${type}: no measurement object`);
+        }
+      });
+
+      // `info.devicesOnline` counts a device answering the REST fallback as online (DD20),
+      // so the wait above does not prove the WebSocket works. The marked value does.
+      it("every device delivers its measurements over the WebSocket", async function () {
+        this.timeout(30000);
+        for (const device of DEVICES) {
+          const id = `${NS}${prefixOf(device.api)}.measurement.power_w`;
+          const want = device.measurement.power_w + WS_POWER_MARK;
+          await waitFor(`${device.api.product_type} WebSocket measurement`, async () => {
+            const state = await harness.states.getStateAsync(id);
+            return Boolean(state && state.val === want);
+          });
         }
       });
     });

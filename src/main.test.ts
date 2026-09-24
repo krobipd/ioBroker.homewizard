@@ -19,8 +19,10 @@ vi.mock("@iobroker/adapter-core", () => {
     public clearTimeout = vi.fn();
     public setInterval = vi.fn(() => ({}));
     public clearInterval = vi.fn();
-    public encrypt = vi.fn((t: string) => t);
-    public decrypt = vi.fn((t: string) => t);
+    // Not the identity: a token stored in plain text (`encryptedToken: config.token`)
+    // must show up as a failed expectation, not pass as "encrypted".
+    public encrypt = vi.fn((t: string) => `enc:${t}`);
+    public decrypt = vi.fn((t: string) => (t.startsWith("enc:") ? t.slice(4) : t));
     public getAdapterObjectsAsync = vi.fn(() => Promise.resolve({}));
     public extendObject = vi.fn(async () => {});
     public getForeignObjectAsync = vi.fn((): Promise<unknown> => Promise.resolve(null));
@@ -167,8 +169,10 @@ function setup(): {
   conn: DeviceConnection;
   stateMgr: FakeStateMgr;
   wsInstances: FakeWs[];
-  wsArgs: Array<{ callbacks: WsCallbacksShape; timers: TimerDepsShape }>;
+  wsArgs: Array<{ callbacks: WsCallbacksShape; timers: TimerDepsShape; certCn?: string; serial?: string }>;
   discovery: FakeDiscovery;
+  /** Every makeClient call as [ip, token, certCn, serial] — the pinning arguments included. */
+  clientCalls: Array<[string, string, string | undefined, string | undefined]>;
 } {
   const hw = new HomeWizard();
   const client = makeFakeClient();
@@ -180,19 +184,25 @@ function setup(): {
     stateManager: unknown;
     connections: Map<string, DeviceConnection>;
   };
-  internal.makeClient = () => client;
+  const clientCalls: Array<[string, string, string | undefined, string | undefined]> = [];
+  (internal.makeClient as unknown) = (ip: string, token: string, certCn?: string, serial?: string) => {
+    clientCalls.push([ip, token, certCn, serial]);
+    return client;
+  };
 
   const wsInstances: FakeWs[] = [];
-  const wsArgs: Array<{ callbacks: WsCallbacksShape; timers: TimerDepsShape }> = [];
+  const wsArgs: Array<{ callbacks: WsCallbacksShape; timers: TimerDepsShape; certCn?: string; serial?: string }> = [];
   (internal.makeWebSocket as unknown) = (
     _ip: string,
     _token: string,
     callbacks: WsCallbacksShape,
     timers: TimerDepsShape,
+    certCn?: string,
+    serial?: string,
   ) => {
     const ws: FakeWs = { connect: vi.fn(), close: vi.fn() };
     wsInstances.push(ws);
-    wsArgs.push({ callbacks, timers });
+    wsArgs.push({ callbacks, timers, certCn, serial });
     return ws;
   };
 
@@ -228,7 +238,7 @@ function setup(): {
   };
   internal.stateManager = stateMgr;
   internal.connections.set("hwe-p1_aabb", conn);
-  return { hw, client, conn, stateMgr, wsInstances, wsArgs, discovery };
+  return { hw, client, conn, stateMgr, wsInstances, wsArgs, discovery, clientCalls };
 }
 
 function call(hw: HomeWizard, method: string, ...args: unknown[]): Promise<void> {
@@ -778,6 +788,28 @@ describe("HomeWizard startPairing", () => {
     expect(i.pairingManager.active).toBe(false);
     expect(i.pairingManager.discovered).toHaveLength(0);
   });
+
+  // DD23: a typed address is checked less strictly than an mDNS one — a home network
+  // on a public range is rare but real, and nobody types an address by accident.
+  // The mDNS path would drop the same address (isLanDeviceIpv4).
+  it("manual-IP path: accepts a public address that the mDNS path would refuse (DD23)", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.getStateAsync.mockResolvedValueOnce({ val: "8.8.4.4" });
+    await i.pairingManager.start();
+
+    expect(i.pairingManager.active).toBe(true);
+    expect(i.pairingManager.discovered.map(d => d.ip)).toEqual(["8.8.4.4"]);
+    expect(i.log.warn).not.toHaveBeenCalledWith(expect.stringContaining("Invalid pairing IP"));
+  });
+
+  it("manual-IP path: still refuses loopback (DD23)", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.getStateAsync.mockResolvedValueOnce({ val: "127.0.0.1" });
+    await i.pairingManager.start();
+    expect(i.pairingManager.active).toBe(false);
+  });
 });
 
 describe("HomeWizard onDeviceDiscovered", () => {
@@ -1213,6 +1245,18 @@ describe("HomeWizard loadDevicesFromObjects", () => {
 });
 
 describe("HomeWizard saveDeviceToObject", () => {
+  it("round-trips: the stored ciphertext is decrypted back to the token on load", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    await i.saveDeviceToObject({ token: "secret", productType: "HWE-P1", serial: "rt1", productName: "P1" });
+    const stored = (i.extendObject.mock.calls.at(-1) as unknown[])[1] as { type: string; native: unknown };
+    expect((stored.native as { encryptedToken: string }).encryptedToken).not.toBe("secret");
+
+    const loaded = await i.loadDevicesFromObjects({ "homewizard.0.hwe-p1_rt1": stored });
+    expect(loaded).toEqual([expect.objectContaining({ token: "secret", serial: "rt1" })]);
+    expect(i.decrypt).toHaveBeenCalledWith("enc:secret");
+  });
+
   it("stores the encrypted token in device-object native and writes the name unconditionally", async () => {
     const { hw } = setup();
     const i = internalOf(hw);
@@ -1225,7 +1269,8 @@ describe("HomeWizard saveDeviceToObject", () => {
     expect(i.extendObject).toHaveBeenCalledWith("hwe-p1_s1", {
       type: "device",
       common: { name: "Mein P1" },
-      native: expect.objectContaining({ encryptedToken: "tok", serial: "s1" }),
+      // The stored field carries what encrypt() returned — never the plain token.
+      native: expect.objectContaining({ encryptedToken: "enc:tok", serial: "s1" }),
     });
   });
 });
@@ -1519,29 +1564,6 @@ describe("HomeWizard onReady", () => {
     // fetched anyway — nothing else in onReady deletes objects (mutation H35, 2026-09-08).
     expect(i.delObjectAsync).toHaveBeenCalledWith("hwe-p1_dev1.external", { recursive: true });
   });
-
-  // Note: onReady builds its own real StateManager (main.ts), so these assert on
-  // the adapter's marker write, not on the injected fake stateMgr.
-  it("writes no legacy marker any more — the sweep works off the object list", async () => {
-    const { hw } = setup();
-    const i = internalOf(hw);
-    i.connections.clear();
-    i.getAdapterObjectsAsync.mockResolvedValue({
-      "homewizard.0.hwe-p1_dev1": {
-        type: "device",
-        native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
-      },
-    });
-
-    await i.onReady();
-    await settle();
-
-    // `info.legacyMigrated` existed only to skip ~62 getObject probes per device.
-    // The object list the device load fetches anyway does that job, so the marker
-    // is gone — adapter bookkeeping has no place in a user's object tree.
-    expect(i.setState).not.toHaveBeenCalledWith("info.legacyMigrated", expect.anything());
-    expect(i.setState).not.toHaveBeenCalledWith("info.labelsVersion", expect.anything());
-  });
 });
 
 describe("HomeWizard onUnload", () => {
@@ -1730,6 +1752,44 @@ describe("HomeWizard onWsMeasurement", () => {
     i.connectionManager.onWsMeasurement(conn, { power_w: 42 });
     await settle();
     expect(i.log.debug).toHaveBeenCalledWith(expect.stringContaining("redis hiccup"));
+  });
+});
+
+describe("every connection to a paired device carries its certificate pin", () => {
+  // Without certCn/serial a client falls back to the blanket agent — the token then
+  // goes to whatever answers at the address, CN unchecked. A lost argument at any of
+  // the call sites stayed green while the factories dropped them.
+  it("REST, WebSocket, commands, polls, read-backs, removal and the old-user delete", async () => {
+    const { hw, conn, clientCalls, wsArgs, client } = setup();
+    const i = internalOf(hw);
+    conn.config.certCn = "appliance/p1dongle/aabb";
+
+    await i.connectionManager.initDevice(conn);
+    await settle();
+    i.connectionManager.connectWebSocket(conn);
+    conn.pollTimer = undefined;
+    i.connectionManager.startRestFallback(conn);
+    await (i.setInterval.mock.calls.at(-1)![0] as () => Promise<void>)();
+    await i.connectionManager.pollSystemInfo(conn);
+    await i.connectionManager.refreshGroup(conn, "system");
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.cloud_enabled", active(true));
+
+    // Re-pair under the new name: the old user is deleted over the OLD pinned connection.
+    i.pairingManager.pairing = true; // the window is open
+    i.pairingManager.discovered = [{ ip: "192.168.1.5", productType: "HWE-P1", serial: "aabb", name: "P1" }];
+    client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "aabb", product_name: "P1" });
+    await i.pairingManager.poll();
+    await settle();
+    await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
+    await settle();
+
+    // Pairing itself runs before the identity is known (DD7) — everything else is pinned.
+    const established = clientCalls.filter(([, token]) => token === "tok");
+    expect(established.length).toBeGreaterThanOrEqual(6);
+    for (const [, , certCn, serial] of established) {
+      expect([certCn, serial]).toEqual(["appliance/p1dongle/aabb", "aabb"]);
+    }
+    expect(wsArgs[0]).toMatchObject({ certCn: "appliance/p1dongle/aabb", serial: "aabb" });
   });
 });
 
@@ -2251,9 +2311,12 @@ describe("HomeWizard pairing discovery callback", () => {
 
 describe("HomeWizard start-up marker", () => {
   it("stamps every device as disconnected before its first connection attempt", async () => {
-    const { hw } = setup();
+    const { hw, client } = setup();
     const i = internalOf(hw);
     i.connections.clear();
+    // Watch the first connection attempt: initDevice starts with a client.
+    const makeClient = vi.fn(() => client);
+    (i as unknown as { makeClient: unknown }).makeClient = makeClient;
     i.getAdapterObjectsAsync.mockResolvedValue({
       "homewizard.0.hwe-p1_dev1": {
         type: "device",
@@ -2269,11 +2332,16 @@ describe("HomeWizard start-up marker", () => {
     // and forever if it never reconnects. onReady replaces the fake state manager
     // with a real one, so this asserts at the adapter boundary.
     expect(i.setStateChangedAsync).toHaveBeenCalledWith("hwe-p1_dev1.info.connected", { val: false, ack: true });
-    // …and the stamp has to land before the device object tree is handed on.
+    // …and it has to land BEFORE the first connection attempt — the test promised that
+    // and used to check only that the stamp exists at all.
     const stampCall = i.setStateChangedAsync.mock.calls.findIndex(
       c => c[0] === "hwe-p1_dev1.info.connected" && (c[1] as { val: unknown }).val === false,
     );
     expect(stampCall).toBeGreaterThanOrEqual(0);
+    expect(makeClient).toHaveBeenCalled();
+    expect(i.setStateChangedAsync.mock.invocationCallOrder[stampCall]).toBeLessThan(
+      makeClient.mock.invocationCallOrder[0],
+    );
   });
 
   it("counts the devices and how many answer in one place", async () => {
@@ -2354,6 +2422,20 @@ describe("HomeWizard leftover supportedMessages key", () => {
     expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.homewizard.0", {
       common: { supportedMessages: null },
     });
+  });
+
+  // The state of EVERY instance already corrected: the object store merges with
+  // node.extend, which stores the `null` rather than deleting the key. Treating that
+  // null as "still there" would write again on every start — a restart loop.
+  it("writes nothing and starts normally when the key is already null (a corrected instance)", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.getForeignObjectAsync.mockResolvedValue({ common: { supportedMessages: null } });
+
+    await i.onReady();
+
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
+    expect(i.getAdapterObjectsAsync).toHaveBeenCalled();
   });
 
   it("writes nothing and starts normally when the key is absent", async () => {
@@ -2910,6 +2992,14 @@ describe("manifest objects reach an existing installation", () => {
       } else {
         expect(common.desc).toBeUndefined();
       }
+    }
+    // The options argument is where `preserve` would sit — a guard that reads only the
+    // object argument never sees it, and a preserved name freezes on every installation.
+    for (const c of i.extendObject.mock.calls as unknown[][]) {
+      expect(
+        (c[2] as { preserve?: unknown } | undefined)?.preserve,
+        `${String(c[0])} carries preserve`,
+      ).toBeUndefined();
     }
   });
 });

@@ -651,6 +651,16 @@ export function supportsIdentify(productType: string): boolean {
 }
 
 /**
+ * Whether a product type has a status LED whose brightness can be set
+ * (docs/v2/system, `status_led_brightness_pct`: not on the kWh Meter).
+ *
+ * @param productType Product type as the device reports it.
+ */
+export function supportsStatusLed(productType: string): boolean {
+  return !KWH_PRODUCT_TYPES.has(productType);
+}
+
+/**
  * Whether a product type serves the battery group (`/api/batteries` and the
  * `batteries` WebSocket topic). The endpoint lives on the P1 and kWh Meter; the
  * Plug-In Battery itself does not have it (docs/v2/batteries).
