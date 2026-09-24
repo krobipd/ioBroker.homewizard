@@ -1,7 +1,7 @@
 import type * as utils from "@iobroker/adapter-core";
 import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject, sanitizeForLog } from "./coerce";
 import { deviceIcon } from "./device-icons";
-import { buildDevicePrefix, deviceObjectName, sanitizeIdPart as sanitize } from "./main-helpers";
+import { buildDevicePrefix, deviceLabel, deviceObjectName, sanitizeIdPart as sanitize } from "./main-helpers";
 import type { I18nKey } from "./i18n";
 import { resolveLabel, tName } from "./i18n";
 import type { MeasurementStateDef } from "./state-defs";
@@ -17,6 +17,11 @@ import {
   SYSTEM_INFO_FIELDS,
 } from "./state-defs";
 import type { BatteryControl, DeviceConfig, Measurement, SystemInfo } from "./types";
+
+/** How long a known external meter must be missing before it is removed (DD41). */
+const METER_GONE_MS = 24 * 60 * 60 * 1000;
+/** How many received measurements must lack it as well (DD41). */
+const METER_GONE_FRAMES = 100;
 
 /** Options for {@link StateManager.createState} (avoids long positional argument lists). */
 interface StateDef {
@@ -113,6 +118,15 @@ export class StateManager {
    * prefixes: an id below one counts as removed too.
    */
   private readonly removedIds = new Set<string>();
+  /**
+   * External meters per device (channel id → since when and in how many received
+   * measurements it has been missing). A P1 reports every meter it knows in EVERY
+   * measurement (`external`, docs/v2/measurement); one that stops appearing — a gas
+   * meter replaced by the utility, a meter unplugged for good — would otherwise keep
+   * its last reading forever. Seeded from the tree at start-up, so a meter that is
+   * already gone before the first measurement is counted too (DD41).
+   */
+  private readonly knownMeters = new Map<string, Map<string, { missingSince: number; framesMissing: number }>>();
 
   /** @param adapter The ioBroker adapter instance */
   constructor(adapter: utils.AdapterInstance) {
@@ -299,6 +313,7 @@ export class StateManager {
     // and the per-meter value/unit/timestamp states. Inside one meter, the three
     // value/unit/timestamp writes are independent and run in parallel.
     const external = record.external;
+    const reportedMeters = new Set<string>();
     if (Array.isArray(external) && external.length > 0) {
       // L7: cap the meter count — a rogue/compromised (but paired) device could
       // otherwise send a huge external[] (bounded only by the 16 MB body cap) →
@@ -324,6 +339,7 @@ export class StateManager {
         await this.ensureChannel(`${mPrefix}.external`, () => tName("externalMeters"));
 
         const extId = `${mPrefix}.external.${sanitize(type)}_${sanitize(uniqueId)}`;
+        reportedMeters.add(extId);
         // The meter TYPE comes from a closed list in the API (gas, water, warm
         // water, heat, inlet heat), so its channel name is the adapter's own
         // translated text. A type outside that list is device-supplied and keeps the
@@ -373,6 +389,101 @@ export class StateManager {
         }
         await Promise.all(extWrites);
       }
+    }
+    // Only a measurement that carries the list says anything about which meters are
+    // there — a frame without the field is no evidence that a meter is gone.
+    if (Array.isArray(external) && !isStale?.()) {
+      await this.trackExternalMeters(config, prefix, reportedMeters, isStale);
+    }
+  }
+
+  /**
+   * Register the external-meter channels a device already has in the tree, so a
+   * meter that no longer reports is counted from the first measurement on.
+   *
+   * @param config      Device configuration
+   * @param existingIds Full ids of every object in the namespace at start-up.
+   */
+  seedExternalMeters(config: DeviceConfig, existingIds: ReadonlySet<string>): void {
+    const prefix = this.devicePrefix(config);
+    const base = `${this.adapter.namespace}.${prefix}.measurement.external.`;
+    const meters = this.metersOf(prefix);
+    for (const id of existingIds) {
+      if (id.startsWith(base) && !id.slice(base.length).includes(".")) {
+        const local = id.slice(this.adapter.namespace.length + 1);
+        if (!meters.has(local)) {
+          meters.set(local, { missingSince: 0, framesMissing: 0 });
+        }
+      }
+    }
+  }
+
+  /**
+   * The external-meter bookkeeping of one device, created on first use.
+   *
+   * @param prefix Device prefix
+   */
+  private metersOf(prefix: string): Map<string, { missingSince: number; framesMissing: number }> {
+    let meters = this.knownMeters.get(prefix);
+    if (!meters) {
+      meters = new Map();
+      this.knownMeters.set(prefix, meters);
+    }
+    return meters;
+  }
+
+  /**
+   * Count the known meters a measurement did not report, and remove one that has been
+   * missing for {@link METER_GONE_MS} AND {@link METER_GONE_FRAMES} received
+   * measurements. Both, because either alone misreads a situation: time alone would
+   * remove every meter of a device that was simply offline for a day (it received no
+   * measurement at all), frames alone would remove a meter after 100 seconds of a
+   * P1 that briefly lost its meter bus.
+   *
+   * @param config   Device configuration
+   * @param prefix   Device prefix
+   * @param reported Channel ids of the meters this measurement reported
+   * @param isStale  Removal/unload guard
+   */
+  private async trackExternalMeters(
+    config: DeviceConfig,
+    prefix: string,
+    reported: ReadonlySet<string>,
+    isStale?: () => boolean,
+  ): Promise<void> {
+    const meters = this.metersOf(prefix);
+    const now = Date.now();
+    for (const id of reported) {
+      meters.set(id, { missingSince: 0, framesMissing: 0 });
+    }
+    for (const [channel, entry] of meters) {
+      if (reported.has(channel)) {
+        continue;
+      }
+      if (entry.framesMissing === 0) {
+        entry.missingSince = now;
+      }
+      entry.framesMissing++;
+      if (now - entry.missingSince < METER_GONE_MS || entry.framesMissing < METER_GONE_FRAMES) {
+        continue;
+      }
+      if (isStale?.()) {
+        return;
+      }
+      meters.delete(channel);
+      // Marked before the delete, like the battery branch: the label retrofit may run
+      // at the same moment and would bring a just-deleted leaf back as a shell.
+      this.removedIds.add(channel);
+      for (const created of this.createdIds) {
+        if (created === channel || created.startsWith(`${channel}.`)) {
+          this.createdIds.delete(created);
+        }
+      }
+      await this.adapter.delObjectAsync(channel, { recursive: true });
+      this.adapter.log.info(
+        `${deviceLabel(config)}: the external meter ${channel.slice(channel.lastIndexOf(".") + 1)} has not been ` +
+          `reported for a day — its data points were removed`,
+      );
     }
   }
 
@@ -693,6 +804,7 @@ export class StateManager {
    */
   async removeDeviceByPrefix(prefix: string): Promise<void> {
     this.adapter.log.debug(`state-manager: removeDevice ${prefix}`);
+    this.knownMeters.delete(prefix);
     await this.adapter.delObjectAsync(prefix, { recursive: true });
     // Drop cache entries belonging to this device — re-pairing the same
     // device must re-create channels/states from scratch.

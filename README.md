@@ -139,7 +139,7 @@ homewizard.0.
     │   │   ├── voltage_swell_l1..l3_count
     │   │   ├── power_fail_count
     │   │   └── long_power_fail_count
-    │   └── external/            — External meters (gas, water, heat)
+    │   └── external/            — External meters (gas, water, heat); a meter no longer reported for a day is removed
     │       └── {type}_{id}/
     │           ├── value        — Meter reading (number)
     │           ├── unit         — Unit (string)

@@ -65,7 +65,7 @@ interface MockAdapter {
   metrics: MockAdapterMetrics;
   /** Ids of every extendObject call that carried `preserve.common` — see the preserve-scope test. */
   preservedIds: string[];
-  log: { debug: (msg: string) => void };
+  log: { debug: (msg: string) => void; info: (msg: string) => void; infos: string[] };
   extendObject: (id: string, obj: Partial<ObjectDef>, options?: { preserve?: { common?: string[] } }) => Promise<void>;
   setObjectNotExistsAsync: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
   setForeignObject: (id: string, obj: Partial<ObjectDef>) => Promise<void>;
@@ -165,7 +165,13 @@ function createMockAdapter(): MockAdapter {
     states,
     metrics,
     preservedIds,
-    log: { debug: (): void => {} },
+    log: {
+      debug: (): void => {},
+      info(msg: string): void {
+        this.infos.push(msg);
+      },
+      infos: [] as string[],
+    },
     extendObject: (
       id: string,
       obj: Partial<ObjectDef>,
@@ -627,6 +633,95 @@ describe("StateManager", () => {
       expect(adapter.states.get("hwe-p1_aabbccddeeff.measurement.external.gas_meter_gas001.timestamp")?.val).toBe(
         "2026-04-04T12:00:00",
       );
+    });
+
+    describe("a meter that is no longer reported (DD41)", () => {
+      const GAS = "hwe-p1_aabbccddeeff.measurement.external.gas_meter_gas1";
+      const WATER = "hwe-p1_aabbccddeeff.measurement.external.water_meter_water1";
+      const both: Measurement = {
+        external: [
+          { unique_id: "gas1", type: "gas_meter", timestamp: "t1", value: 100, unit: "m3" },
+          { unique_id: "water1", type: "water_meter", timestamp: "t2", value: 50, unit: "l" },
+        ],
+      };
+      const gasOnly: Measurement = {
+        external: [{ unique_id: "gas1", type: "gas_meter", timestamp: "t1", value: 100, unit: "m3" }],
+      };
+      const HOUR = 60 * 60 * 1000;
+      let clock = 0;
+
+      beforeEach(() => {
+        clock = Date.UTC(2026, 8, 24);
+        vi.spyOn(Date, "now").mockImplementation(() => clock);
+      });
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      /**
+       * Feed `frames` measurements spread evenly over `hours`.
+       *
+       * @param data   The measurement to feed
+       * @param frames How many
+       * @param hours  Over how many hours
+       */
+      async function feed(data: Measurement, frames: number, hours: number): Promise<void> {
+        for (let n = 0; n < frames; n++) {
+          await manager.updateMeasurement(testDevice, data);
+          clock += (hours * HOUR) / frames;
+        }
+      }
+
+      it("is removed after a day AND 100 measurements without it — once, with one info line", async () => {
+        await manager.updateMeasurement(testDevice, both);
+        await feed(gasOnly, 120, 25);
+
+        expect(adapter.objects.has(WATER)).toBe(false);
+        expect(adapter.objects.has(`${WATER}.value`)).toBe(false);
+        expect(adapter.objects.has(GAS), "the reported meter stays").toBe(true);
+        expect(adapter.log.infos.filter(m => m.includes("water_meter_water1"))).toEqual([
+          "P1 Meter (hwe-p1_aabbccddeeff): the external meter water_meter_water1 has not been reported for a day — its data points were removed",
+        ]);
+      });
+
+      it("stays when it has been missing for 100 measurements but less than a day", async () => {
+        await manager.updateMeasurement(testDevice, both);
+        await feed(gasOnly, 500, 23);
+        expect(adapter.objects.has(WATER)).toBe(true);
+      });
+
+      it("stays when it has been missing for a day but in fewer than 100 measurements (the device was offline)", async () => {
+        await manager.updateMeasurement(testDevice, both);
+        await feed(gasOnly, 99, 48);
+        expect(adapter.objects.has(WATER)).toBe(true);
+      });
+
+      it("starts counting from zero when it reports again", async () => {
+        await manager.updateMeasurement(testDevice, both);
+        await feed(gasOnly, 99, 23);
+        await manager.updateMeasurement(testDevice, both); // back
+        await feed(gasOnly, 99, 23);
+        expect(adapter.objects.has(WATER)).toBe(true);
+      });
+
+      it("a measurement without the external field is no evidence that a meter is gone", async () => {
+        await manager.updateMeasurement(testDevice, both);
+        await feed({ power_w: 5 }, 200, 30);
+        expect(adapter.objects.has(WATER)).toBe(true);
+      });
+
+      it("a meter already in the tree at start-up is counted even if it never reports again", async () => {
+        await manager.updateMeasurement(testDevice, both);
+        // A new process: the meter exists in the tree only.
+        const fresh = new StateManager(adapter as never);
+        const existing = new Set([...adapter.objects.keys()].map(id => `homewizard.0.${id}`));
+        fresh.seedExternalMeters(testDevice, existing);
+        for (let n = 0; n < 120; n++) {
+          await fresh.updateMeasurement(testDevice, gasOnly);
+          clock += (25 * HOUR) / 120;
+        }
+        expect(adapter.objects.has(WATER)).toBe(false);
+      });
     });
 
     it("should handle multiple external meters", async () => {

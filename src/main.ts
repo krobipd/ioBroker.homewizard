@@ -360,6 +360,7 @@ export class HomeWizard extends utils.Adapter {
           const key = this.stateManager.devicePrefix(device);
           await this.stateManager.cleanupMovedStates(device, existingIds);
           await this.stateManager.createDeviceStates(device);
+          this.stateManager.seedExternalMeters(device, existingIds);
           // Stamp before the first connection attempt: the previous run's value
           // survives in the database, so without this a device that was green when
           // the adapter died stays green until its first WebSocket result — and

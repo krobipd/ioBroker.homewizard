@@ -276,6 +276,11 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     bei einer neu angelegten Instanz. **Der Adapter schreibt das NICHT nach** — das überschriebe eine
     Nutzer-Einstellung; die Flottenregel „ein Update erreicht den Bestand" gilt den Datenpunkten, die
     der Adapter verantwortet, nicht den Instanz-Einstellungen, die die Plattform dem Nutzer zuordnet.
+41. **Ein externer Zähler, der einen Tag lang UND in 100 empfangenen Messungen fehlt, wird entfernt** (seit v0.20.0) —
+    der P1 meldet jeden Zähler in jeder Messung (`external`, docs/v2/measurement); ohne Abräumen stünde ein getauschter
+    Zähler für immer mit eingefrorenem Wert da. Beide Schwellen, weil jede allein falsch liest (Zeit allein räumt bei
+    einem Tag offline alles ab, Messungen allein nach 100 s Busstörung); gezählt wird nur eine Messung, die das Feld
+    trägt; Bestandskanäle werden beim Start aus dem Baum eingesetzt (`seedExternalMeters`).
 
 ## Error-Handling (seit v0.3.5)
 
