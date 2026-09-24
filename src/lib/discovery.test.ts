@@ -1,3 +1,4 @@
+import type { EventEmitter } from "node:events";
 import { vi } from "vitest";
 
 // I5: mock bonjour-service so the start/stop lifecycle tests exercise
@@ -9,7 +10,7 @@ import { vi } from "vitest";
 const announced: {
   emit: ((service: unknown) => void) | null;
   opts: unknown;
-  mdns: import("node:events").EventEmitter | null;
+  mdns: EventEmitter | null;
 } = { emit: null, opts: null, mdns: null };
 
 vi.mock("bonjour-service", async () => {
