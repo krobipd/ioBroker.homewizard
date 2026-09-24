@@ -1318,11 +1318,8 @@ describe("HomeWizard onReady", () => {
     });
     // onReady builds its own StateManager — make the object write for the first
     // device's tree fail, the way a database hiccup would.
-    const realExtend = i.extendObject.getMockImplementation();
-    i.extendObject.mockImplementation((id: string, ...rest: unknown[]) =>
-      id === "hwe-p1_dev1"
-        ? Promise.reject(new Error("db write failed"))
-        : (realExtend?.(id, ...rest) ?? Promise.resolve()),
+    i.extendObject.mockImplementation((id: string) =>
+      id === "hwe-p1_dev1" ? Promise.reject(new Error("db write failed")) : Promise.resolve(),
     );
     await i.onReady();
     await settle();
