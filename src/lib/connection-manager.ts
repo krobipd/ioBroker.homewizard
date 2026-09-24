@@ -4,6 +4,7 @@ import { coerceString, errText, sanitizeForLog } from "./coerce";
 import { HomeWizardApiError, type HomeWizardClient } from "./homewizard-client";
 import {
   computeReconnectDelay,
+  deviceLabel,
   decideUnstableTransition,
   findConnectionForState as resolveConnectionForState,
   shouldEmitAfterCooldown,
@@ -202,7 +203,7 @@ export class ConnectionManager {
       .getStateManager()
       .setDeviceConnected(conn.config, online)
       .catch((err: unknown) =>
-        this.adapter.log.debug(`setDeviceConnected(${online}) failed for ${conn.config.productName}: ${errText(err)}`),
+        this.adapter.log.debug(`setDeviceConnected(${online}) failed for ${deviceLabel(conn.config)}: ${errText(err)}`),
       );
     this.updateGlobalConnection();
   }
@@ -249,9 +250,9 @@ export class ConnectionManager {
       //     already ran under the serial-suffix pin (makeClient with conn.config.serial),
       //     so the token was never exposed under a blanket agent. Capture the full CN
       //     now for the exact-CN pin (createDeviceAgent) on later connects.
-      //   • productName — pick up a rename that happened while the adapter was down.
-      //     Doing it here means the first pollSystemInfo needs no redundant getDeviceInfo
-      //     just to catch a downtime-rename (F3).
+      //   • productName — pick up a changed product name (a firmware update can bring
+      //     one) that happened while the adapter was down. Doing it here means the first
+      //     pollSystemInfo needs no redundant getDeviceInfo just for that (F3).
       let configChanged = false;
       if (!conn.config.certCn) {
         const certCn = client.getServerCertCn();
@@ -268,7 +269,7 @@ export class ConnectionManager {
         this.host
           .saveDeviceToObject(conn.config)
           .catch((err: unknown) =>
-            this.adapter.log.debug(`Failed to persist device config for ${conn.config.productName}: ${errText(err)}`),
+            this.adapter.log.debug(`Failed to persist device config for ${deviceLabel(conn.config)}: ${errText(err)}`),
           );
       }
     } catch (err) {
@@ -292,14 +293,14 @@ export class ConnectionManager {
    * One place for both callers (the initial connect and the periodic poll), so the
    * rule cannot drift apart between them.
    *
-   * A rename needs three writes, not one, and only two of them happen here: the
-   * running config, so the next log line and every derived id are right, and the
-   * `info.productName` data point. That data point is the ONLY place the device's
-   * own name is still visible — the object's own name belongs to the user and is
-   * deliberately preserved (DD21), so leaving the state out meant the new name
-   * showed up nowhere until the next adapter restart. The third write, persisting
-   * the config, stays with the caller: `initDevice` folds it into the one persist
-   * it does anyway for the certificate CN.
+   * `product_name` is the device's FIXED product name ("P1 Meter"), not the name a
+   * user gives the device in the HomeWizard app — the API has no field for that one
+   * (official API v2 docs, device_information). It changes only when a firmware
+   * update renames the product. Such a change needs three writes: the running
+   * config (next log line), the `info.productName` data point, and the persisted
+   * config, which also carries the device object's name (DD21) — that third write
+   * stays with the caller: `initDevice` folds it into the one persist it does
+   * anyway for the certificate CN.
    *
    * The firmware is written on every call, not only on a rename — a device updates
    * itself, and `setStateChanged` makes an unchanged version free.
@@ -322,10 +323,7 @@ export class ConnectionManager {
     if (!info.product_name || newName === conn.config.productName) {
       return false;
     }
-    this.adapter.log.info(
-      `${conn.config.productName}: the device is now called '${newName}' — data point updated ` +
-        `(the object's own name in the tree stays as you set it)`,
-    );
+    this.adapter.log.info(`${deviceLabel(conn.config)}: the device now reports the product name '${newName}'`);
     conn.config.productName = newName;
     await stateManager.setProductName(conn.config);
     return true;
@@ -425,7 +423,7 @@ export class ConnectionManager {
       .getStateManager()
       .updateMeasurement(conn.config, data, () => conn.removed || this.host.isUnloading())
       .catch((err: unknown) => {
-        this.adapter.log.debug(`updateMeasurement failed for ${conn.config.productName}: ${errText(err)}`);
+        this.adapter.log.debug(`updateMeasurement failed for ${deviceLabel(conn.config)}: ${errText(err)}`);
       })
       .finally(() => {
         conn.measurementBusy = false;
@@ -453,7 +451,7 @@ export class ConnectionManager {
       .getStateManager()
       .updateSystem(conn.config, data, () => conn.removed || this.host.isUnloading())
       .catch((err: unknown) => {
-        this.adapter.log.debug(`updateSystem (ws) failed for ${conn.config.productName}: ${errText(err)}`);
+        this.adapter.log.debug(`updateSystem (ws) failed for ${deviceLabel(conn.config)}: ${errText(err)}`);
       })
       .finally(() => {
         conn.systemBusy = false;
@@ -483,7 +481,7 @@ export class ConnectionManager {
       .getStateManager()
       .updateBattery(conn.config, data)
       .catch((err: unknown) => {
-        this.adapter.log.debug(`updateBattery (ws) failed for ${conn.config.productName}: ${errText(err)}`);
+        this.adapter.log.debug(`updateBattery (ws) failed for ${deviceLabel(conn.config)}: ${errText(err)}`);
       })
       .finally(() => {
         conn.batteryBusy = false;
@@ -524,8 +522,8 @@ export class ConnectionManager {
       const now = Date.now();
       const lastInfo = this.lastInfoAt.get(conn.config.serial) ?? 0;
       const msg = this.isUnstable(conn)
-        ? `${conn.config.productName}: connection restored (unstable mode)`
-        : `${conn.config.productName}: connection restored`;
+        ? `${deviceLabel(conn.config)}: connection restored (unstable mode)`
+        : `${deviceLabel(conn.config)}: connection restored`;
       if (shouldEmitAfterCooldown(lastInfo, now, INFO_COOLDOWN_MS)) {
         this.lastInfoAt.set(conn.config.serial, now);
         this.adapter.log.info(msg);
@@ -535,7 +533,7 @@ export class ConnectionManager {
       conn.lastErrorCode = "";
     }
 
-    this.adapter.log.debug(`WebSocket connected to ${conn.config.productName} (${conn.ip})`);
+    this.adapter.log.debug(`WebSocket connected to ${deviceLabel(conn.config)} at ${conn.ip}`);
   }
 
   /**
@@ -567,9 +565,9 @@ export class ConnectionManager {
       }
       // Hysterese-transitions are internal reconnect-strategy adjustments → debug, not info.
       if (transition === "becameUnstable") {
-        this.adapter.log.debug(`${conn.config.productName}: unstable connection detected — using faster reconnect`);
+        this.adapter.log.debug(`${deviceLabel(conn.config)}: unstable connection detected — using faster reconnect`);
       } else if (transition === "stabilized") {
-        this.adapter.log.debug(`${conn.config.productName}: connection stabilized — using normal reconnect`);
+        this.adapter.log.debug(`${deviceLabel(conn.config)}: connection stabilized — using normal reconnect`);
       }
     }
 
@@ -732,7 +730,7 @@ export class ConnectionManager {
           // Best-effort — the system poll's own logging already surfaces real
           // connectivity trouble. Still say it: a fully silent catch hides a name
           // and firmware sync that may have been failing for weeks.
-          this.adapter.log.debug(`${conn.config.productName} device-info refresh: ${errText(err)}`);
+          this.adapter.log.debug(`${deviceLabel(conn.config)} device-info refresh: ${errText(err)}`);
         }
       }
 
@@ -766,7 +764,7 @@ export class ConnectionManager {
             conn.batteryAbsentPolls = 0;
             const removed = await this.host.getStateManager().removeBatteryStates(conn.config);
             if (removed) {
-              this.adapter.log.info(`${conn.config.productName}: no battery connected any more — data points removed`);
+              this.adapter.log.info(`${deviceLabel(conn.config)}: no battery connected any more — data points removed`);
             }
           }
         }
@@ -786,13 +784,13 @@ export class ConnectionManager {
             const removed = await this.host.getStateManager().removeBatteryStates(conn.config);
             if (removed) {
               this.adapter.log.info(
-                `${conn.config.productName}: this device does not manage batteries — its battery data points were removed`,
+                `${deviceLabel(conn.config)}: this device does not manage batteries — its battery data points were removed`,
               );
             }
           }
           return;
         }
-        this.adapter.log.debug(`${conn.config.productName} batteries: ${errText(err)}`);
+        this.adapter.log.debug(`${deviceLabel(conn.config)} batteries: ${errText(err)}`);
       }
     } catch (err) {
       if (this.host.isUnloading()) {
@@ -839,7 +837,7 @@ export class ConnectionManager {
       }
     } catch (err) {
       // Best-effort: the write's own warning has already told the user what failed.
-      this.adapter.log.debug(`${conn.config.productName} ${group} read-back: ${errText(err)}`);
+      this.adapter.log.debug(`${deviceLabel(conn.config)} ${group} read-back: ${errText(err)}`);
     }
   }
 
@@ -905,7 +903,7 @@ export class ConnectionManager {
     if (conn.authFailCount < MAX_AUTH_FAILURES) {
       return true;
     }
-    this.adapter.log.warn(`${conn.config.productName}: token invalid — re-pair device to fix`);
+    this.adapter.log.warn(`${deviceLabel(conn.config)}: token invalid — re-pair device to fix`);
     if (cleanupTimers) {
       // L13: same close-WS + clear-poll/reconnect-timer sequence as teardownConnection.
       this.teardownConnection(conn);
@@ -940,7 +938,7 @@ export class ConnectionManager {
     conn.lastErrorCode = errorCode;
 
     if (isRepeat) {
-      this.adapter.log.debug(`${conn.config.productName} ${context}: ${errText(err)}`);
+      this.adapter.log.debug(`${deviceLabel(conn.config)} ${context}: ${errText(err)}`);
       return;
     }
 
@@ -950,15 +948,15 @@ export class ConnectionManager {
     const now = Date.now();
     const lastWarn = this.lastWarnAt.get(conn.config.serial) ?? 0;
     if (!shouldEmitAfterCooldown(lastWarn, now, WARN_COOLDOWN_MS)) {
-      this.adapter.log.debug(`${conn.config.productName} ${context} (cooldown): ${errText(err)}`);
+      this.adapter.log.debug(`${deviceLabel(conn.config)} ${context} (cooldown): ${errText(err)}`);
       return;
     }
 
     this.lastWarnAt.set(conn.config.serial, now);
     if (errorCode === "NETWORK") {
-      this.adapter.log.warn(`${conn.config.productName}: device unreachable — will keep retrying`);
+      this.adapter.log.warn(`${deviceLabel(conn.config)}: device unreachable — will keep retrying`);
     } else {
-      this.adapter.log.warn(`${conn.config.productName} ${context}: ${errText(err)}`);
+      this.adapter.log.warn(`${deviceLabel(conn.config)} ${context}: ${errText(err)}`);
     }
   }
 }

@@ -1,6 +1,7 @@
 import type * as utils from "@iobroker/adapter-core";
 import { coerceBoolean, coerceFiniteNumber, coerceString, isPlainObject, sanitizeForLog } from "./coerce";
 import { deviceIcon } from "./device-icons";
+import { buildDevicePrefix, deviceObjectName, sanitizeIdPart as sanitize } from "./main-helpers";
 import type { I18nKey } from "./i18n";
 import { resolveLabel, tName } from "./i18n";
 import type { MeasurementStateDef } from "./state-defs";
@@ -45,15 +46,6 @@ interface StateSet extends StateDef {
   value: ioBroker.StateValue;
   /** Use setStateChangedAsync (skip redundant writes) instead of setState */
   changedOnly?: boolean;
-}
-
-/**
- * Sanitize a string for use as ioBroker object ID (see adapter.FORBIDDEN_CHARS).
- *
- * @param str Raw string to sanitize
- */
-function sanitize(str: string): string {
-  return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
 }
 
 /**
@@ -145,7 +137,7 @@ export class StateManager {
     await this.adapter.extendObject(prefix, {
       type: "device",
       common: {
-        name: config.productName || config.productType,
+        name: deviceObjectName(config),
         statusStates: {
           onlineId: `${this.adapter.namespace}.${prefix}.info.connected`,
         },
@@ -910,7 +902,7 @@ export class StateManager {
   devicePrefix(config: DeviceConfig): string {
     let prefix = this.prefixCache.get(config);
     if (prefix === undefined) {
-      prefix = `${sanitize(config.productType)}_${sanitize(config.serial)}`;
+      prefix = buildDevicePrefix(config);
       this.prefixCache.set(config, prefix);
     }
     return prefix;

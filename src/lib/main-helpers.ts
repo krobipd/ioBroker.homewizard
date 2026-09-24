@@ -6,7 +6,7 @@
  * the result back to the actual side-effects.
  */
 
-import type { DeviceConnection } from "./types";
+import type { DeviceConfig, DeviceConnection } from "./types";
 
 /** Outcome of {@link decideUnstableTransition}. */
 export type UnstableTransition = "becameUnstable" | "stabilized" | "noChange";
@@ -121,4 +121,53 @@ export function shouldEmitAfterCooldown(lastMs: number, now: number, cooldownMs:
     return true;
   }
   return now - lastMs >= cooldownMs;
+}
+
+/**
+ * Sanitize a string for use in an ioBroker object ID (see adapter.FORBIDDEN_CHARS).
+ *
+ * @param str Raw string to sanitize.
+ */
+export function sanitizeIdPart(str: string): string {
+  return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+}
+
+/**
+ * The folder id of a device: `<productType>_<serial>`, e.g. `hwe-p1_5c2faf000011`.
+ * Unique per device, because the serial is the device's MAC.
+ *
+ * @param config Device configuration.
+ */
+export function buildDevicePrefix(config: Pick<DeviceConfig, "productType" | "serial">): string {
+  return `${sanitizeIdPart(config.productType)}_${sanitizeIdPart(config.serial)}`;
+}
+
+/**
+ * The display name of the device object: the product name the device reports.
+ *
+ * The HomeWizard API has no field for the name a user gives the device in the app —
+ * `product_name` is "a fixed, user-friendly name. This name is not the same that is
+ * set by the user in the app" (official API v2 docs, device_information). Two
+ * devices of the same type therefore carry the same display name; the folder id
+ * tells them apart.
+ *
+ * @param config Device configuration.
+ */
+export function deviceObjectName(config: Pick<DeviceConfig, "productName" | "productType">): string {
+  return config.productName || config.productType;
+}
+
+/**
+ * How a log line names a device: `P1 Meter (hwe-p1_5c2faf000011)`.
+ *
+ * The product name alone does not identify a device — two meters of the same type
+ * both report "P1 Meter" — so the folder id follows in brackets, the same form the
+ * homeconnect adapter uses. Without a product name the id stands alone.
+ *
+ * @param config Device configuration.
+ */
+export function deviceLabel(config: Pick<DeviceConfig, "productName" | "productType" | "serial">): string {
+  const prefix = buildDevicePrefix(config);
+  const name = config.productName?.trim() ?? "";
+  return name.length > 0 && name !== prefix ? `${name} (${prefix})` : prefix;
 }

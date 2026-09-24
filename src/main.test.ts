@@ -51,6 +51,7 @@ import type * as CacertModule from "./lib/cacert";
 import { HomeWizard } from "./main";
 import { createDeviceAgent, createDeviceAgentForSerial, dropDeviceAgent, HW_AGENT } from "./lib/cacert";
 import { HomeWizardApiError } from "./lib/homewizard-client";
+import { createDeviceConnection } from "./lib/connection-utils";
 import type { DeviceConnection, DiscoveredDevice } from "./lib/types";
 
 interface FakeClient {
@@ -667,6 +668,7 @@ function internalOf(hw: HomeWizard): {
     initDevice: (c: DeviceConnection) => Promise<void>;
     connectWebSocket: (c: DeviceConnection) => void;
     dropCooldowns: (serial: string) => void;
+    handleAuthFailure: (c: DeviceConnection, e: unknown, cleanupTimers: boolean) => boolean;
   };
 } {
   return hw as unknown as ReturnType<typeof internalOf>;
@@ -1589,6 +1591,23 @@ describe("v0.12.2 regressions", () => {
 
     expect(i.connectionManager.lastWarnAt.has("aabb")).toBe(false);
     expect(i.connectionManager.lastInfoAt.has("aabb")).toBe(false);
+  });
+
+  it("names the device in its log lines with the folder id — the product name alone is shared by every meter of a type", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    await i.removeDevice("homewizard.0.hwe-p1_aabb.remove");
+    expect(i.log.info).toHaveBeenCalledWith("Removing device P1 (hwe-p1_aabb)");
+
+    // The connection layer uses the same label.
+    const conn = createDeviceConnection(
+      { token: "t", productType: "HWE-P1", serial: "ccdd", productName: "P1" },
+      "10.0.0.9",
+    );
+    for (let n = 0; n < 3; n++) {
+      i.connectionManager.handleAuthFailure(conn, new HomeWizardApiError(401, "", "GET /api"), false);
+    }
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("P1 (hwe-p1_ccdd): token invalid"));
   });
 
   it("a write to a state without matching device is surfaced at debug", async () => {

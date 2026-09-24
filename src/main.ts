@@ -12,7 +12,7 @@ import {
 import { createDeviceConnection } from "./lib/connection-utils";
 import { ConnectionManager, WS_RECONNECT_MAX_MS, type ConnectionManagerHost } from "./lib/connection-manager";
 import { HomeWizardDiscovery } from "./lib/discovery";
-import { stripNamespace } from "./lib/main-helpers";
+import { deviceLabel, deviceObjectName, stripNamespace } from "./lib/main-helpers";
 import { PairingManager, type PairingManagerHost } from "./lib/pairing-manager";
 import { CA_NOT_AFTER, caDaysUntilExpiry, dropDeviceAgent, pinnedAgent } from "./lib/cacert";
 import { HomeWizardClient } from "./lib/homewizard-client";
@@ -373,11 +373,11 @@ export class HomeWizard extends utils.Adapter {
         this.connections.set(key, conn);
 
         if (conn.ip) {
-          this.log.debug(`Using stored IP ${conn.ip} for ${device.productName}`);
+          this.log.debug(`Using stored IP ${conn.ip} for ${deviceLabel(device)}`);
           void this.connectionManager
             .initDevice(conn)
             .catch((err: unknown) =>
-              this.log.error(`initDevice failed for ${conn.config.productName}: ${errText(err)}`),
+              this.log.error(`initDevice failed for ${deviceLabel(conn.config)}: ${errText(err)}`),
             );
         }
       }
@@ -395,7 +395,7 @@ export class HomeWizard extends utils.Adapter {
       // single line saying so. Say it, and start the mDNS search once.
       if (devices.some(device => !device.ip)) {
         for (const device of devices.filter(d => !d.ip)) {
-          this.log.warn(`${device.productName}: no usable IP address stored — searching for the device via mDNS`);
+          this.log.warn(`${deviceLabel(device)}: no usable IP address stored — searching for the device via mDNS`);
         }
         this.startIpRecovery();
       }
@@ -508,7 +508,7 @@ export class HomeWizard extends utils.Adapter {
       type: "device",
       // No `preserve`: the name follows the device (i.e. the HomeWizard app), like
       // every other label in this tree — see DD21.
-      common: { name: config.productName || config.productType },
+      common: { name: deviceObjectName(config) },
       native: {
         encryptedToken,
         productType: config.productType,
@@ -616,7 +616,7 @@ export class HomeWizard extends utils.Adapter {
       suffix: ".system.reboot",
       button: true,
       send: async ({ client, conn }) => {
-        this.log.info(`Rebooting ${conn.config.productName} (${conn.ip})`);
+        this.log.info(`Rebooting ${deviceLabel(conn.config)} at ${conn.ip}`);
         await client.reboot();
         return null;
       },
@@ -659,7 +659,7 @@ export class HomeWizard extends utils.Adapter {
       send: async ({ client, state, conn }) => {
         if (state.val) {
           this.log.warn(
-            `${conn.config.productName}: enabling the legacy v1 API — it has no TLS and no token, so any ` +
+            `${deviceLabel(conn.config)}: enabling the legacy v1 API — it has no TLS and no token, so any ` +
               `host on the LAN can then read and control this device without authentication.`,
           );
         }
@@ -813,7 +813,7 @@ export class HomeWizard extends utils.Adapter {
         // answer was the only one for the whole recovery window. `teardownConnection`
         // below closes that pending client (its close-event is suppressed), so the
         // reconnect below is the only one left.
-        this.log.info(`${conn.config.productName}: found at new IP ${discovered.ip} (was ${conn.ip})`);
+        this.log.info(`${deviceLabel(conn.config)}: found at new IP ${discovered.ip} (was ${conn.ip})`);
 
         // Update IP and persist — reset stability (new network conditions)
         conn.ip = discovered.ip;
@@ -824,7 +824,7 @@ export class HomeWizard extends utils.Adapter {
         // swallowing them — the user otherwise sees "new IP" log but the
         // change is lost on next restart.
         this.saveDeviceToObject(conn.config).catch((err: unknown) =>
-          this.log.debug(`Failed to persist new IP for ${conn.config.productName}: ${errText(err)}`),
+          this.log.debug(`Failed to persist new IP for ${deviceLabel(conn.config)}: ${errText(err)}`),
         );
 
         // Drop everything that still points at the old address — the pending
@@ -847,7 +847,7 @@ export class HomeWizard extends utils.Adapter {
       for (const conn of this.connections.values()) {
         if (!conn.wsAuthenticated && conn.wsFailCount > 0) {
           this.log.debug(
-            `${conn.config.productName}: device offline — will keep retrying every ${WS_RECONNECT_MAX_MS / 1000}s`,
+            `${deviceLabel(conn.config)}: device offline — will keep retrying every ${WS_RECONNECT_MAX_MS / 1000}s`,
           );
         }
       }
@@ -891,7 +891,7 @@ export class HomeWizard extends utils.Adapter {
     const key = this.stateManager.devicePrefix(config);
     const previous = this.connections.get(key);
     if (previous) {
-      this.log.debug(`Re-pair: closing previous connection for ${config.productName}`);
+      this.log.debug(`Re-pair: closing previous connection for ${deviceLabel(config)}`);
       // Mark it before the teardown, like removeDevice does: work that is already in
       // flight on the OLD connection (an initDevice or system poll waiting on a 10 s
       // timeout) checks this flag after each await. Without it such a task can still
@@ -905,7 +905,7 @@ export class HomeWizard extends utils.Adapter {
     this.connections.set(key, conn);
     void this.connectionManager
       .initDevice(conn)
-      .catch((err: unknown) => this.log.error(`initDevice failed for ${conn.config.productName}: ${errText(err)}`));
+      .catch((err: unknown) => this.log.error(`initDevice failed for ${deviceLabel(conn.config)}: ${errText(err)}`));
     this.connectionManager.updateGlobalConnection();
   }
 
@@ -965,7 +965,7 @@ export class HomeWizard extends utils.Adapter {
     }
 
     const key = this.stateManager.devicePrefix(conn.config);
-    this.log.info(`Removing device ${conn.config.productName} (${sanitizeForLog(conn.config.serial)})`);
+    this.log.info(`Removing device ${deviceLabel(conn.config)}`);
 
     // Mark as removed FIRST — async tasks (in-flight WS frames, REST polls,
     // outstanding pollSystemInfo) check this flag after each await and bail
@@ -980,14 +980,14 @@ export class HomeWizard extends utils.Adapter {
         ? this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial)
             .deleteUser()
             .then(
-              () => this.log.debug(`Token revoked for ${conn.config.productName}`),
+              () => this.log.debug(`Token revoked for ${deviceLabel(conn.config)}`),
               (err: unknown) =>
                 // Not a fault of the adapter's: the usual case is a device that is
                 // already gone or offline. Say it at info, in the same words as the
                 // path for a device without a readable token, because the user has to
                 // finish the job in the app.
                 this.log.info(
-                  `${conn.config.productName}: the access token could not be revoked (${errText(err)}) — ` +
+                  `${deviceLabel(conn.config)}: the access token could not be revoked (${errText(err)}) — ` +
                     `the local/iobroker user stays on the device, remove it in the HomeWizard app.`,
                 ),
             )

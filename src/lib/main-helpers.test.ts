@@ -1,6 +1,9 @@
 import {
+  buildDevicePrefix,
   computeReconnectDelay,
   decideUnstableTransition,
+  deviceLabel,
+  deviceObjectName,
   findConnectionForState,
   shouldEmitAfterCooldown,
   shouldStartIpRecovery,
@@ -211,5 +214,30 @@ describe("shouldEmitAfterCooldown", () => {
     const last = 1_700_000_000_000;
     expect(shouldEmitAfterCooldown(last, last, 0)).toBe(true);
     expect(shouldEmitAfterCooldown(last, last + 1, 0)).toBe(true);
+  });
+});
+
+describe("device naming", () => {
+  const p1 = { productName: "P1 Meter", productType: "HWE-P1", serial: "5c2faf000011" };
+
+  it("builds the folder id from type and serial, lower-case and id-safe", () => {
+    expect(buildDevicePrefix(p1)).toBe("hwe-p1_5c2faf000011");
+    expect(buildDevicePrefix({ productType: "SDM230-wifi", serial: "AB:CD" })).toBe("sdm230-wifi_ab_cd");
+  });
+
+  it("keeps the device object named after the product name the device reports", () => {
+    // product_name is fixed per product, never the name set in the app (API v2 docs).
+    expect(deviceObjectName(p1)).toBe("P1 Meter");
+    expect(deviceObjectName({ productName: "", productType: "HWE-P1" })).toBe("HWE-P1");
+  });
+
+  it("names a device in the log with its folder id, so two meters of one type differ", () => {
+    expect(deviceLabel(p1)).toBe("P1 Meter (hwe-p1_5c2faf000011)");
+    expect(deviceLabel({ ...p1, serial: "5c2faf00a7c3" })).toBe("P1 Meter (hwe-p1_5c2faf00a7c3)");
+  });
+
+  it("falls back to the folder id alone when there is no product name", () => {
+    expect(deviceLabel({ ...p1, productName: "" })).toBe("hwe-p1_5c2faf000011");
+    expect(deviceLabel({ ...p1, productName: "   " })).toBe("hwe-p1_5c2faf000011");
   });
 });
