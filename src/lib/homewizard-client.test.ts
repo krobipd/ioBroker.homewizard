@@ -70,6 +70,8 @@ interface StubResponse {
   bodyText?: string;
   /** Accept the request but never respond — exercises the client's socket timeout (L18). */
   hang?: boolean;
+  /** Send the headers and a first chunk of the body, then stall — a timeout mid-body. */
+  stallBody?: boolean;
 }
 
 interface StubServer {
@@ -110,6 +112,11 @@ async function startStubServer(): Promise<StubServer> {
       }
       res.statusCode = next.statusCode;
       res.setHeader("Content-Type", "application/json");
+      if (next.stallBody) {
+        // Headers and a partial body go out, the rest never comes.
+        res.write('{"wifi_ssid":"');
+        return;
+      }
       if (next.bodyText !== undefined) {
         res.end(next.bodyText);
       } else if (next.body !== undefined) {
@@ -127,7 +134,12 @@ async function startStubServer(): Promise<StubServer> {
     port,
     requests,
     queue,
-    stop: () => new Promise<void>(resolve => server.close(() => resolve())),
+    stop: () =>
+      new Promise<void>(resolve => {
+        // A stalled response keeps its connection open; close it so the server can stop.
+        server.closeAllConnections();
+        server.close(() => resolve());
+      }),
   };
 }
 
@@ -466,6 +478,20 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
         requestTimeoutMs: 120,
       });
       stub.queue.push({ statusCode: 200, hang: true });
+      await expect(impatient.getSystem()).rejects.toThrow(/timeout/i);
+    });
+
+    it("times out a request whose body stalls after the headers arrived", async () => {
+      // The response has started, so the timeout fires while the client is reading
+      // the body. The client rejects on its own — it must not depend on
+      // `destroy(err)` emitting `error` afterwards (Node 26.10 changed that for a
+      // response that is already underway).
+      const impatient = new HomeWizardClient("127.0.0.1", "test-token", {
+        agent: TEST_AGENT,
+        port: stub.port,
+        requestTimeoutMs: 120,
+      });
+      stub.queue.push({ statusCode: 200, stallBody: true });
       await expect(impatient.getSystem()).rejects.toThrow(/timeout/i);
     });
   });

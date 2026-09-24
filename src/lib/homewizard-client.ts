@@ -220,11 +220,15 @@ export class HomeWizardClient {
             }
             size += chunk.length;
             if (size > this.maxResponseBytes) {
-              // Abort an oversized/streaming body before it OOMs the process. Flag it
-              // so a same-tick `end` (small-but-over-cap body in one chunk) can't fall
-              // through to resolve — the destroy's error event rejects the promise.
+              // Abort an oversized/streaming body before it OOMs the process, and
+              // reject HERE. Relying on the error event that `destroy(err)` used to
+              // emit is not enough: since Node 26.10 a body that is already fully
+              // buffered ends with `end`/`close` and no `error` at all, and the
+              // promise would never settle. The flag keeps that `end` from resolving.
+              const err = new Error(`Response body too large (>${this.maxResponseBytes} bytes): ${method} ${path}`);
               aborted = true;
-              req.destroy(new Error(`Response body too large (>${this.maxResponseBytes} bytes): ${method} ${path}`));
+              reject(err);
+              req.destroy(err);
               return;
             }
             chunks.push(chunk);
@@ -272,7 +276,11 @@ export class HomeWizardClient {
         reject(err);
       });
       req.on("timeout", () => {
-        req.destroy(new Error(`Timeout: ${method} ${path}`));
+        // Reject directly, like the size cap: a timeout while the body is stalling
+        // must not depend on `destroy(err)` still emitting `error`.
+        const err = new Error(`Timeout: ${method} ${path}`);
+        reject(err);
+        req.destroy(err);
       });
 
       if (bodyStr) {
