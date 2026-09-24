@@ -55,6 +55,7 @@ import type * as CacertModule from "./lib/cacert";
 import { HomeWizard } from "./main";
 import { createDeviceAgent, createDeviceAgentForSerial, dropDeviceAgent, HW_AGENT } from "./lib/cacert";
 import { HomeWizardApiError } from "./lib/homewizard-client";
+import { StateManager } from "./lib/state-manager";
 import { createDeviceConnection } from "./lib/connection-utils";
 import type { DeviceConnection, DiscoveredDevice } from "./lib/types";
 
@@ -1548,6 +1549,28 @@ describe("HomeWizard onReady", () => {
     expect(i.log.error).not.toHaveBeenCalledWith(expect.stringContaining("onReady failed"));
   });
 
+  it("registers the external meters already in the tree, so a meter gone before the start is counted (DD41)", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.connections.clear();
+    const seed = vi.spyOn(StateManager.prototype, "seedExternalMeters");
+    i.getAdapterObjectsAsync.mockResolvedValue({
+      "homewizard.0.hwe-p1_dev1": {
+        type: "device",
+        native: { encryptedToken: "tok1", serial: "dev1", productType: "HWE-P1", productName: "P1", ip: "192.168.1.8" },
+      },
+      "homewizard.0.hwe-p1_dev1.measurement.external.gas_meter_g1": { type: "channel", native: {} },
+    });
+    await i.onReady();
+    await settle();
+
+    expect(seed).toHaveBeenCalledTimes(1);
+    const [config, ids] = seed.mock.calls[0];
+    expect(config).toMatchObject({ serial: "dev1" });
+    expect([...ids]).toContain("homewizard.0.hwe-p1_dev1.measurement.external.gas_meter_g1");
+    seed.mockRestore();
+  });
+
   it("sweeps a stored device's moved paths off the object list it already holds", async () => {
     const { hw } = setup();
     const i = internalOf(hw);
@@ -1848,7 +1871,9 @@ describe("HomeWizard pollSystemInfo", () => {
     client.getSystem.mockReturnValue(new Promise((_resolve, reject) => (fail = reject)));
     const poll = i.connectionManager.pollSystemInfo(conn);
     conn.removed = true;
-    fail(Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }));
+    // An error that WOULD warn for a live device — a network error is debug anyway (DD45)
+    // and could not show whether the removal check works.
+    fail(new HomeWizardApiError(500, "{}", "GET /api/system"));
     await poll;
     expect(i.log.warn).not.toHaveBeenCalled();
     expect(i.log.info).not.toHaveBeenCalled();
