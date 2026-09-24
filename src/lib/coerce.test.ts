@@ -3,6 +3,7 @@ import {
   coerceBoolean,
   coerceFiniteNumber,
   coerceString,
+  coerceSwitch,
   errText,
   isAssignableDeviceIpv4,
   isLanDeviceIpv4,
@@ -74,6 +75,27 @@ describe("coerceString", () => {
     expect(coerceString(null)).toBeNull();
     expect(coerceString(undefined)).toBeNull();
     expect(coerceString({})).toBeNull();
+  });
+});
+
+describe("coerceSwitch", () => {
+  it.each([
+    [true, true],
+    [false, false],
+    [1, true],
+    [0, false],
+    ["true", true],
+    ["false", false],
+    [" TRUE ", true],
+    ["False", false],
+    ["1", true],
+    ["0", false],
+  ])("reads %j as %s", (input, expected) => {
+    expect(coerceSwitch(input)).toBe(expected);
+  });
+
+  it.each([["yes"], ["on"], [""], [2], [-1], [null], [undefined], [{}], [[]]])("refuses %j", input => {
+    expect(coerceSwitch(input)).toBeNull();
   });
 });
 

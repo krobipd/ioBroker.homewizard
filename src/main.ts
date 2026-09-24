@@ -3,6 +3,7 @@ import { I18n } from "@iobroker/adapter-core";
 import { join } from "node:path";
 import {
   coerceFiniteNumber,
+  coerceSwitch,
   errText,
   isPlainObject,
   isValidIpv4,
@@ -645,7 +646,10 @@ export class HomeWizard extends utils.Adapter {
       // Ack the value that was actually sent (a script may write "true" or 1 into
       // the boolean state) — the ack must not carry the raw write (DD16).
       send: async ({ client, state }) => {
-        const enabled = !!state.val;
+        const enabled = this.readSwitch("cloud_enabled", state.val);
+        if (enabled === null) {
+          return null;
+        }
         await client.setSystem({ cloud_enabled: enabled });
         return enabled;
       },
@@ -667,13 +671,16 @@ export class HomeWizard extends utils.Adapter {
       suffix: ".system.api_v1_enabled",
       refresh: "system",
       send: async ({ client, state, conn }) => {
-        if (state.val) {
+        const v1Enabled = this.readSwitch("api_v1_enabled", state.val);
+        if (v1Enabled === null) {
+          return null;
+        }
+        if (v1Enabled) {
           this.log.warn(
             `${deviceLabel(conn.config)}: enabling the legacy v1 API — it has no TLS and no token, so any ` +
               `host on the LAN can then read and control this device without authentication.`,
           );
         }
-        const v1Enabled = !!state.val;
         await client.setSystem({ api_v1_enabled: v1Enabled });
         return v1Enabled;
       },
@@ -718,12 +725,30 @@ export class HomeWizard extends utils.Adapter {
       suffix: ".battery.charge_to_full",
       refresh: "battery",
       send: async ({ client, state }) => {
-        const chargeToFull = !!state.val;
+        const chargeToFull = this.readSwitch("charge_to_full", state.val);
+        if (chargeToFull === null) {
+          return null;
+        }
         await client.setBatteries({ charge_to_full: chargeToFull });
         return chargeToFull;
       },
     },
   ];
+
+  /**
+   * Read a switch value written by a user or script, warning on anything that is
+   * not clearly on or off (see {@link coerceSwitch}).
+   *
+   * @param name Data point name for the warning
+   * @param val The written value
+   */
+  private readSwitch(name: string, val: ioBroker.StateValue): boolean | null {
+    const value = coerceSwitch(val);
+    if (value === null) {
+      this.log.warn(`Invalid ${name} value '${sanitizeForLog(String(val))}' — expected true or false`);
+    }
+    return value;
+  }
 
   private async onStateChange(id: string, state: ioBroker.State | null | undefined): Promise<void> {
     try {
@@ -731,15 +756,18 @@ export class HomeWizard extends utils.Adapter {
         return;
       }
 
+      // A button acts on `true` only. Truthiness would also fire on the text
+      // "false" — and the device buttons below used to fire on ANY write, so a
+      // script resetting `system.reboot` to false rebooted the device.
       if (id.endsWith(".startPairing")) {
-        if (state.val) {
+        if (coerceSwitch(state.val) === true) {
           await this.pairingManager.start();
         }
         return;
       }
 
       if (id.endsWith(".remove")) {
-        if (state.val) {
+        if (coerceSwitch(state.val) === true) {
           await this.removeDevice(id);
         }
         return;
@@ -748,6 +776,11 @@ export class HomeWizard extends utils.Adapter {
       const command = this.deviceCommands.find(c => id.endsWith(c.suffix));
       if (!command) {
         this.log.debug(`stateChange ${id}: no control state of this adapter — ignored`);
+        return;
+      }
+
+      if (command.button && coerceSwitch(state.val) !== true) {
+        await this.resetButton(id);
         return;
       }
 

@@ -1496,6 +1496,45 @@ describe("HomeWizard onStateChange acks the value it sent, not the raw write", (
     });
   });
 
+  it("cloud_enabled written as the text 'false' switches the cloud OFF, not on", async () => {
+    const { hw, client } = setup();
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.cloud_enabled", active("false"));
+    expect(client.setSystem).toHaveBeenCalledWith({ cloud_enabled: false });
+  });
+
+  it("api_v1_enabled written as 'yes' is refused with a warning — nothing reaches the device", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.api_v1_enabled", active("yes"));
+    expect(client.setSystem).not.toHaveBeenCalled();
+    expect(i.log.warn).toHaveBeenCalledWith("Invalid api_v1_enabled value 'yes' — expected true or false");
+    expect(i.log.warn).not.toHaveBeenCalledWith(expect.stringContaining("enabling the legacy v1 API"));
+  });
+
+  it("charge_to_full written as 'on' is refused — nothing reaches the device", async () => {
+    const { hw, client } = setup();
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.battery.charge_to_full", active("on"));
+    expect(client.setBatteries).not.toHaveBeenCalled();
+  });
+
+  it("a button written false does NOT fire — a script resetting system.reboot must not reboot the device", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.reboot", active(false));
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.identify", active("false"));
+    expect(client.reboot).not.toHaveBeenCalled();
+    expect(client.identify).not.toHaveBeenCalled();
+    // …but it is still acknowledged back to false, so it does not stay unconfirmed.
+    expect(i.setState).toHaveBeenCalledWith("homewizard.0.hwe-p1_aabb.system.reboot", { val: false, ack: true });
+  });
+
+  it("startPairing written as the text 'false' opens no pairing window", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.startPairing", active("false"));
+    expect(i.pairingManager.active).toBe(false);
+  });
+
   it("api_v1_enabled written as 1 is sent and acked as boolean true", async () => {
     const { hw, client } = setup();
     const i = internalOf(hw);

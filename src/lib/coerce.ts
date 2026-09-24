@@ -53,6 +53,35 @@ export function coerceBoolean(value: unknown): boolean | null {
 }
 
 /**
+ * Read a value a user or script wrote into a switch data point.
+ *
+ * Stricter than truthiness on purpose: `!!"false"` is `true`, so a script that
+ * writes the text "false" would switch the device ON. Accepted are the booleans,
+ * the numbers 1/0 and the texts "true"/"false"/"1"/"0" (trimmed, any case);
+ * everything else is `null` — the caller warns instead of guessing.
+ *
+ * @param value Value of a state written with `ack: false`
+ */
+export function coerceSwitch(value: unknown): boolean | null {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (value === 1 || value === 0) {
+    return value === 1;
+  }
+  if (typeof value === "string") {
+    const text = value.trim().toLowerCase();
+    if (text === "true" || text === "1") {
+      return true;
+    }
+    if (text === "false" || text === "0") {
+      return false;
+    }
+  }
+  return null;
+}
+
+/**
  * Guard for plain objects (not arrays, not null).
  *
  * @param value Unknown external value

@@ -81,8 +81,9 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
     Ein Gerät, das nach dem Neuverbinden denselben Fehler-Frame schickt, wird wieder gewarnt; vorher schwieg der
     Adapter für den Rest seiner Laufzeit, weil der Vergleichswert den Reconnect überlebte.
 16. **Ack trägt den gesendeten Wert, nicht den Rohwert** (seit v0.17.0) — `cloud_enabled`, `api_v1_enabled`,
-    `charge_to_full` werden mit `!!state.val` ans Gerät geschickt und mit genau diesem Boolean bestätigt. Ein
-    Skript, das `"true"` oder `1` schreibt, bekam vorher den String/die Zahl als Ack in den Boolean-Datenpunkt.
+    `charge_to_full` werden über `coerceSwitch` gelesen (seit v0.20.0; vorher `!!state.val`, das `"false"` als
+    `true` las) und mit genau diesem Boolean bestätigt; ein Wert, der weder an noch aus ist, wird gewarnt und
+    nicht gesendet. Knöpfe lösen nur bei `true` aus — vorher startete auch ein geschriebenes `false` den Neustart.
 17. **Jeder Geräte-String, der Objektname wird, läuft durch `sanitizeForLog`** — seit v0.14.0 der Produktname (L9),
     seit v0.17.0 auch der `type` eines externen Zählers (`external.<type>_<id>`-Kanal). Objekt-IDs säubert
     `sanitize()` separat; Namen brauchen den CR/LF-Strip, weil sie ungeprüft in den Objektbaum gehen.
