@@ -528,6 +528,9 @@ export class StateManager {
     }
 
     // System control channel (cached after first call per device)
+    if (isStale?.()) {
+      return;
+    }
     await this.ensureChannel(`${prefix}.system`, () => tName("systemSettings"));
     if (isStale?.()) {
       return;

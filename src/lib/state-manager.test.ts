@@ -1673,11 +1673,12 @@ describe("StateManager", () => {
       expect(adapter.objects.get("hwe-p1_rs01.info.wifi_rssi_db")?.common.role).toBe("value.rssi");
     });
 
-    it("writes nothing at all once the removal guard says stale — whichever check comes first", async () => {
-      // Flip the guard at every possible point in turn: after it says stale, no object or
-      // value may be written any more. A single missing check lets writes through.
+    it("writes nothing more once the device is removed — wherever between two writes that happens", async () => {
+      // The removal is an outside event: flip the guard after the n-th write, for every n.
+      // After the flip, the object being written may finish (object + its value share
+      // one id); any write to ANOTHER id is a leak — the check before it is missing.
       const origExtend = adapter.extendObject;
-      const origSet = adapter.setStateChangedAsync;
+      const origSetChanged = adapter.setStateChangedAsync;
       const origSetState = adapter.setState;
       const battery = {
         mode: "zero",
@@ -1687,44 +1688,47 @@ describe("StateManager", () => {
         charge_to_full: false,
         target_power_w: 1,
       } as unknown as BatteryControl;
-      for (let k = 1; k <= 20; k++) {
-        const device: DeviceConfig = { ...testDevice, serial: `st${k}` };
-        let checks = 0;
+      for (let n = 1; n <= 40; n++) {
+        const device: DeviceConfig = { ...testDevice, serial: `st${n}` };
+        let writes = 0;
         let stale = false;
+        let flipId = "";
         const leaks: string[] = [];
-        adapter.extendObject = (id, obj, opts) => {
+        const watch = (id: string): void => {
           if (stale) {
-            leaks.push(id);
+            if (id !== flipId) {
+              leaks.push(id);
+            }
+            return;
           }
+          writes++;
+          if (writes >= n) {
+            stale = true;
+            flipId = id;
+          }
+        };
+        adapter.extendObject = (id, obj, opts) => {
+          watch(id);
           return origExtend(id, obj, opts);
         };
         adapter.setStateChangedAsync = (id, state) => {
-          if (stale) {
-            leaks.push(id);
-          }
-          return origSet(id, state);
+          watch(id);
+          return origSetChanged(id, state);
         };
         adapter.setState = (id, state) => {
-          if (stale) {
-            leaks.push(id);
-          }
+          watch(id);
           return origSetState(id, state);
         };
-        const isStale = (): boolean => {
-          checks++;
-          if (checks >= k) {
-            stale = true;
-          }
-          return stale;
-        };
+        const isStale = (): boolean => stale;
         await manager.updateSystem(device, fullSystem, isStale);
-        checks = 0;
+        writes = 0;
         stale = false;
+        flipId = "";
         await manager.updateBattery(device, battery, isStale);
-        expect(leaks, `writes after the guard flipped at check ${k}`).toEqual([]);
+        expect(leaks, `writes after the removal at write ${n}`).toEqual([]);
       }
       adapter.extendObject = origExtend;
-      adapter.setStateChangedAsync = origSet;
+      adapter.setStateChangedAsync = origSetChanged;
       adapter.setState = origSetState;
     });
 

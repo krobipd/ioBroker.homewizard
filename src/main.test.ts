@@ -1000,6 +1000,8 @@ describe("HomeWizard pollPairing", () => {
     expect(i.extendObject).not.toHaveBeenCalled(); // saveDeviceToObject
     expect(i.connections.has("hwe-p1_late01")).toBe(false);
     expect(client.deleteUser).toHaveBeenCalled();
+    // …and the device is not asked anything more with a token nothing will keep.
+    expect(client.getDeviceInfo).not.toHaveBeenCalled();
   });
 
   it("a pass ends when the window closes — the next queued device is not asked any more", async () => {
