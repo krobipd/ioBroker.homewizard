@@ -1673,6 +1673,84 @@ describe("StateManager", () => {
       expect(adapter.objects.get("hwe-p1_rs01.info.wifi_rssi_db")?.common.role).toBe("value.rssi");
     });
 
+    it("writes nothing at all once the removal guard says stale — whichever check comes first", async () => {
+      // Flip the guard at every possible point in turn: after it says stale, no object or
+      // value may be written any more. A single missing check lets writes through.
+      const origExtend = adapter.extendObject;
+      const origSet = adapter.setStateChangedAsync;
+      const origSetState = adapter.setState;
+      const battery = {
+        mode: "zero",
+        battery_count: 1,
+        power_w: 5,
+        permissions: [],
+        charge_to_full: false,
+        target_power_w: 1,
+      } as unknown as BatteryControl;
+      for (let k = 1; k <= 20; k++) {
+        const device: DeviceConfig = { ...testDevice, serial: `st${k}` };
+        let checks = 0;
+        let stale = false;
+        const leaks: string[] = [];
+        adapter.extendObject = (id, obj, opts) => {
+          if (stale) {
+            leaks.push(id);
+          }
+          return origExtend(id, obj, opts);
+        };
+        adapter.setStateChangedAsync = (id, state) => {
+          if (stale) {
+            leaks.push(id);
+          }
+          return origSet(id, state);
+        };
+        adapter.setState = (id, state) => {
+          if (stale) {
+            leaks.push(id);
+          }
+          return origSetState(id, state);
+        };
+        const isStale = (): boolean => {
+          checks++;
+          if (checks >= k) {
+            stale = true;
+          }
+          return stale;
+        };
+        await manager.updateSystem(device, fullSystem, isStale);
+        checks = 0;
+        stale = false;
+        await manager.updateBattery(device, battery, isStale);
+        expect(leaks, `writes after the guard flipped at check ${k}`).toEqual([]);
+      }
+      adapter.extendObject = origExtend;
+      adapter.setStateChangedAsync = origSet;
+      adapter.setState = origSetState;
+    });
+
+    it("the common.states repair only ever rewrites a STATE object", async () => {
+      // An id that holds something else (a channel left by a hand edit, say) must not
+      // be replaced by a state-shaped object, even if it carries a states map.
+      adapter.objects.set("hwe-p1_aabbccddeeff.battery.mode", {
+        type: "channel",
+        common: { states: { zero: { en: "Zero" } } },
+        native: {},
+      });
+      const writes: string[] = [];
+      const origForeign = adapter.setForeignObject;
+      adapter.setForeignObject = (id, obj) => {
+        writes.push(id);
+        return origForeign(id, obj);
+      };
+      await (
+        manager as unknown as {
+          repairCommonStatesIfBuggy: (id: string, fresh: Record<string, string>) => Promise<void>;
+        }
+      ).repairCommonStatesIfBuggy("hwe-p1_aabbccddeeff.battery.mode", { zero: "Zero" });
+      adapter.setForeignObject = origForeign;
+      expect(writes).toEqual([]);
+    });
+
     it("stops writing as soon as the device is removed mid-update — no orphans after the delete", async () => {
       let checks = 0;
       const removedAfterFirstWrite = (): boolean => checks++ >= 1;

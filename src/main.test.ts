@@ -1002,6 +1002,40 @@ describe("HomeWizard pollPairing", () => {
     expect(client.deleteUser).toHaveBeenCalled();
   });
 
+  it("a pass ends when the window closes — the next queued device is not asked any more", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
+    i.pairingManager.discovered = [
+      { ip: "192.168.1.76", productType: "HWE-P1", serial: "q1", name: "P1" },
+      { ip: "192.168.1.77", productType: "HWE-P1", serial: "q2", name: "P1" },
+    ];
+    let fail!: (e: unknown) => void;
+    client.requestPairing.mockReturnValueOnce(new Promise((_resolve, reject) => (fail = reject)));
+    const pass = i.pairingManager.poll();
+    i.pairingManager.stop();
+    fail(new HomeWizardApiError(403, "{}", "POST /api/user")); // button not pressed yet
+    await pass;
+    expect(client.requestPairing).toHaveBeenCalledTimes(1);
+  });
+
+  it("a device whose info arrives after the window closed is not stored — and its token is revoked", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
+    i.pairingManager.discovered = [{ ip: "192.168.1.78", productType: "HWE-P1", serial: "late03", name: "P1" }];
+    let answer!: (v: unknown) => void;
+    client.getDeviceInfo.mockReturnValueOnce(new Promise(resolve => (answer = resolve)));
+    const pass = i.pairingManager.poll();
+    await settle(); // requestPairing answered, getDeviceInfo pending
+    i.pairingManager.stop();
+    answer({ product_type: "HWE-P1", serial: "late03", product_name: "P1" });
+    await pass;
+    await settle();
+    expect(i.extendObject).not.toHaveBeenCalled(); // saveDeviceToObject
+    expect(client.deleteUser).toHaveBeenCalled();
+  });
+
   it("a device failing after the window closed adds no warning to a window that no longer exists", async () => {
     const { hw, client } = setup();
     const i = internalOf(hw);
@@ -1454,6 +1488,32 @@ describe("HomeWizard startIpRecovery", () => {
     expect(discovery.stop).toHaveBeenCalled();
   });
 
+  it("a pairing window opened during shutdown starts no search either", async () => {
+    const { hw, discovery } = setup();
+    const i = internalOf(hw);
+    (i as unknown as { unloading: boolean }).unloading = true;
+    await i.pairingManager.start();
+    expect(discovery.start).not.toHaveBeenCalled();
+  });
+
+  it("ends the recovery search once every device is connected again", () => {
+    const { hw, conn, discovery } = setup();
+    const i = internalOf(hw);
+    i.startIpRecovery();
+    conn.wsAuthenticated = true;
+    i.connectionManager.onWsConnected(conn);
+    expect(discovery.stop).toHaveBeenCalled();
+  });
+
+  it("an unknown device announced while no pairing window is open is ignored", () => {
+    const { hw, discovery } = setup();
+    const i = internalOf(hw);
+    i.startIpRecovery();
+    discovery.callback!({ ip: "192.168.1.90", productType: "HWE-P1", serial: "stranger", name: "P1" });
+    expect(i.pairingManager.discovered).toHaveLength(0);
+    expect(i.log.info).not.toHaveBeenCalledWith(expect.stringContaining("Found"));
+  });
+
   it("does not start a search once the adapter is shutting down", () => {
     const { hw, discovery } = setup();
     const i = internalOf(hw);
@@ -1709,6 +1769,21 @@ describe("HomeWizard onStateChange acks the value it sent, not the raw write", (
       val: false,
       ack: true,
     });
+  });
+
+  it("cloud_enabled written as 'yes' is refused with a warning — nothing reaches the device", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.system.cloud_enabled", active("yes"));
+    expect(client.setSystem).not.toHaveBeenCalled();
+    expect(i.log.warn).toHaveBeenCalledWith("Invalid cloud_enabled value 'yes' — expected true or false");
+  });
+
+  it("remove written as the text 'false' removes nothing", async () => {
+    const { hw, stateMgr } = setup();
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_aabb.remove", active("false"));
+    expect(stateMgr.removeDevice).not.toHaveBeenCalled();
+    expect(stateMgr.removeDeviceByPrefix).not.toHaveBeenCalled();
   });
 
   it("cloud_enabled written as the text 'false' switches the cloud OFF, not on", async () => {
@@ -3182,6 +3257,14 @@ describe("a device the adapter could not load is still removable", () => {
   // loading, so it has no connection — and removal used to start from exactly
   // that connection. Pressing remove did nothing, logged nothing, and left the
   // button pressed. It was the one device a user needed to get rid of.
+
+  it("names the user stored with the unloadable device, not the old shared one", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.getObjectAsync.mockResolvedValue({ type: "device", native: { userName: "local/iobroker_other_1" } });
+    await call(hw, "onStateChange", "homewizard.0.hwe-p1_broken.remove", active(true));
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("user 'local/iobroker_other_1' on the device"));
+  });
 
   it("removes it by its object id and says the token could not be revoked", async () => {
     const { hw, stateMgr } = setup();
