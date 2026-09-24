@@ -207,10 +207,10 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     ### **WORK IN PROGRESS**
 -->
 
-### **WORK IN PROGRESS**
+### 0.20.0 (2026-09-24)
 
 - Fixed: on Node.js 26 a device no longer stops updating for good after an oversized or interrupted reply from it — the adapter now gives up on that reply and carries on.
-- Fixed: the device folder carries the product name the device reports; the HomeWizard API does not provide the name set in the app, as the notes of 0.18.2 and 0.19.0 wrongly promised.
+- Changed: the device folder keeps the product name the device reports; the HomeWizard API does not provide the name you give the device in the app, so renaming it there does not reach ioBroker.
 - Fixed: writing the text "false" into cloud_enabled, api_v1_enabled or charge_to_full switched it on, and writing false to reboot restarted the device — values are now read strictly.
 - Fixed: the battery descriptions now say that positive power means charging and that the zero mode charges or discharges to keep your home at net zero.
 - Fixed: the setup notes no longer ask for the Local API switch in the app, which belongs to the old v1 API, and tell you to hold the button of a kWh Meter for 1–3 seconds.
@@ -263,15 +263,6 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
 - Fixed: the battery data points are removed once the meter reports that no battery is connected any more, instead of showing its last values forever.
 - New: the data points under `info` explain what they mean in all eleven languages, and a user guide is now part of the documentation portal.
 - Changed: for security, an address announced over the network is only accepted when it belongs to a private range, so pairing can no longer be directed at a host outside your own network.
-
-### 0.17.0 (2026-09-02)
-
-- Fixed: the connection status is now reset on every stop, even when the adapter is stopped right after it started — before, such a stop could leave it showing as connected.
-- Fixed: a device that repeats the same error after reconnecting is warned about again, instead of staying silent for the rest of the adapter's run.
-- Fixed: switching cloud access, the legacy v1 API or charge-to-full from a script now confirms the actual on or off value, not the raw text that was written.
-- Fixed: two rare cases where a log line could show undefined or an object instead of the error now show the real text, and a malformed device error keeps a readable code.
-- Fixed: an external gas or water meter whose reported type contains unusual characters now gets a clean name in the object tree instead of a broken one.
-- Changed: ioBroker Admin 8.0.11 or newer is now required — the same minimum version that the current ioBroker stable repository ships with.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

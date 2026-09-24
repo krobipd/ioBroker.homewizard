@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "homewizard",
-    "version": "0.19.0",
+    "version": "0.20.0",
     "news": {
+      "0.20.0": {
+        "en": "Each device shows only the controls it has, every ioBroker instance pairs under its own name, on/off values are read strictly, and devices keep updating on Node.js 26.",
+        "de": "Jedes Gerät zeigt nur seine echten Steuerungen, jede ioBroker-Instanz koppelt unter eigenem Namen, Ein/Aus-Werte werden streng gelesen, und Geräte laufen auch unter Node.js 26.",
+        "ru": "Каждое устройство показывает только свои элементы управления, каждый экземпляр ioBroker подключается под своим именем, вкл/выкл читаются строго, устройства работают и на Node.js 26.",
+        "pt": "Cada dispositivo mostra apenas os controlos que tem, cada instância do ioBroker emparelha com nome próprio, ligar/desligar é lido com rigor e tudo funciona no Node.js 26.",
+        "nl": "Elk apparaat toont alleen de bediening die het heeft, elke ioBroker-instantie koppelt onder een eigen naam, aan/uit wordt strikt gelezen en apparaten werken ook op Node.js 26.",
+        "fr": "Chaque appareil n'affiche que ses vraies commandes, chaque instance ioBroker s'appaire sous son propre nom, marche/arrêt est lu strictement et tout fonctionne sous Node.js 26.",
+        "it": "Ogni dispositivo mostra solo i comandi che ha, ogni istanza di ioBroker si abbina con un proprio nome, acceso/spento è letto in modo rigoroso e tutto funziona su Node.js 26.",
+        "es": "Cada dispositivo muestra solo los controles que tiene, cada instancia de ioBroker se empareja con su propio nombre, encendido/apagado se lee estrictamente y todo va en Node.js 26.",
+        "pl": "Każde urządzenie pokazuje tylko swoje sterowanie, każda instancja ioBroker paruje się pod własną nazwą, wł./wył. jest czytane ściśle, a urządzenia działają też na Node.js 26.",
+        "uk": "Кожен пристрій показує лише свої елементи керування, кожен екземпляр ioBroker підключається під власним іменем, увімк./вимк. читаються суворо, пристрої працюють і на Node.js 26.",
+        "zh-cn": "每个设备只显示它实际具有的控制项，每个 ioBroker 实例使用自己的名称配对，开/关值被严格读取，设备在 Node.js 26 上也能持续更新。"
+      },
       "0.19.0": {
         "en": "Devices now carry a pictogram of their type, a device that changed its IP address is found again, and removing one really withdraws its access.",
         "de": "Geräte tragen jetzt ein Piktogramm ihres Typs, ein Gerät mit neuer IP-Adresse wird wiedergefunden, und beim Entfernen wird der Zugang wirklich entzogen.",
@@ -80,19 +93,6 @@
         "pl": "Uczciwy status urządzeń: po zatrzymaniu nie wszystko pozostaje zielone, po restarcie każde urządzenie zaczyna jako niepołączone, a trzy nowe punkty danych pokazują, ile odpowiada.",
         "uk": "Чесний стан пристроїв: після зупинки більше не залишається все зеленим, після перезапуску кожен пристрій починає як непід'єднаний, а три нові точки даних показують, скільки відповідають.",
         "zh-cn": "诚实的设备状态：停止后不再全部显示为绿色，重启后每个设备从未连接开始，三个新数据点显示有多少设备在响应。"
-      },
-      "0.15.1": {
-        "en": "The adapter needs noticeably less processing power on installations whose devices send a new reading every second.",
-        "de": "Der Adapter benötigt spürbar weniger Rechenleistung auf Anlagen, deren Geräte jede Sekunde einen neuen Messwert senden.",
-        "ru": "Адаптеру нужно заметно меньше вычислительной мощности там, где устройства присылают новое показание каждую секунду.",
-        "pt": "O adaptador precisa de bastante menos capacidade de processamento em instalações cujos aparelhos enviam uma leitura por segundo.",
-        "nl": "De adapter heeft merkbaar minder rekenkracht nodig bij installaties waarvan de apparaten elke seconde een nieuwe meting sturen.",
-        "fr": "L'adaptateur demande nettement moins de puissance de calcul sur les installations dont les appareils envoient une mesure chaque seconde.",
-        "it": "L'adattatore richiede molta meno potenza di calcolo negli impianti i cui dispositivi inviano una nuova misura ogni secondo.",
-        "es": "El adaptador necesita bastante menos potencia de cálculo en instalaciones cuyos dispositivos envían una lectura cada segundo.",
-        "pl": "Adapter potrzebuje zauważalnie mniej mocy obliczeniowej w instalacjach, w których urządzenia wysyłają nowy odczyt co sekundę.",
-        "uk": "Адаптер потребує помітно менше обчислювальної потужності там, де пристрої надсилають нове показання щосекунди.",
-        "zh-cn": "在设备每秒发送一次读数的安装环境中，适配器所需的处理能力明显更少。"
       }
     },
     "plugins": {
