@@ -207,6 +207,25 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     ### **WORK IN PROGRESS**
 -->
 
+### **WORK IN PROGRESS**
+
+- Fixed: on Node.js 26 a device no longer stops updating for good after an oversized or interrupted reply from it — the adapter now gives up on that reply and carries on.
+- Fixed: the device folder carries the product name the device reports; the HomeWizard API does not provide the name set in the app, as the notes of 0.18.2 and 0.19.0 wrongly promised.
+- Fixed: writing the text "false" into cloud_enabled, api_v1_enabled or charge_to_full switched it on, and writing false to reboot restarted the device — values are now read strictly.
+- Fixed: the battery descriptions now say that positive power means charging and that the zero mode charges or discharges to keep your home at net zero.
+- Fixed: the setup notes no longer ask for the Local API switch in the app, which belongs to the old v1 API, and tell you to hold the button of a kWh Meter for 1–3 seconds.
+- Fixed: another program using the network search port no longer stops the adapter; it says so and points you to pairing the device by its IP address instead.
+- Fixed: a device that answers while the adapter restores its live connection no longer flips between online and offline with every attempt.
+- Fixed: a device showing "token invalid" can be paired again by pressing its button, and a second device that needs a new address during a running search is found as well.
+- Changed: a kWh Meter no longer shows an identify button or an LED brightness setting — the device has neither, and pressing them only ever failed.
+- Fixed: one device whose stored entry is damaged no longer stops the other devices from starting — they come up and update as usual.
+- New: every ioBroker system and instance pairs under its own name on the device, so a test and a production system can use the same meter side by side.
+- New: a gas, water or heat meter the P1 Meter has not reported for a day is removed together with its data points, instead of keeping its last reading forever.
+- Improved: when the pairing window closes, the adapter tells you how many devices were paired, or that none was found and what to try next.
+- Fixed: when a different device answers at a paired device's address, the adapter now tells you that the address has probably changed.
+- Fixed: the battery folder is removed completely when no battery is connected any more, including entries that had lost their folder.
+- Improved: the WiFi signal strength is marked as a signal strength value, so visualisations and other adapters recognise it correctly.
+
 ### 0.19.0 (2026-09-15) — stable
 
 - Fixed: a device that changed its IP address is found again — the reply to the adapter's own network search was discarded, leaving the device unreachable until it was paired anew.
