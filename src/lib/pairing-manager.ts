@@ -100,6 +100,10 @@ export class PairingManager {
   private warnedIps = new Set<string>();
   /** Paired devices already named as "already paired" in THIS window — one line each. */
   private notedPaired = new Set<string>();
+  /** Devices found (mDNS or the manual address) in THIS window — for the closing line. */
+  private foundInWindow = 0;
+  /** Devices paired in THIS window — for the closing line. */
+  private pairedInWindow = 0;
 
   /**
    * @param adapter The ioBroker adapter instance (timers, state writes, log).
@@ -126,11 +130,27 @@ export class PairingManager {
       return;
     }
 
-    // Reset startPairing immediately so it doesn't survive a restart
-    await this.adapter.setState("startPairing", { val: false, ack: true });
-
+    // The flag goes up BEFORE the first await: a second press arriving while the
+    // state writes below are pending must hit the guard above, not open a second
+    // window with its own timers.
     this.pairing = true;
     this.discovered = [];
+    this.foundInWindow = 0;
+    this.pairedInWindow = 0;
+    try {
+      await this.openWindow();
+    } catch (err: unknown) {
+      // Without this the flag stayed up with no timer to take it down again: every
+      // later press answered "already active" until the adapter restarted.
+      this.adapter.log.warn(`Pairing could not start: ${errText(err)}`);
+      this.stop();
+    }
+  }
+
+  /** The part of {@link start} after the guard: read the address, start the search and the timers. */
+  private async openWindow(): Promise<void> {
+    // Reset startPairing immediately so it doesn't survive a restart
+    await this.adapter.setState("startPairing", { val: false, ack: true });
 
     // Check if manual IP is set, then clear pairingIp immediately
     const ipState = await this.adapter.getStateAsync("pairingIp");
@@ -159,6 +179,7 @@ export class PairingManager {
         serial: "unknown",
         name: this.manualIp,
       });
+      this.foundInWindow++;
     } else {
       this.adapter.log.info(
         `Pairing mode enabled — searching for devices via mDNS, press the button on your HomeWizard device now (60 seconds timeout)`,
@@ -174,10 +195,24 @@ export class PairingManager {
       this.poll().catch((err: unknown) => this.adapter.log.debug(`pollPairing failed: ${errText(err)}`));
     }, PAIRING_POLL_MS);
 
-    // Timeout pairing
+    // Timeout pairing — the window announced a search, so it closes with its result.
     this.pairingTimer = this.adapter.setTimeout(() => {
+      const found = this.foundInWindow;
+      const paired = this.pairedInWindow;
+      const manual = this.manualIp !== "";
       this.stop();
-      this.adapter.log.info(`Pairing mode automatically disabled after 60 seconds timeout`);
+      if (paired > 0) {
+        this.adapter.log.info(`Pairing window closed — ${paired} device(s) paired`);
+      } else if (found === 0 && !manual) {
+        this.adapter.log.info(
+          `Pairing window closed — no HomeWizard device found via mDNS; set 'pairingIp' to pair one by its address`,
+        );
+      } else {
+        this.adapter.log.info(
+          `Pairing window closed — no device was paired; press the device's button within the 60 seconds ` +
+            `(on a kWh Meter, hold it for 1–3 seconds)`,
+        );
+      }
     }, PAIRING_TIMEOUT_MS);
   }
 
@@ -202,6 +237,7 @@ export class PairingManager {
       return;
     }
     this.discovered.push(discovered);
+    this.foundInWindow++;
     // L9/DD17: name and product type come straight from an mDNS TXT record, so
     // any host on the LAN picks them. Without the CR/LF strip a crafted
     // announcement forges additional log lines. (The IP is already validated.)
@@ -239,14 +275,33 @@ export class PairingManager {
     }
   }
 
+  /**
+   * Whether the pass must end here: the window closed or the adapter is stopping
+   * while a request was in flight. Checked after every await — without it, a
+   * device answering after `stop()` was still saved and adopted during shutdown.
+   */
+  private passOver(): boolean {
+    return !this.pairing || this.host.isUnloading();
+  }
+
   /** One pairing-poll pass over all discovered devices. */
   private async pollDevices(): Promise<void> {
     for (const device of this.discovered) {
+      if (this.passOver()) {
+        return;
+      }
       let issuedToken: string | undefined;
+      let deviceConfig: DeviceConfig;
       try {
         const client = this.host.makeClient(device.ip, "");
         const result = await client.requestPairing();
         issuedToken = result.token;
+        if (this.passOver()) {
+          // The button was pressed, but the window is gone: nothing will store this
+          // token, so it must not stay behind on the device.
+          this.revoke(device.ip, issuedToken);
+          return;
+        }
 
         // Success! Button was pressed. Name and product type are the mDNS-supplied
         // values — same CR/LF strip as the error path below (L9/DD17).
@@ -259,6 +314,10 @@ export class PairingManager {
         const authedClient = this.host.makeClient(device.ip, result.token);
         const info = await authedClient.getDeviceInfo();
         const certCn = authedClient.getServerCertCn();
+        if (this.passOver()) {
+          this.revoke(device.ip, issuedToken);
+          return;
+        }
 
         // I10: cross-check the pinned CN (`appliance/<type>/<serial>`) against the
         // serial the device reports over the authenticated channel. A mismatch means
@@ -272,7 +331,7 @@ export class PairingManager {
           );
         }
 
-        const deviceConfig: DeviceConfig = {
+        deviceConfig = {
           token: result.token,
           productType: info.product_type,
           serial: info.serial,
@@ -288,47 +347,25 @@ export class PairingManager {
 
         // Save to device object (no adapter restart!)
         await this.host.saveDeviceToObject(deviceConfig);
-        await this.host.getStateManager().createDeviceStates(deviceConfig);
-        // Same stamp as at start-up, and it matters most on a RE-pair: the old
-        // connection is torn down below, and tearing down deliberately suppresses
-        // the WebSocket's disconnect handler — without this the device would keep
-        // its stale `true` until the new connection authenticates.
-        await this.host.getStateManager().setDeviceConnected(deviceConfig, false);
-
-        // Replace any previous connection for this device (re-pair after a factory
-        // reset) and start connecting — main owns the registry.
-        this.host.adoptPairedDevice(deviceConfig, device.ip);
-
-        // Remove the just-paired entry by identity (not by serial — the manual-IP
-        // placeholder carries serial "unknown" and would never match info.serial,
-        // so it would be re-POSTed every 2s and mint orphaned tokens). Keep the
-        // window open so the user can button-press more devices this session.
-        this.discovered = this.discovered.filter(d => d !== device);
-
-        // Do NOT stop the window here — pairingTimer (60 s) closes it naturally;
-        // meanwhile the user can pair more devices.
-        continue;
       } catch (err) {
         // 403 = button not pressed yet — expected, keep polling
         if (err instanceof HomeWizardApiError && err.statusCode === 403) {
           continue;
         }
-        // A token WAS issued this round (button was pressed) but device-info/setup
-        // failed (e.g. a malformed GET /api). Revoke the orphaned token AND drop this
-        // device from the pairing queue: a persistently-malformed device would otherwise
-        // re-mint + revoke a token every 2 s for the rest of the 60 s window (F4). The
-        // 403 path above still keeps polling — only an issued-but-failed pairing gives up.
+        if (this.passOver()) {
+          return;
+        }
+        // A token WAS issued this round (button was pressed) but reading or storing
+        // the device failed (e.g. a malformed GET /api). Nothing holds the token, so
+        // it is revoked, and the device leaves the queue: a persistently-malformed
+        // device would otherwise re-mint + revoke a token every 2 s for the rest of
+        // the 60 s window (F4). The 403 path above still keeps polling.
         // Surfaced as warn since the user pressed the button and expects a result.
         if (issuedToken) {
-          this.host
-            .makeClient(device.ip, issuedToken)
-            .deleteUser()
-            .catch(() => {
-              /* best-effort revoke */
-            });
+          this.revoke(device.ip, issuedToken);
           this.discovered = this.discovered.filter(d => d !== device);
           this.adapter.log.warn(
-            `${sanitizeForLog(device.name)}: paired but could not read device info — token revoked, ` +
+            `${sanitizeForLog(device.name)}: paired, but the device could not be read or stored — token revoked, ` +
               `please retry pairing. (${errText(err)})`,
           );
           continue;
@@ -347,8 +384,55 @@ export class PairingManager {
         } else {
           this.adapter.log.debug(`Pairing poll error for ${device.ip}: ${errText(err)}`);
         }
+        continue;
       }
+
+      // From here on the device is stored: its object carries the token, so the
+      // token must NOT be revoked any more — the next start loads the device from
+      // that object. A failure below only delays the data points.
+      try {
+        await this.host.getStateManager().createDeviceStates(deviceConfig);
+        // Same stamp as at start-up, and it matters most on a RE-pair: the old
+        // connection is torn down below, and tearing down deliberately suppresses
+        // the WebSocket's disconnect handler — without this the device would keep
+        // its stale `true` until the new connection authenticates.
+        await this.host.getStateManager().setDeviceConnected(deviceConfig, false);
+      } catch (err) {
+        this.adapter.log.warn(
+          `${sanitizeForLog(deviceConfig.productName)}: paired, but its data points could not be created yet ` +
+            `(${errText(err)}) — they are created on the next start`,
+        );
+      }
+      if (this.host.isUnloading()) {
+        return;
+      }
+
+      // Replace any previous connection for this device (re-pair after a factory
+      // reset) and start connecting — main owns the registry.
+      this.host.adoptPairedDevice(deviceConfig, device.ip);
+      this.pairedInWindow++;
+
+      // Remove the just-paired entry by identity (not by serial — the manual-IP
+      // placeholder carries serial "unknown" and would never match info.serial,
+      // so it would be re-POSTed every 2s and mint orphaned tokens). Keep the
+      // window open so the user can button-press more devices this session.
+      // Do NOT stop the window here — pairingTimer (60 s) closes it naturally;
+      // meanwhile the user can pair more devices.
+      this.discovered = this.discovered.filter(d => d !== device);
     }
+  }
+
+  /**
+   * Best-effort revoke of a token nothing will store.
+   *
+   * @param ip    Device address.
+   * @param token The token the device issued.
+   */
+  private revoke(ip: string, token: string): void {
+    this.host
+      .makeClient(ip, token)
+      .deleteUser()
+      .catch((err: unknown) => this.adapter.log.debug(`Revoking an unused pairing token at ${ip}: ${errText(err)}`));
   }
 
   /** Stop pairing mode — closes the window and drops everything it held. */

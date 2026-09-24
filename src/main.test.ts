@@ -632,6 +632,7 @@ describe("HomeWizard WebSocket push handlers (A3, K3)", () => {
 function internalOf(hw: HomeWizard): {
   pairingManager: {
     active: boolean;
+    pairing: boolean;
     discovered: DiscoveredDevice[];
     start: () => Promise<void>;
     poll: () => Promise<void>;
@@ -790,6 +791,7 @@ describe("HomeWizard pollPairing", () => {
   it("403 (button not pressed) keeps polling without saving anything", async () => {
     const { hw, client, stateMgr } = setup();
     const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered = [{ ip: "192.168.1.70", productType: "HWE-P1", serial: "new01", name: "P1" }];
     client.requestPairing.mockRejectedValueOnce(
       new HomeWizardApiError(403, JSON.stringify({ error: { code: "user:creation-not-enabled" } }), "POST /api/user"),
@@ -814,6 +816,7 @@ describe("HomeWizard pollPairing", () => {
   it("says once per device why pairing is not getting anywhere, and stays quiet afterwards", async () => {
     const { hw, client } = setup();
     const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered = [{ ip: "192.168.1.70", productType: "HWE-P1", serial: "new01", name: "P1" }];
     client.requestPairing.mockRejectedValue(Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }));
 
@@ -831,6 +834,7 @@ describe("HomeWizard pollPairing", () => {
 
     // A new window starts the count over — the user may have fixed the address.
     i.pairingManager.stop();
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered = [{ ip: "192.168.1.70", productType: "HWE-P1", serial: "new01", name: "P1" }];
     await i.pairingManager.poll();
     expect(i.log.warn.mock.calls.filter((c: unknown[]) => String(c[0]).includes("192.168.1.70"))).toHaveLength(2);
@@ -839,6 +843,7 @@ describe("HomeWizard pollPairing", () => {
   it("success: saves the device, creates states, registers the connection and drops it from the queue", async () => {
     const { hw, client, stateMgr } = setup();
     const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered = [{ ip: "192.168.1.70", productType: "HWE-P1", serial: "new01", name: "P1" }];
     client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "new01", product_name: "P1 Neu" });
     await i.pairingManager.poll();
@@ -860,6 +865,7 @@ describe("HomeWizard pollPairing", () => {
     const i = internalOf(hw);
     // Manual-IP path enqueues a placeholder with serial "unknown"; the device
     // reports its real serial. Filtering by serial would never match → re-POST loop.
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered = [
       { ip: "192.168.1.71", productType: "unknown", serial: "unknown", name: "192.168.1.71" },
     ];
@@ -873,6 +879,7 @@ describe("HomeWizard pollPairing", () => {
   it("revokes the just-issued token AND drops the device if setup fails (S1-1/F4, no orphaned token, no mint-loop)", async () => {
     const { hw, client } = setup();
     const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered = [{ ip: "192.168.1.72", productType: "HWE-P1", serial: "x", name: "P1" }];
     client.getDeviceInfo.mockRejectedValue(new Error("malformed device info"));
     await i.pairingManager.poll();
@@ -881,7 +888,60 @@ describe("HomeWizard pollPairing", () => {
     expect(client.deleteUser).toHaveBeenCalled();
     // F4: dropped from the queue so it isn't re-minted+revoked every 2 s for the rest of the window.
     expect(i.pairingManager.discovered).toHaveLength(0);
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("paired but could not read device info"));
+    expect(i.log.warn).toHaveBeenCalledWith(
+      expect.stringContaining("paired, but the device could not be read or stored — token revoked"),
+    );
+  });
+
+  it("does NOT revoke once the device is stored — a failed data-point create only delays the tree", async () => {
+    const { hw, client, stateMgr } = setup();
+    const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
+    i.pairingManager.discovered = [{ ip: "192.168.1.73", productType: "HWE-P1", serial: "st01", name: "P1" }];
+    client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "st01", product_name: "P1 Meter" });
+    stateMgr.createDeviceStates.mockRejectedValueOnce(new Error("db write failed"));
+    await i.pairingManager.poll();
+    await settle();
+
+    // The device object holds the token — revoking it would leave a stored device
+    // that can never connect.
+    expect(client.deleteUser).not.toHaveBeenCalled();
+    expect(i.connections.has("hwe-p1_st01")).toBe(true);
+    expect(i.log.warn).toHaveBeenCalledWith(
+      "P1 Meter: paired, but its data points could not be created yet (db write failed) — they are created on the next start",
+    );
+  });
+
+  it("a device answering after the window closed is not stored — and its token is revoked", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
+    i.pairingManager.discovered = [{ ip: "192.168.1.74", productType: "HWE-P1", serial: "late01", name: "P1" }];
+    let answer!: (v: { token: string }) => void;
+    client.requestPairing.mockReturnValue(new Promise(resolve => (answer = resolve)));
+    const pass = i.pairingManager.poll();
+    i.pairingManager.stop();
+    answer({ token: "late-token" });
+    await pass;
+    await settle();
+
+    expect(i.extendObject).not.toHaveBeenCalled(); // saveDeviceToObject
+    expect(i.connections.has("hwe-p1_late01")).toBe(false);
+    expect(client.deleteUser).toHaveBeenCalled();
+  });
+
+  it("a device failing after the window closed adds no warning to a window that no longer exists", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
+    i.pairingManager.discovered = [{ ip: "192.168.1.75", productType: "HWE-P1", serial: "late02", name: "P1" }];
+    let fail!: (e: unknown) => void;
+    client.requestPairing.mockReturnValue(new Promise((_resolve, reject) => (fail = reject)));
+    const pass = i.pairingManager.poll();
+    i.pairingManager.stop();
+    fail(Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }));
+    await pass;
+    expect(i.log.warn).not.toHaveBeenCalled();
   });
 
   it("re-pair of an existing serial tears down the previous connection (no zombie WS)", async () => {
@@ -889,6 +949,7 @@ describe("HomeWizard pollPairing", () => {
     const i = internalOf(hw);
     const oldWs = { connect: vi.fn(), close: vi.fn() };
     conn.wsClient = oldWs as unknown as DeviceConnection["wsClient"];
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered = [{ ip: "192.168.1.5", productType: "HWE-P1", serial: "aabb", name: "P1" }];
     client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "aabb", product_name: "P1" });
     await i.pairingManager.poll();
@@ -911,6 +972,7 @@ describe("HomeWizard pollPairing", () => {
     const pending = i.connectionManager.initDevice(conn);
 
     client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "aabb", product_name: "P1" });
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered = [{ ip: "192.168.1.9", productType: "HWE-P1", serial: "aabb", name: "P1" }];
     await i.pairingManager.poll();
     await settle();
@@ -932,6 +994,7 @@ describe("HomeWizard pollPairing", () => {
     const { hw, client, conn, stateMgr } = setup();
     const i = internalOf(hw);
     conn.wsClient = { connect: vi.fn(), close: vi.fn() } as unknown as DeviceConnection["wsClient"];
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered = [{ ip: "192.168.1.5", productType: "HWE-P1", serial: "aabb", name: "P1" }];
     client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "aabb", product_name: "P1" });
     await i.pairingManager.poll();
@@ -945,6 +1008,7 @@ describe("HomeWizard pollPairing", () => {
   it("in-flight guard: a second poll while one is running returns without polling again", async () => {
     const { hw, client } = setup();
     const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered = [{ ip: "192.168.1.70", productType: "HWE-P1", serial: "new01", name: "P1" }];
     let release!: (v: never) => void;
     client.requestPairing.mockImplementationOnce(
@@ -2637,7 +2701,44 @@ describe("timeout callbacks (the timers nobody drove before)", () => {
     // `pairingPollTimer` is not an adapter field (it lives in the pairing manager), so
     // asserting `undefined` on it held on any object — ask the manager instead.
     expect(i.pairingManager.active).toBe(false);
-    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("automatically disabled"));
+    // The window announced a search, so it closes with the search's result.
+    expect(i.log.info).toHaveBeenCalledWith(
+      "Pairing window closed — no HomeWizard device found via mDNS; set 'pairingIp' to pair one by its address",
+    );
+  });
+
+  it("the closing line says how many devices were paired, or why none was", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    await i.pairingManager.start();
+    i.pairingManager.onDeviceDiscovered({ ip: "192.168.1.80", productType: "HWE-KWH1", serial: "k1", name: "kWh" });
+    client.requestPairing.mockRejectedValue(new HomeWizardApiError(403, "{}", "POST /api/user"));
+    await i.pairingManager.poll();
+    timeoutCallbackFor(i, 60_000)();
+    expect(i.log.info).toHaveBeenCalledWith(
+      "Pairing window closed — no device was paired; press the device's button within the 60 seconds " +
+        "(on a kWh Meter, hold it for 1–3 seconds)",
+    );
+
+    i.log.info.mockClear();
+    i.setTimeout.mockClear();
+    await i.pairingManager.start();
+    i.pairingManager.onDeviceDiscovered({ ip: "192.168.1.81", productType: "HWE-P1", serial: "p9", name: "P1" });
+    client.requestPairing.mockResolvedValue({ token: "tok" });
+    client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "p9", product_name: "P1 Meter" });
+    await i.pairingManager.poll();
+    await settle();
+    timeoutCallbackFor(i, 60_000)();
+    expect(i.log.info).toHaveBeenCalledWith("Pairing window closed — 1 device(s) paired");
+  });
+
+  it("a start that fails midway does not leave the window stuck 'already active'", async () => {
+    const { hw } = setup();
+    const i = internalOf(hw);
+    i.getStateAsync.mockRejectedValueOnce(new Error("db read failed"));
+    await i.pairingManager.start();
+    expect(i.pairingManager.active).toBe(false);
+    expect(i.log.warn).toHaveBeenCalledWith("Pairing could not start: db read failed");
   });
 
   it("the 60s IP-recovery timeout stops the browser and keeps the retry going quietly", () => {
@@ -2663,6 +2764,7 @@ describe("timeout callbacks (the timers nobody drove before)", () => {
     await i.pairingManager.start();
     const pollCall = i.setInterval.mock.calls.find((c: unknown[]) => c[1] === 2_000);
     expect(pollCall).toBeDefined();
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered.push({ ip: "192.168.1.9", productType: "HWE-P1", serial: "s1", name: "P1" });
     (pollCall![0] as () => void)();
     await settle();
@@ -2750,6 +2852,7 @@ describe("device-supplied strings never reach the log raw", () => {
       product_name: "P1",
       firmware_version: "4.0",
     });
+    i.pairingManager.pairing = true; // the window is open
     i.pairingManager.discovered.push({
       ip: "192.168.1.9",
       productType: "HWE-P1\n[error] forged",
