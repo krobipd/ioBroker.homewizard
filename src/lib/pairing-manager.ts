@@ -33,6 +33,8 @@ export interface PairingManagerHost {
    * @param token Bearer token — empty while pairing.
    */
   makeClient(ip: string, token: string): HomeWizardClient;
+  /** The user name this instance pairs under (see {@link buildUserName}). */
+  userName(): string;
   /**
    * (Re)start the mDNS browser. Main owns it and shares it with IP recovery; its
    * announcements reach {@link PairingManager.onDeviceDiscovered} through main,
@@ -294,7 +296,7 @@ export class PairingManager {
       let deviceConfig: DeviceConfig;
       try {
         const client = this.host.makeClient(device.ip, "");
-        const result = await client.requestPairing();
+        const result = await client.requestPairing(this.host.userName());
         issuedToken = result.token;
         if (this.passOver()) {
           // The button was pressed, but the window is gone: nothing will store this
@@ -343,6 +345,7 @@ export class PairingManager {
           productName: sanitizeForLog(info.product_name),
           ip: device.ip,
           ...(certCn ? { certCn } : {}),
+          userName: this.host.userName(),
         };
 
         // Save to device object (no adapter restart!)
@@ -431,7 +434,7 @@ export class PairingManager {
   private revoke(ip: string, token: string): void {
     this.host
       .makeClient(ip, token)
-      .deleteUser()
+      .deleteUser(this.host.userName())
       .catch((err: unknown) => this.adapter.log.debug(`Revoking an unused pairing token at ${ip}: ${errText(err)}`));
   }
 

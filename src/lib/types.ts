@@ -19,6 +19,11 @@ export interface DeviceConfig {
    * Absent on devices paired before v0.13.0 — captured lazily on the next connect.
    */
   certCn?: string;
+  /**
+   * The user name this device issued the token to (`local/…`, see {@link buildUserName}).
+   * Absent on devices paired before v0.20.0 — they were paired as `local/iobroker`.
+   */
+  userName?: string;
 }
 
 /** Response from GET /api */

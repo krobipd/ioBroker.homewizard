@@ -1,5 +1,6 @@
 import {
   buildDevicePrefix,
+  buildUserName,
   computeReconnectDelay,
   decideUnstableTransition,
   deviceLabel,
@@ -239,5 +240,29 @@ describe("device naming", () => {
   it("falls back to the folder id alone when there is no product name", () => {
     expect(deviceLabel({ ...p1, productName: "" })).toBe("hwe-p1_5c2faf000011");
     expect(deviceLabel({ ...p1, productName: "   " })).toBe("hwe-p1_5c2faf000011");
+  });
+});
+
+describe("buildUserName", () => {
+  // docs/v2/authorization: `^local\/[a-zA-Z0-9\-_/\\# ]{1,40}$`
+  const VALID = /^local\/[a-zA-Z0-9\-_/\\# ]{1,40}$/;
+
+  it("names host and instance, so two systems or instances never share a user", () => {
+    expect(buildUserName("iobroker-main", 0)).toBe("local/iobroker_iobroker-main_0");
+    expect(buildUserName("iobroker-main", 1)).not.toBe(buildUserName("iobroker-main", 0));
+    expect(buildUserName("other", 0)).not.toBe(buildUserName("iobroker-main", 0));
+  });
+
+  it("replaces characters the device does not accept", () => {
+    const name = buildUserName("host.local ä", 0);
+    expect(name).toBe("local/iobroker_host-local--_0");
+    expect(name).toMatch(VALID);
+  });
+
+  it("shortens the host part to the 40-character limit and keeps the instance number", () => {
+    const name = buildUserName("a-very-long-host-name-that-goes-on-and-on-and-on", 12);
+    expect(name).toMatch(VALID);
+    expect(name.length - "local/".length).toBe(40);
+    expect(name.endsWith("_12")).toBe(true);
   });
 });

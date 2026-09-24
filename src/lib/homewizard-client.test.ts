@@ -235,7 +235,7 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
     it("sends body with name, omits Bearer token when constructed without one", async () => {
       const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
       stub.queue.push({ statusCode: 200, body: { token: "newly-issued-token" } });
-      const result = await bareClient.requestPairing();
+      const result = await bareClient.requestPairing("local/iobroker_host_0");
       expect(result.token).toBe("newly-issued-token");
 
       const req = stub.requests[0];
@@ -243,7 +243,7 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
       expect(req.path).toBe("/api/user");
       expect(req.headers.authorization).toBeUndefined();
       expect(req.headers["content-type"]).toBe("application/json");
-      expect(JSON.parse(req.body)).toEqual({ name: "local/iobroker" });
+      expect(JSON.parse(req.body)).toEqual({ name: "local/iobroker_host_0" });
     });
 
     it("403 surfaces as HomeWizardApiError so caller can poll until button-press", async () => {
@@ -253,7 +253,7 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
         body: { error: { code: "user:creation-not-enabled" } },
       });
       try {
-        await bareClient.requestPairing();
+        await bareClient.requestPairing("local/iobroker_host_0");
         throw new Error("expected throw");
       } catch (err) {
         expect(err).toBeInstanceOf(HomeWizardApiError);
@@ -268,7 +268,7 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
       const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
       stub.queue.push({ statusCode: 200, body: {} });
       try {
-        await bareClient.requestPairing();
+        await bareClient.requestPairing("local/iobroker_host_0");
         throw new Error("expected throw");
       } catch (err) {
         expect(err).toBeInstanceOf(HomeWizardApiError);
@@ -282,7 +282,7 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
       const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
       stub.queue.push({ statusCode: 200, body: { token: null } });
       try {
-        await bareClient.requestPairing();
+        await bareClient.requestPairing("local/iobroker_host_0");
         throw new Error("expected throw");
       } catch (err) {
         expect(err).toBeInstanceOf(HomeWizardApiError);
@@ -293,7 +293,7 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
       const bareClient = new HomeWizardClient("127.0.0.1", "", { agent: TEST_AGENT, port: stub.port });
       stub.queue.push({ statusCode: 200, body: { token: "" } });
       try {
-        await bareClient.requestPairing();
+        await bareClient.requestPairing("local/iobroker_host_0");
         throw new Error("expected throw");
       } catch (err) {
         expect(err).toBeInstanceOf(HomeWizardApiError);
@@ -372,19 +372,19 @@ describe("HomeWizardClient (against local TLS stub-server)", () => {
     // had been CALLED — never that the request reaches a device.
     it("sends DELETE with the adapter's own user name and the Bearer token", async () => {
       stub.queue.push({ statusCode: 204, bodyText: "" });
-      await client.deleteUser();
+      await client.deleteUser("local/iobroker_host_0");
 
       const req = stub.requests[0];
       expect(req.method).toBe("DELETE");
       expect(req.path).toBe("/api/user");
-      expect(JSON.parse(req.body)).toEqual({ name: "local/iobroker" });
+      expect(JSON.parse(req.body)).toEqual({ name: "local/iobroker_host_0" });
       expect(req.headers.authorization).toBe("Bearer test-token");
       expect(req.headers["x-api-version"]).toBe("2");
     });
 
     it("surfaces a rejection from the device instead of resolving silently", async () => {
       stub.queue.push({ statusCode: 401, body: { error: { code: "user:unauthorized" } } });
-      await expect(client.deleteUser()).rejects.toBeInstanceOf(HomeWizardApiError);
+      await expect(client.deleteUser("local/iobroker")).rejects.toBeInstanceOf(HomeWizardApiError);
     });
   });
 

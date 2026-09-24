@@ -82,6 +82,7 @@ If mDNS is not available (e.g. different VLAN, Docker, or firewall blocking mult
 
 All paired devices are listed in the **Objects** tab under `homewizard.0`. Each device has its own folder (e.g. `hwe-p1_5c2fafaabbcc`) with measurement data, system settings, and device info.
 
+- **Names:** a device folder is named after the product name the device reports (e.g. "P1 Meter"). The HomeWizard API does not provide the name you give the device in the app. Two devices of the same type are told apart by their folder id (`<product type>_<serial>`), which the log shows next to the name
 - **Remove a device:** Set its `remove` data point to `true` — the device and all data points are deleted immediately
 - **IP changes:** Detected automatically — after 3 failed reconnects, mDNS searches for the new IP. If not found, the device is marked offline
 - **A device with no stored IP:** reported in the log at start-up, and the mDNS search runs for it right away

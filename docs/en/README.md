@@ -29,7 +29,7 @@ The window stays open for the full 60 seconds, so several devices can be added i
 
 ## What you get
 
-Each device gets a folder named `<product type>_<serial>` containing:
+Each device gets a folder named `<product type>_<serial>`. The folder shows the product name the device reports (e.g. "P1 Meter") — the HomeWizard API does not provide the name you give the device in the app. Log lines name the device as `P1 Meter (hwe-p1_5c2fafaabbcc)`, so two devices of the same type can be told apart. The folder contains:
 
 | Folder                 | Contents                                                                                                                                                |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |

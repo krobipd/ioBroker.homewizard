@@ -8,6 +8,8 @@ vi.mock("@iobroker/adapter-core", () => {
     public log = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
     public namespace = "homewizard.0";
     public adapterDir = "/tmp";
+    public host = "iob-host";
+    public instance = 0;
     public config: Record<string, unknown> = {};
     public on = vi.fn();
     public setStateChangedAsync = vi.fn(async () => {});
@@ -326,7 +328,8 @@ describe("HomeWizard removeDevice (A2 token revoke)", () => {
   it("revokes the token (DELETE /api/user) and removes the device", async () => {
     const { hw, client, stateMgr } = setup();
     await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
-    expect(client.deleteUser).toHaveBeenCalled();
+    // A device paired before v0.20.0 carries no stored name: it was paired as local/iobroker.
+    expect(client.deleteUser).toHaveBeenCalledWith("local/iobroker");
     expect(stateMgr.removeDevice).toHaveBeenCalled();
     // The summary is derived from the registry — a removed device must leave it.
     expect(stateMgr.writeDeviceRollup).toHaveBeenLastCalledWith(0, 0);
@@ -335,6 +338,13 @@ describe("HomeWizard removeDevice (A2 token revoke)", () => {
   // The revoke rides on the device's pinned TLS agent. Destroying that agent while the
   // request is in flight kills the socket (measured: ECONNRESET, the device never sees
   // the DELETE) — so the eviction has to wait for the revoke to finish.
+  it("deletes the user under the name the device was paired with", async () => {
+    const { hw, client, conn } = setup();
+    conn.config.userName = "local/iobroker_other-host_2";
+    await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
+    expect(client.deleteUser).toHaveBeenCalledWith("local/iobroker_other-host_2");
+  });
+
   it("evicts the pinned agents only after the revoke has finished", async () => {
     const { hw, client } = setup();
     let finish!: () => void;
@@ -384,7 +394,10 @@ describe("HomeWizard removeDevice (A2 token revoke)", () => {
     await call(hw, "removeDevice", "homewizard.0.hwe-p1_aabb.remove");
     await settle();
 
-    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("remove it in the HomeWizard app"));
+    expect(i.log.info).toHaveBeenCalledWith(
+      "P1 (hwe-p1_aabb): the access token could not be revoked (connect EHOSTUNREACH) — the user " +
+        "'local/iobroker' stays on the device until it is deleted through the device's local API (DELETE /api/user).",
+    );
     expect(dropDeviceAgent, "a failed revoke must not leak the agents").toHaveBeenCalledTimes(1);
   });
 });
@@ -957,6 +970,49 @@ describe("HomeWizard pollPairing", () => {
 
     expect(oldWs.close).toHaveBeenCalled();
     expect(i.connections.has("hwe-p1_aabb")).toBe(true);
+  });
+
+  it("pairs under this instance's own user name and stores it with the device", async () => {
+    const { hw, client } = setup();
+    const i = internalOf(hw);
+    i.pairingManager.pairing = true; // the window is open
+    i.pairingManager.discovered = [{ ip: "192.168.1.6", productType: "HWE-P1", serial: "un01", name: "P1" }];
+    client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "un01", product_name: "P1" });
+    await i.pairingManager.poll();
+    await settle();
+
+    expect(client.requestPairing).toHaveBeenCalledWith("local/iobroker_iob-host_0");
+    expect(i.extendObject).toHaveBeenCalledWith(
+      "hwe-p1_un01",
+      expect.objectContaining({ native: expect.objectContaining({ userName: "local/iobroker_iob-host_0" }) }),
+    );
+  });
+
+  it("re-pairing a device paired under the old shared name deletes that old user", async () => {
+    const { hw, client, conn } = setup();
+    const i = internalOf(hw);
+    expect(conn.config.userName).toBeUndefined(); // paired before v0.20.0
+    i.pairingManager.pairing = true; // the window is open
+    i.pairingManager.discovered = [{ ip: "192.168.1.5", productType: "HWE-P1", serial: "aabb", name: "P1" }];
+    client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "aabb", product_name: "P1" });
+    await i.pairingManager.poll();
+    await settle();
+
+    expect(client.deleteUser).toHaveBeenCalledWith("local/iobroker");
+    expect(client.deleteUser).not.toHaveBeenCalledWith("local/iobroker_iob-host_0");
+  });
+
+  it("re-pairing under the same name deletes nothing — the new token already replaced the old one", async () => {
+    const { hw, client, conn } = setup();
+    const i = internalOf(hw);
+    conn.config.userName = "local/iobroker_iob-host_0";
+    i.pairingManager.pairing = true; // the window is open
+    i.pairingManager.discovered = [{ ip: "192.168.1.5", productType: "HWE-P1", serial: "aabb", name: "P1" }];
+    client.getDeviceInfo.mockResolvedValue({ product_type: "HWE-P1", serial: "aabb", product_name: "P1" });
+    await i.pairingManager.poll();
+    await settle();
+
+    expect(client.deleteUser).not.toHaveBeenCalled();
   });
 
   // The old connection can still have work in flight — a system poll or an initDevice
@@ -2982,7 +3038,9 @@ describe("a device the adapter could not load is still removable", () => {
     await call(hw, "onStateChange", "homewizard.0.hwe-p1_broken.remove", active(true));
 
     expect(stateMgr.removeDeviceByPrefix).toHaveBeenCalledWith("hwe-p1_broken");
-    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("cannot be revoked"));
+    expect(i.log.info).toHaveBeenCalledWith(
+      expect.stringContaining("user 'local/iobroker' on the device cannot be deleted"),
+    );
   });
 
   it("does not delete anything when there is no device object behind the button", async () => {

@@ -132,6 +132,28 @@ export function sanitizeIdPart(str: string): string {
   return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
 }
 
+/** The user name every device was paired under before v0.20.0. */
+export const LEGACY_USER_NAME = "local/iobroker";
+
+/**
+ * The user name this adapter instance pairs under: `local/iobroker_<host>_<instance>`.
+ *
+ * The device keeps one token per name, and pairing again under a name it knows
+ * invalidates that name's token ("the name should be unique for this device",
+ * docs/v2/authorization). With one fixed name, a second ioBroker system — or a
+ * second instance — pairing the same device silently cut the first one off.
+ * The part after `local/` is limited to 40 characters from a fixed set; the host
+ * part is shortened, never the instance number.
+ *
+ * @param host     Name of the ioBroker host this instance runs on.
+ * @param instance Instance number.
+ */
+export function buildUserName(host: string, instance: number): string {
+  const suffix = `_${instance}`;
+  const base = `iobroker_${host.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  return `local/${base.slice(0, 40 - suffix.length)}${suffix}`;
+}
+
 /**
  * The folder id of a device: `<productType>_<serial>`, e.g. `hwe-p1_5c2faf000011`.
  * Unique per device, because the serial is the device's MAC.

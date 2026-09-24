@@ -14,7 +14,7 @@ import {
 import { createDeviceConnection } from "./lib/connection-utils";
 import { ConnectionManager, WS_RECONNECT_MAX_MS, type ConnectionManagerHost } from "./lib/connection-manager";
 import { HomeWizardDiscovery } from "./lib/discovery";
-import { deviceLabel, deviceObjectName, stripNamespace } from "./lib/main-helpers";
+import { buildUserName, deviceLabel, deviceObjectName, LEGACY_USER_NAME, stripNamespace } from "./lib/main-helpers";
 import { PairingManager, type PairingManagerHost } from "./lib/pairing-manager";
 import { CA_NOT_AFTER, caDaysUntilExpiry, dropDeviceAgent, pinnedAgent } from "./lib/cacert";
 import { HomeWizardClient } from "./lib/homewizard-client";
@@ -150,6 +150,7 @@ export class HomeWizard extends utils.Adapter {
     const pairingHost: PairingManagerHost = {
       getStateManager: () => this.stateManager,
       makeClient: (ip, token) => this.makeClient(ip, token),
+      userName: () => buildUserName(this.host ?? "", this.instance ?? 0),
       startDiscovery: () => this.restartBrowser(),
       stopDiscovery: () => this.releaseBrowser(),
       isUnloading: () => this.unloading,
@@ -470,6 +471,7 @@ export class HomeWizard extends utils.Adapter {
       const productName = text(native.productName);
       const ip = text(native.ip);
       const certCn = text(native.certCn);
+      const userName = text(native.userName);
       if (!encryptedToken || !serial) {
         // Every device object this adapter writes carries both fields, so one
         // without them is damaged (a hand-edited database, an interrupted write).
@@ -501,6 +503,7 @@ export class HomeWizard extends utils.Adapter {
         productName: sanitizeForLog(productName || productType || "unknown"),
         ...(ip && isValidIpv4(ip) ? { ip } : {}),
         ...(certCn ? { certCn } : {}),
+        ...(userName ? { userName } : {}),
       });
     }
 
@@ -527,6 +530,7 @@ export class HomeWizard extends utils.Adapter {
         productName: config.productName,
         ...(config.ip ? { ip: config.ip } : {}),
         ...(config.certCn ? { certCn: config.certCn } : {}),
+        ...(config.userName ? { userName: config.userName } : {}),
       },
     });
   }
@@ -987,6 +991,21 @@ export class HomeWizard extends utils.Adapter {
     const previous = this.connections.get(key);
     if (previous) {
       this.log.debug(`Re-pair: closing previous connection for ${deviceLabel(config)}`);
+      // Paired under a different name before (a device from before v0.20.0, or an
+      // instance that moved host): that user and its token are still on the device.
+      // It is deleted with its OWN token — a token that no longer works (the name
+      // was taken over by another system, or the device dropped it) fails harmlessly,
+      // and a user this adapter does not hold a token for is never touched.
+      const oldName = previous.config.userName ?? LEGACY_USER_NAME;
+      if (config.userName && oldName !== config.userName && previous.config.token) {
+        this.makeClient(ip, previous.config.token, previous.config.certCn, previous.config.serial)
+          .deleteUser(oldName)
+          .then(
+            () => this.log.debug(`${deviceLabel(config)}: previous user '${oldName}' deleted`),
+            (err: unknown) =>
+              this.log.debug(`${deviceLabel(config)}: previous user '${oldName}' not deleted: ${errText(err)}`),
+          );
+      }
       // Mark it before the teardown, like removeDevice does: work that is already in
       // flight on the OLD connection (an initDevice or system poll waiting on a 10 s
       // timeout) checks this flag after each await. Without it such a task can still
@@ -1038,9 +1057,12 @@ export class HomeWizard extends utils.Adapter {
       return;
     }
 
+    const native: Record<string, unknown> = isPlainObject(obj.native) ? obj.native : {};
+    const userName = typeof native.userName === "string" && native.userName ? native.userName : LEGACY_USER_NAME;
     this.log.info(
       `Removing ${prefix} — this device could not be used by the adapter (no readable token), so its ` +
-        `access on the device itself cannot be revoked. Remove it in the HomeWizard app if you no longer want it.`,
+        `user '${userName}' on the device cannot be deleted; it stays there until it is deleted through the ` +
+        `device's local API (DELETE /api/user).`,
     );
     await this.stateManager.removeDeviceByPrefix(prefix);
     // No `updateGlobalConnection()` here on purpose: the summary counts
@@ -1067,23 +1089,24 @@ export class HomeWizard extends utils.Adapter {
     // out before recreating just-deleted objects via setState.
     conn.removed = true;
 
-    // Best-effort token revoke on the device (DELETE /api/user) so the local/iobroker user
+    // Best-effort token revoke on the device (DELETE /api/user) so the adapter's user
     // doesn't linger across pair/unpair cycles. Fire-and-forget — never block removal on a
     // (possibly offline) device's 10s timeout.
+    const userName = conn.config.userName ?? LEGACY_USER_NAME;
     const revoke =
       conn.ip && conn.config.token
         ? this.makeClient(conn.ip, conn.config.token, conn.config.certCn, conn.config.serial)
-            .deleteUser()
+            .deleteUser(userName)
             .then(
               () => this.log.debug(`Token revoked for ${deviceLabel(conn.config)}`),
               (err: unknown) =>
                 // Not a fault of the adapter's: the usual case is a device that is
                 // already gone or offline. Say it at info, in the same words as the
-                // path for a device without a readable token, because the user has to
-                // finish the job in the app.
+                // path for a device without a readable token.
                 this.log.info(
                   `${deviceLabel(conn.config)}: the access token could not be revoked (${errText(err)}) — ` +
-                    `the local/iobroker user stays on the device, remove it in the HomeWizard app.`,
+                    `the user '${userName}' stays on the device until it is deleted through the device's ` +
+                    `local API (DELETE /api/user).`,
                 ),
             )
         : Promise.resolve();

@@ -99,10 +99,14 @@ export class HomeWizardClient {
     return this.lastServerCn;
   }
 
-  /** Request pairing token (POST /api/user) — 403 until button pressed */
-  async requestPairing(): Promise<PairingResponse> {
+  /**
+   * Request pairing token (POST /api/user) — 403 until button pressed
+   *
+   * @param userName The user the token is issued to (`local/…`).
+   */
+  async requestPairing(userName: string): Promise<PairingResponse> {
     const result = await this.request<PairingResponse>("POST", "/api/user", {
-      name: "local/iobroker",
+      name: userName,
     });
     // Server returned 200 but we still validate the shape — a malformed or
     // missing token would otherwise crash later in this.encrypt(undefined).
@@ -156,12 +160,14 @@ export class HomeWizardClient {
   }
 
   /**
-   * Revoke the adapter's token on the device (DELETE /api/user). The token was created
-   * under the fixed name `local/iobroker` during pairing; deleting it stops orphaned tokens
-   * accumulating on the device across pair/unpair cycles. Best-effort — callers ignore errors.
+   * Delete a user on the device (DELETE /api/user) — which revokes its token. Deleting
+   * the adapter's own user when a device is removed stops orphaned users accumulating
+   * across pair/unpair cycles. Best-effort — callers ignore errors.
+   *
+   * @param userName The user to delete (`local/…`), as it was paired.
    */
-  async deleteUser(): Promise<void> {
-    await this.request("DELETE", "/api/user", { name: "local/iobroker" });
+  async deleteUser(userName: string): Promise<void> {
+    await this.request("DELETE", "/api/user", { name: userName });
   }
 
   /**

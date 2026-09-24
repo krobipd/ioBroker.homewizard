@@ -29,7 +29,7 @@ Das Fenster bleibt die vollen 60 Sekunden offen — mehrere Geräte lassen sich 
 
 ## Was angelegt wird
 
-Jedes Gerät bekommt einen Ordner `<Produkttyp>_<Seriennummer>` mit:
+Jedes Gerät bekommt einen Ordner `<Produkttyp>_<Seriennummer>`. Er trägt den Produktnamen, den das Gerät meldet (z. B. „P1 Meter“) — den Namen aus der HomeWizard-App liefert die API nicht. Logzeilen nennen das Gerät als `P1 Meter (hwe-p1_5c2fafaabbcc)`, so lassen sich zwei gleiche Geräte unterscheiden. Der Ordner enthält:
 
 | Ordner                 | Inhalt                                                                                                                                                         |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
