@@ -41,7 +41,8 @@ src/lib/coerce.ts            → Type-Guards für API-Boundary (coerceFiniteNumb
 src/lib/discovery.ts         → mDNS (_homewizard._tcp), nur bei Pairing/IP-Recovery
 src/lib/homewizard-client.ts → HTTPS-Client (REST)
 src/lib/websocket-client.ts  → WSS-Client (Echtzeit)
-src/lib/state-manager.ts     → State CRUD + Cleanup, MEASUREMENT_STATE_DEFS mit nameKey/descKey
+src/lib/state-manager.ts     → State CRUD + Cleanup (liest die Tabellen aus state-defs.ts; nameKey/descKey)
+src/lib/device-icons.ts      → Piktogramm je Gerätetyp (Inline-SVG aus admin/icons/, DD39)
 src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName/resolveLabel, I18nKey from en.json)
 ```
 
@@ -55,241 +56,45 @@ src/lib/i18n.ts              → Type-safe wrappers for adapter-core I18n (tName
 6. **Device-Config in Device-Objekten** (seit v0.3.0) — Token mit `this.encrypt()`, KEIN adapter native → kein Restart bei Pairing/Remove
 7. **TLS mit CA-Cert + per-Device-CN-Pinning** (CN-Pinning seit v0.13.0) — HomeWizard CA gebündelt (`HW_AGENT`), `minVersion:TLSv1.2`. Etablierte Geräte nutzen einen per-Device-Agent (`createDeviceAgent(certCn)`), dessen `checkServerIdentity` die präsentierte Cert-CN (`appliance/<type>/<serial>`, beim Pairing via `getPeerCertificate()` erfasst + in `native.certCn` persistiert; lazy-Migration beim ersten Connect für Bestandsgeräte) gegen die bekannte Identität prüft. Blanket-Accept (`HW_AGENT`, CN übersprungen) NUR während Pairing (Identität pre-Pairing unbekannt). Schließt LAN-MITM mit fremdem HW-CA-Cert → Token-Harvest. Per offizieller v2-Doku (Hostname-Validierung).
 8. **Admin UI ohne Gerätetabelle** — Geräte im Objekte-Tab, nicht in Config
-9. **statusStates** (seit v0.4.0) — Device-Objekte haben `statusStates.onlineId` → grün/grau Icon im Objektbaum.
-   **Seit v0.18.0 sagt der Marker „das GERÄT antwortet", nicht „der WebSocket steht"** — s. Entscheidung 20.
-   **Die Marker-Kette (seit v0.16.0)** — `info.connected` wird an JEDEM Punkt geschrieben, an dem sich das Bild
-   ändern kann, nicht nur beim WS-Ereignis: Start-Stempel vor dem ersten Verbindungsversuch (der Wert des
-   Vorlaufs überlebt Absturz/Stromausfall), beim Neu-Koppeln eines bekannten Geräts (der Abbau der alten
-   Verbindung unterdrückt absichtlich deren Trenn-Handler), beim WS-Verbinden/Trennen und beim Beenden.
-   ⚠️ Kein `supportedMessages.stopInstance` im Manifest — mit dem Eintrag lief `onUnload` nie, und der
-   Host-seitige Reset von `info.connection` ist selbst defekt (js-controller#3472), der Adapter ist also der
-   einzige Schreiber. Einmal-Korrektur `clearStopInstanceFlag()` beim Start, weil der Eintrag als Kopie im
-   Instanzobjekt weiterlebt. Mechanik: Memory `reference_stopinstance_verhindert_onunload`.
+9. **statusStates** — (seit v0.4.0) — Device-Objekte haben `statusStates.onlineId` → grün/grau Icon im Objektbaum.
 10. **measurement/ Channel** (seit v0.4.0) — Messdaten unter `measurement/`, nicht lose im Device-Root. `cleanupMovedStates()` räumt alte Pfade auf
 11. **WS-Echtzeit für system/batteries additiv, nicht ersetzend** (seit v0.10.0) — WS pusht system/batteries nur bei Control-State-Änderung (uptime/rssi pushen NICHT laufend), darum bleibt der 60s-REST-System-Poll erhalten. `setStateChangedAsync` für langsame Felder verhindert die REST/WS-Doppel-Writes der überlappenden Felder
 12. **Token-Revoke beim Entfernen** (seit v0.10.0) — `removeDevice` ruft best-effort `DELETE /api/user` mit dem gespeicherten Nutzernamen (DD43; ein Altgerät ohne Feld: `local/iobroker`), bevor das Device-Object gelöscht wird, damit auf dem Gerät keine toten Nutzer bei jedem Pair/Unpair zurückbleiben
-13. **Summen-Datenpunkte** (seit v0.16.0) — `info.devicesTotal`/`devicesOnline`/`devicesAllOnline`, abgeleitet
-    in `updateGlobalConnection()`, also in derselben Runde und aus derselben Quelle wie `info.connection` und
-    die Einzelmarker; eine zweite Rechenstelle würde driften. `devicesTotal` überlebt das Beenden (wie viele
-    Geräte eingerichtet sind, ändert sich nicht), `devicesAllOnline` braucht `total > 0` — sonst meldet eine
-    frische Installation ohne Gerät Vollzähligkeit. Flotten-Form: Memory `reference_summen_datenpunkte_flotte`.
-14. **`onUnload` kommt auch ohne State-Manager durch** (seit v0.17.0) — der State-Manager entsteht erst NACH der
-    stopInstance-Korrektur in `onReady`; der von der Korrektur erzwungene Neustart beendet einen Prozess, der nie
-    einen gebaut hat. Der Abbau prüft das Feld, schreibt `info.connection` immer und die Geräte-Marker nur, wenn
-    es sie geben kann. Vorher warf der Abbau, und selbst `info.connection` blieb ungeschrieben.
-15. **WS-Fehler-Entdopplung gilt pro Verbindung** (seit v0.17.0) — `connect()` setzt `lastErrorDetail` zurück.
-    Ein Gerät, das nach dem Neuverbinden denselben Fehler-Frame schickt, wird wieder gewarnt; vorher schwieg der
-    Adapter für den Rest seiner Laufzeit, weil der Vergleichswert den Reconnect überlebte.
-16. **Ack trägt den gesendeten Wert, nicht den Rohwert** (seit v0.17.0) — `cloud_enabled`, `api_v1_enabled`,
-    `charge_to_full` werden über `coerceSwitch` gelesen (seit v0.20.0; vorher `!!state.val`, das `"false"` als
-    `true` las) und mit genau diesem Boolean bestätigt; ein Wert, der weder an noch aus ist, wird gewarnt und
-    nicht gesendet. Knöpfe lösen nur bei `true` aus — vorher startete auch ein geschriebenes `false` den Neustart.
-17. **Jeder Geräte-String, der Objektname wird, läuft durch `sanitizeForLog`** — seit v0.14.0 der Produktname (L9),
-    seit v0.17.0 auch der `type` eines externen Zählers (`external.<type>_<id>`-Kanal). Objekt-IDs säubert
-    `sanitize()` separat; Namen brauchen den CR/LF-Strip, weil sie ungeprüft in den Objektbaum gehen.
-18. **`errText` liefert IMMER einen String** (seit v0.17.0, Flotten-Defekt) — `JSON.stringify` gibt für Symbol,
-    Funktion und `toJSON → undefined` `undefined` zurück, ohne zu werfen; der `catch` lief also nie und die Funktion
-    log trotz `string`-Signatur. Symbol → `String(sym)`, sonst `?? Object.prototype.toString.call(err)`.
-19. **`HomeWizardApiError.errorCode` ist String oder `"unknown"`** (seit v0.17.0) — Geräte-Form
-    `{error:{code,description}}` und flaches `{error:"…"}` werden gelesen; alles, was kein String ist (Zahl,
-    Objekt, `{error:{}}`), bleibt `"unknown"`, die Beschreibung fällt dann auf den Rohkörper zurück. Vorher konnte
-    ein Objekt im String-Feld landen und als `[object Object]` im Log stehen.
-20. **Die Verbindungs-Anzeigen beschreiben das GERÄT, nicht einen Transportweg** (seit v0.18.0, ersetzt
-    die alte Entscheidung 8). Der Rollen-Katalog definiert `indicator.reachable` als „if a device is
-    online" — ein Gerät, das den REST-Rückfall beantwortet, IST online, auch wenn der WebSocket gerade
-    nicht steht. `isDeviceOnline(conn) = wsAuthenticated || restHealthy` ist die EINZIGE Quelle für den
-    Geräte-Marker, die `info.devices*`-Summe UND den System-Poll-Filter; eine zweite Rechenstelle würde
-    driften (wie Entscheidung 13). `restHealthy` wird nach einem erfolgreichen Rückfall-Abruf gesetzt,
-    bei dessen erstem Fehlschlag gelöscht und beim WS-Verbinden/-Trennen sowie im Abbau zurückgesetzt —
-    der Wert verfällt also von selbst. Vorher meldeten beide Anzeigen bis zu fünf Minuten „nicht
-    verbunden", während Messwerte in den Baum liefen; am sichtbarsten bei Geräten mit schwachem Empfang,
-    für die der Rückfall überhaupt gebaut wurde. `info.connected` wird nirgends gelesen, nur geschrieben
-    — Reconnect, IP-Wiederfindung und Unstable-Erkennung hängen weiter an `wsAuthenticated`.
-21. **Ein Update erreicht die Namen BESTEHENDER Anlagen** (seit v0.18.0). Vier Schichten, die vorher
-    alle einfroren: die sieben Manifest-Objekte bekommen in `onReady` je einen ausgeschriebenen
-    `extendObject`-Aufruf (`ensureManifestObjects`, wörtlich statt Schleife — sonst hat das
-    Konsistenz-Gate nichts zu prüfen); `createState`, der `info`-Kanal, `ensureChannel` und
-    `createButton` schreiben ohne `preserve` bzw. mit `extendObject` statt `setObjectNotExists`.
-    **Seit v0.19.0 trägt KEIN einziger Schreibvorgang mehr `preserve`** (vorher zwei: Geräte-Objekt
-    und Kanal eines externen Zählers). Der Flottenstandard (krobi 2026-09-02) sagt: Namen und
-    Beschreibungen gehören dem Adapter, der Platz des Nutzers ist `0_userdata`. Die beiden Namen, die
-    vom GERÄT kommen (Produktname, Typ eines nicht dokumentierten externen Zählers), werden deshalb aus
-    dem aktuellen Gerätewert GESCHRIEBEN statt eingefroren; eine Umbenennung im Objektbaum wird beim
-    nächsten Start zurückgesetzt. ⚠️ Der Produktname ist laut Doku FEST (`product_name`: „This name is
-    not the same that is set by the user in the app“) — die API liefert den App-Namen nirgends, die
-    Zusage „folgt der App“ aus 0.18.2/0.19.0 war falsch (v0.20.0 korrigiert, Logzeilen tragen `Name (id)`). Ein Test hält die Liste der `preserve`-Stellen
-    als LEER fest; kein Gate sieht diesen Fehler sonst (Flotten-Fund: das Prüfpaket hat keine Regel
-    dafür).
-22. **`supportedMessages` wird GELÖSCHT, nicht auf `false` gesetzt** (seit v0.18.0). Die Liste ist eine
-    POSITIVliste: ein `{stopInstance:false}` — und selbst ein leeres Objekt — heißt „nur diese
-    Nachrichten werden unterstützt", also keine. Die Messagebox stirbt dann still, kein `sendTo`
-    kommt an, nichts wird protokolliert. Auslöser der Einmal-Korrektur ist deshalb die bloße Existenz
-    des Schlüssels, der Schreibvorgang ist `{ common: { supportedMessages: null } }`.
-23. **Adressen aus mDNS werden strenger geprüft als eine eingetippte** (seit v0.18.0). `isLanDeviceIpv4`
-    (nur 10/8, 172.16/12, 192.168/16) gilt für den mDNS-Weg: dort tippt niemand, und ein echtes Gerät
-    kann link-lokal keine öffentliche Adresse ansagen — ein bösartiger Responder aber schon. Der manuelle
-    Pairing-Pfad behält `isAssignableDeviceIpv4` (sperrt Loopback/Link-Local/0.x/Broadcast, lässt
-    öffentliche Adressen zu), weil ein Heimnetz auf öffentlichem Bereich selten, aber real ist.
-    CGNAT (100.64/10) gehört NICHT dazu — das liegt auf der WAN-Seite des Routers.
-24. **Ein Gerät ohne gespeicherte IP meldet sich** (seit v0.18.0) — Warnung beim Start plus einmaliger
-    Anstoß der mDNS-Wiederfindung. Vorher bekam es keinen Verbindungsversuch, und die Wiederfindung wird
-    ausschließlich aus `connectWebSocket` angestoßen, wohin ein Gerät ohne IP nie gelangt: es blieb bis
-    zum nächsten Neustart oder Neu-Koppeln stumm liegen.
-25. **Ein Knopf fällt auch nach einem Fehlschlag zurück** (seit v0.18.0) — `finally` um **genau den
-    einen** Geräteaufruf, nie um den ganzen Handler: dort würde es den LED-Prozentwert und jede
-    Schalter-Bestätigung mit `false` überschreiben. Die Rückstellung selbst schluckt ihren Fehler,
-    damit sie den ursprünglichen nicht verdrängt.
-26. **Batterie-Datenpunkte überleben die Batterie nicht** (seit v0.18.0) — meldet der System-Poll
-    zweimal hintereinander `battery_count: 0`, wird der `battery`-Zweig entfernt statt mit den letzten
-    Werten zu altern. Ausgewertet wird am 60-s-Poll, nicht am 1-Hz-Push: ein einzelner Aussetzer würde
-    sonst den Objektbaum durchwalken und die Historie zerschneiden.
-
-27. **Die Namen werden bei JEDEM Start aufgefrischt — ohne Merker** (seit v0.18.1). v0.18.0 machte die
-    Namen erreichbar, aber der Baum einer bestehenden Anlage trug sie trotzdem noch als feste Strings:
-    Objekte, die vor der Übersetzungs-Umstellung entstanden sind, werden von `extendObject` nur dann
-    berührt, wenn der Adapter sie in dieser Runde überhaupt anfasst. `refreshExistingNames()` läuft
-    deshalb über die vorhandene Objektliste und überschreibt das Namensfeld — es legt nichts an und
-    braucht keinen Merker im Baum. Ein Versions-Merker wäre sogar schädlich: er entscheidet über die
-    Auffrischung, altert still mit und ist ein Datenpunkt, den niemand bestellt hat. `removeRetiredMarkers()`
-    räumt die zwei Merker früherer Versuche (`info.legacyMigrated`, `info.labelsVersion`) bei
-    Bestandsanlagen ab.
-
-28. **Ein Gerät, das der Adapter nicht laden konnte, bleibt entfernbar** (seit v0.18.2). Ein
-    Geräte-Objekt ohne lesbaren Token wird beim Laden übersprungen — es hat damit keine
-    Verbindung, und die Entfernung ging bis dahin von genau dieser Verbindung aus: der `remove`-
-    Knopf tat wortlos nichts, der Baum blieb liegen, der Knopf blieb gedrückt. `removeUnloadedDevice`
-    leitet den Präfix aus der Knopf-ID ab, prüft, dass dort wirklich ein `device`-Objekt steht, und
-    löscht über `removeDeviceByPrefix`. Der Token kann dabei NICHT widerrufen werden — ihn zu lesen
-    ist ja das, was scheiterte —, und genau das sagt die Logzeile, statt eine saubere Entfernung
-    vorzutäuschen. Das Überspringen beim Laden meldet sich seitdem ebenfalls (vorher: nichts).
-29. **Name und Firmware folgen dem Gerät im laufenden Betrieb** (seit v0.18.2). `syncDeviceInfo`
-    ist die eine Stelle für beide Aufrufer (Erstverbindung + jeder zehnte System-Poll). Der Name
-    ändert sich nur, wenn eine Firmware einen anderen `product_name` meldet (DD21); vorher wurde dann
-    nur die gespeicherte Konfiguration fortgeschrieben und `info.productName` behielt den Namen vom
-    letzten Adapterstart.
-    `info.firmware` wurde überhaupt nur beim Start geschrieben, obwohl der Poll die Antwort mit der
-    Version ohnehin holt: ein Gerät, das sich selbst aktualisiert, zeigte die alte Version bis zum
-    nächsten Neustart. `firmware_version` ist dabei optional getypt und wird am Schreibort geprüft —
-    ein Gerät, das ein reines Anzeigefeld weglässt, darf darüber nicht seine Verbindung verlieren.
-30. **`onStateChange` ist eine Tabelle, und der Knopf-Rückfall ist strukturell** (seit v0.18.2).
-    Aus acht `id.endsWith(...)`-Zweigen, die alle dasselbe sagten (prüfen → senden → das GESENDETE
-    bestätigen), wurde `deviceCommands`. Ein Eintrag ist entweder ein Knopf (Rückgabe `null`, wird
-    danach immer auf `false` zurückgestellt) oder ein Wert-Datenpunkt (bestätigt den gesendeten
-    Wert) — beides zugleich ist nicht darstellbar. Damit kann die Rückstellung eine Bestätigung
-    nicht mehr überschreiben; DD25 hängt nicht länger daran, dass an jeder Stelle genau der
-    richtige Aufruf im `finally` steht. Neu abgedeckt: der Knopf fällt auch dann zurück, wenn das
-    Gerät gar nicht erreichbar ist, und `startPairing` bei bereits offenem Fenster.
-31. **Der Label-Nachzug überspringt, was dieser Start schon geschrieben hat** (seit v0.18.2).
-    `refreshExistingNames` prüft `createdIds`: was `createDeviceStates` oder ein eingehender
-    Messwert in dieser Runde bereits angefasst hat, trägt das aktuelle Label per Definition. Auf
-    einem P1 sind das rund 40 Objekt-Schreibvorgänge weniger pro Start. ⚠️ Ein Bestand mit alten
-    Labels ist deshalb IMMER ein neuer Prozess: ein Test, der ihn im selben `StateManager`
-    nachstellt, misst den Cache statt den Nachzug.
-32. **Die `common.states`-Reparatur räumt einen übrig gebliebenen SCHLÜSSEL weg** (Begründung
-    korrigiert v0.18.2). Gemessen an der einzigen Merge-Stelle des Objektspeichers
-    (`node.extend(true, …)` in `objectsInRedisClient._extendObject`): ein einfacher String
-    ersetzt sehr wohl einen Objektwert. Was der Merge NICHT kann, ist einen Schlüssel entfernen,
-    den die neue Karte nicht mehr führt — und trägt der ein Übersetzungsobjekt, stirbt Admins
-    Auswahlliste an React-Fehler #31. Nur dafür ist der vollständige `setObjectAsync` da. Die
-    frühere Begründung („extendObject kann ein Objekt nicht durch einen String ersetzen") war nie
-    gegen js-controller gemessen, und der Test, der die Reparatur benannte, erreichte sie nie: die
-    Prüfvorrichtung merged `common` flach. Sie merged jetzt tief wie der Objektspeicher.
-
-33. **Der Kanalname eines externen Zählers ist übersetzt** (seit v0.18.2, ersetzt den Teil von
-    DD17, der ihn für gerätegegeben hielt). Der `type` kommt aus einer GESCHLOSSENEN Liste der API
-    (`gas_meter`, `water_meter`, `warm_water_meter`, `heat_meter`, `inlet_heat_meter` — genau die
-    Union in `types.ts`), ist also adapter-eigener Text und wird wie jedes andere Label übersetzt
-    und nachgezogen — ohne `preserve`. Nur ein Typ AUSSERHALB der Liste ist wirklich
-    gerätegegeben: der wird mit dem Rohwert benannt (mit CR/LF-Strip), seit v0.19.0 ohne `preserve`
-    (DD21). Gefunden hat das das
-    Objekt-Inventar-Gate beim allerersten Lauf.
-34. **Jeder Datenpunkt hat eine Beschreibung oder einen begründeten Verzicht** (seit v0.18.2;
-    Entscheidungs-Ablage seit 2026-09-07 in `test/self-explaining.json`). Erklärt sind
-    Schein-/Blindleistung, Leistungsfaktor, Ladezyklen, die vier Batterie-Steuerwerte, Cloud- und
-    v1-API-Schalter (letzterer mit der Sicherheitsfolge), WLAN-Pegel, Laufzeit, Tarif,
-    Messzeitpunkt, Zähler-Kennung und der externe Zählerstand. Die 37 stummen Datenpunkt-**Arten**
-    (Kennungen, Knöpfe, elektrische Grundgrößen, Zählerstände, die zwei Begleiter des externen
-    Zählers) tragen je eine englische Begründung, warum ihr Name allein reicht — Muster ohne
-    Namensraum, `*` = genau EIN Id-Abschnitt. **Geprüft wird das vom Flotten-Gate D08**
-    (`../scripts/check-object-inventory.py` gegen `test/objects.inventory.json`), nicht mehr von
-    einem Adapter-Test: es meldet den unentschiedenen Datenpunkt genauso wie das verwaiste Muster,
-    das Muster, dessen Treffer alle eine Beschreibung TRAGEN, und die zu kurze Begründung. Der
-    frühere `SELF_EXPLAINING`-Block in `state-defs.test.ts` prüfte dieselbe Fläche (gemessen: alle
-    85 Katalog-Ids erscheinen im Inventar) und ist deshalb entfallen. ⚠️ D08 besitzt „ist
-    ENTSCHIEDEN", nicht „ist GUT" — ein grüner Lauf belegt nicht, dass die Beschreibungen etwas
-    erklären.
-35. **Die IP-Wiederfindung kennt KEINEN In-Flight-Guard** (seit v0.19.0, ersetzt das `recovering`-Feld
-    aus v0.7.5). Der Ablauf ist zwangsläufig verschränkt: `connectWebSocket` stößt beim dritten
-    Fehlschlag die mDNS-Suche an und öffnet DANACH den Socket zur alten, toten Adresse, der mehrere
-    Sekunden hängt. Die Antwort des Geräts trifft genau in diesem Fenster ein — und `bonjour-service`
-    meldet einen Dienst nur EINMAL je Browser-Lauf, die verworfene Antwort war also die einzige des
-    ganzen 60-s-Fensters. Der Guard machte die Wiederfindung damit im häufigsten Fall („Gerät hat eine
-    neue DHCP-Adresse") wirkungslos; nächster Anstoß erst nach ~50 min, mit demselben Ausgang.
-    Er war auch nie nötig: dieselbe IP fängt `discovered.ip === conn.ip`, und der laufende Client wird
-    von `teardownConnection` geschlossen — sein `close()` setzt `destroyed`, das Schließen-Ereignis
-    erreicht `onWsDisconnected` also nicht mehr (kein Zombie-Socket, kein zweiter Reconnect-Timer).
-    Der Test dazu geht über den PRODUKTIVPFAD (`connectWebSocket` mit `wsFailCount = 3`), nicht über
-    ein von Hand gesetztes Feld — der alte Test setzte das Feld und schrieb damit den Defekt fest.
-    **Seit v0.20.0 teilen Wiederfindung und Kopplung EINEN Browser, und eine weitere Anfrage startet ihn
-    neu (frische Abfrage, frische `up`-Ereignisse) statt früh zurückzukehren**; er fällt erst, wenn
-    beide Fenster zu sind, und `main.onDiscovered` verteilt: bekanntes Gerät → neue Adresse, Gerät im
-    Auth-Stopp oder unbekannt → Kopplung, bekanntes gesundes → einmal „already paired“.
-
-36. **Die Agenten eines entfernten Geräts fallen ERST nach dem Widerruf** (seit v0.19.0). Der Widerruf
-    (`DELETE /api/user`) reitet auf dem gepinnten TLS-Agenten des Geräts; `dropDeviceAgent` eine Anweisung
-    später zerstörte den Socket, auf dem die Anfrage gerade lief (gemessen: `ECONNRESET`, das Gerät sah
-    die Anfrage nie) — der Widerruf war seit v0.14.0 wirkungslos, obwohl der Changelog ihn zusagt. Die
-    Räumung hängt deshalb im `.finally` des Widerrufs und wird übersprungen, wenn unter demselben
-    Schlüssel inzwischen wieder ein Gerät steht (Neu-Koppeln). Ein Fehlschlag ist `info`, nicht `warn`:
-    ein Gerät, das beim Entfernen offline ist, ist der Normalfall — der Satz ist derselbe wie beim Gerät
-    ohne lesbaren Token und nennt den Nutzer, der auf dem Gerät bleibt (eine Löschung in der App ist
-    nirgends dokumentiert, nur `DELETE /api/user`).
-
-37. **Ein 404 auf `/api/batteries` ist eine andere Aussage als `battery_count: 0`** (seit v0.19.0).
-    Die offizielle API-Doku (`docs/v2/batteries`, live geprüft 2026-09-15) sagt: „Despite its name, the
-    `/api/batteries` endpoint is available on the P1 Meter and kWh Meter … The endpoint is not available
-    directly on the Plug-In Battery." Ein 404 heißt also „diese Firmware hat die Route nicht" — kommt per
-    CN-Pinning vom Gerät selbst, kann kein Einzelframe-Ausrutscher sein und räumt einen übrig gebliebenen
-    `battery`-Zweig deshalb SOFORT weg (einmal je Verbindung, Flag `batteryUnsupported`). Die
-    Zwei-Poll-Hysterese aus Entscheidung 26 bleibt für `battery_count: 0`: dort HAT das Gerät die Route
-    und ein einzelnes Frame kann ein Firmware-Schluckauf sein. Die Fixture trägt den Batterie-Block
-    seither am P1, nicht am HWE-BAT.
-38. **Der Label-Nachzug darf nicht wiederbeleben, was derselbe Start gelöscht hat** (seit v0.19.0).
-    Er arbeitet auf EINER Objektliste, die beim Start einmal gelesen wird; ein danach gelöschter Zweig
-    steht noch darin, und `extendObject` auf ein fehlendes Objekt LEGT ES AN (js-controller: „if old
-    object is not existing, we behave like setObject") — als Hülle mit Name und Beschreibung, ohne
-    Rolle und Typ, die kein Lauf je wieder aufräumt. `StateManager.removedIds` merkt sich die in diesem
-    Lauf gelöschten Zweige, `refreshExistingNames` überspringt sie. **Gefunden hat das nicht ein Test,
-    sondern die Aufstiegs-Suite** (Entscheidung 37 löschte die neun Batterie-Objekte, und alle neun
-    standen danach wieder da).
-
-39. **Jedes Gerät trägt ein Piktogramm seines Typs** (seit v0.19.0) — `common.icon` am Geräteobjekt,
-    gesetzt in `createDeviceStates`, also bei JEDEM Start und damit auch am Bestand. Vier Zeichnungen in
-    `admin/icons/` (`p1meter`, `kwhmeter1`, `kwhmeter3`, `battery`), Zuordnung in
-    `src/lib/device-icons.ts`; ein unbekannter Produkttyp lässt das Feld unangetastet (nie leeren).
-    Die vier Regeln des Flotten-Rezepts (`Entwicklung/CLAUDE_PATTERNS.md` § Geräte-Piktogramme) gelten
-    wörtlich: **Inline-`data:image/svg+xml`-URI der Dateibytes** (ein Pfad landet in einem nackten
-    `<img>` ohne Theme-Anpassung), nur `currentColor`/`none`, nur `path`/`circle` (die Zellen-CSS nullt
-    `rect`/`image`/`use`), gezeichnet für 28 px (`viewBox 0 0 64 64`, `stroke-width 4`). Zeilenenden
-    werden vor dem Einbetten normalisiert, sonst liefert ein CRLF-Checkout andere Bytes und das Inventar
-    ist auf dem Windows-Läufer rot. `icon` steht im Vergleichssatz der Aufstiegs-Suite — nur sie beweist,
-    dass ein BESTEHENDES Geräteobjekt das Piktogramm bekommt.
-
-40. **`tier` erreicht nur NEUE Instanzen** (gemessen 2026-09-15 am Live-Server, Quelle
-    `js-controller/packages/cli/src/lib/setup/setupUpload.ts:734-743`): `tier` steht in
-    `preserveAttributes` — neben `enabled`, `loglevel`, `mode`, `schedule`. Ein Update lässt den Wert
-    eines bestehenden Instanzobjekts unangetastet, weil es eine INSTANZ-Einstellung des Nutzers ist. Die
-    Umstellung des Manifests von 3 auf 2 (v0.19.0, Schema: „TIER 2: APIs & other data") wirkt also erst
-    bei einer neu angelegten Instanz. **Der Adapter schreibt das NICHT nach** — das überschriebe eine
-    Nutzer-Einstellung; die Flottenregel „ein Update erreicht den Bestand" gilt den Datenpunkten, die
-    der Adapter verantwortet, nicht den Instanz-Einstellungen, die die Plattform dem Nutzer zuordnet.
+13. **Summen-Datenpunkte** — (seit v0.16.0) — `info.devicesTotal`/`devicesOnline`/`devicesAllOnline`, abgeleitet in `updateGlobalConnection()`, also in derselben Runde und aus derselben Quelle wie `info.connection` und…
+14. **`onUnload` kommt auch ohne State-Manager durch** — (seit v0.17.0) — der State-Manager entsteht erst NACH der stopInstance-Korrektur in `onReady`; der von der Korrektur erzwungene Neustart beendet einen Prozess, de…
+15. **WS-Fehler-Entdopplung gilt pro Verbindung** — (seit v0.17.0) — `connect()` setzt `lastErrorDetail` zurück.
+16. **Ack trägt den gesendeten Wert, nicht den Rohwert** — (seit v0.17.0) — `cloud_enabled`, `api_v1_enabled`, `charge_to_full` werden über `coerceSwitch` gelesen (seit v0.20.0; vorher `!!state.val`, das `"false"` als `…
+17. **Jeder Geräte-String, der Objektname wird, läuft durch `sanitizeForLog`** — seit v0.14.0 der Produktname (L9), seit v0.17.0 auch der `type` eines externen Zählers (`external.<type>_<id>`-Kanal).
+18. **`errText` liefert IMMER einen String** — (seit v0.17.0, Flotten-Defekt) — `JSON.stringify` gibt für Symbol, Funktion und `toJSON → undefined` `undefined` zurück, ohne zu werfen; der `catch` lief also nie und die F…
+19. **`HomeWizardApiError.errorCode` ist String oder `"unknown"`** — (seit v0.17.0) — Geräte-Form `{error:{code,description}}` und flaches `{error:"…"}` werden gelesen; alles, was kein String ist (Zahl, Objekt, `{error:…
+20. **Die Verbindungs-Anzeigen beschreiben das GERÄT, nicht einen Transportweg** — (seit v0.18.0, ersetzt die alte Entscheidung 8) Der Rollen-Katalog definiert `indicator.reachable` als „if a device is online" — ein Ger…
+21. **Ein Update erreicht die Namen BESTEHENDER Anlagen** — (seit v0.18.0) Vier Schichten, die vorher alle einfroren: die sieben Manifest-Objekte bekommen in `onReady` je einen ausgeschriebenen `extendObject`-Aufruf (`e…
+22. **`supportedMessages` wird GELÖSCHT, nicht auf `false` gesetzt** — (seit v0.18.0) Die Liste ist eine POSITIVliste: ein `{stopInstance:false}` — und selbst ein leeres Objekt — heißt „nur diese Nachrichten werden unte…
+23. **Adressen aus mDNS werden strenger geprüft als eine eingetippte** — (seit v0.18.0) `isLanDeviceIpv4` (nur 10/8, 172.16/12, 192.168/16) gilt für den mDNS-Weg: dort tippt niemand, und ein echtes Gerät kann link-lokal…
+24. **Ein Gerät ohne gespeicherte IP meldet sich** — (seit v0.18.0) — Warnung beim Start plus einmaliger Anstoß der mDNS-Wiederfindung.
+25. **Ein Knopf fällt auch nach einem Fehlschlag zurück** — (seit v0.18.0) — `finally` um **genau den einen** Geräteaufruf, nie um den ganzen Handler: dort würde es den LED-Prozentwert und jede Schalter-Bestätigung mit…
+26. **Batterie-Datenpunkte überleben die Batterie nicht** — (seit v0.18.0) — meldet der System-Poll zweimal hintereinander `battery_count: 0`, wird der `battery`-Zweig entfernt statt mit den letzten Werten zu altern.
+27. **Die Namen werden bei JEDEM Start aufgefrischt — ohne Merker** — (seit v0.18.1) v0.18.0 machte die Namen erreichbar, aber der Baum einer bestehenden Anlage trug sie trotzdem noch als feste Strings: Objekte, die vor…
+28. **Ein Gerät, das der Adapter nicht laden konnte, bleibt entfernbar** — (seit v0.18.2) Ein Geräte-Objekt ohne lesbaren Token wird beim Laden übersprungen — es hat damit keine Verbindung, und die Entfernung ging bis d…
+29. **Name und Firmware folgen dem Gerät im laufenden Betrieb** — (seit v0.18.2) `syncDeviceInfo` ist die eine Stelle für beide Aufrufer (Erstverbindung + jeder zehnte System-Poll).
+30. **`onStateChange` ist eine Tabelle, und der Knopf-Rückfall ist strukturell** — (seit v0.18.2) Aus acht `id.endsWith(...)`-Zweigen, die alle dasselbe sagten (prüfen → senden → das GESENDETE bestätigen), wurde `device…
+31. **Der Label-Nachzug überspringt, was dieser Start schon geschrieben hat** — (seit v0.18.2) `refreshExistingNames` prüft `createdIds`: was `createDeviceStates` oder ein eingehender Messwert in dieser Runde bereits an…
+32. **Die `common.states`-Reparatur räumt einen übrig gebliebenen SCHLÜSSEL weg** — (Begründung korrigiert v0.18.2) Gemessen an der einzigen Merge-Stelle des Objektspeichers (`node.extend(true, …)` in `objectsInRedisCli…
+33. **Der Kanalname eines externen Zählers ist übersetzt** — (seit v0.18.2, ersetzt den Teil von DD17, der ihn für gerätegegeben hielt) Der `type` kommt aus einer GESCHLOSSENEN Liste der API (`gas_meter`, `water_meter`,…
+34. **Jeder Datenpunkt hat eine Beschreibung oder einen begründeten Verzicht** — (seit v0.18.2; Entscheidungs-Ablage seit 2026-09-07 in `test/self-explaining.json`) Erklärt sind Schein-/Blindleistung, Leistungsfaktor, L…
+35. **Die IP-Wiederfindung kennt KEINEN In-Flight-Guard** — (seit v0.19.0, ersetzt das `recovering`-Feld aus v0.7.5) Der Ablauf ist zwangsläufig verschränkt: `connectWebSocket` stößt beim dritten Fehlschlag die mDNS-Suc…
+36. **Die Agenten eines entfernten Geräts fallen ERST nach dem Widerruf** — (seit v0.19.0) Der Widerruf (`DELETE /api/user`) reitet auf dem gepinnten TLS-Agenten des Geräts; `dropDeviceAgent` eine Anweisung später zerst…
+37. **Ein 404 auf `/api/batteries` ist eine andere Aussage als `battery_count: 0`** — (seit v0.19.0) Die offizielle API-Doku (`docs/v2/batteries`, live geprüft 2026-09-15) sagt: „Despite its name, the `/api/batteries` e…
+38. **Der Label-Nachzug darf nicht wiederbeleben, was derselbe Start gelöscht hat** — (seit v0.19.0) Er arbeitet auf EINER Objektliste, die beim Start einmal gelesen wird; ein danach gelöschter Zweig steht noch darin, u…
+39. **Jedes Gerät trägt ein Piktogramm seines Typs** — (seit v0.19.0) — `common.icon` am Geräteobjekt, gesetzt in `createDeviceStates`, also bei JEDEM Start und damit auch am Bestand.
+40. **`tier` erreicht nur NEUE Instanzen** — (gemessen 2026-09-15 am Live-Server, Quelle `js-controller/packages/cli/src/lib/setup/setupUpload.ts:734-743`) `tier` steht in `preserveAttributes` — neben `enabled`, `loglev…
 41. **Ein externer Zähler, der einen Tag lang UND in 100 empfangenen Messungen mit `external`-Feld fehlt, wird entfernt** (seit v0.20.0) — Bestandskanäle werden beim Start aus dem Baum eingesetzt (`seedExternalMeters`).
 42. **Jedes Gerät bekommt nur die Steuerungen, die sein Typ laut Doku hat** (seit v0.20.0) — kWh-Zähler ohne Identify und ohne LED-Helligkeit (alte Objekte werden gelöscht UND in `removedIds` vermerkt, sonst belebt der Label-Nachzug sie wieder — DD38), Plug-In Battery ohne Reboot, ohne `/api/batteries`-Abfrage und ohne `batteries`-Thema (`supportsIdentify`, `supportsStatusLed`, `servesBatteryGroup`).
 43. **Jede Instanz koppelt unter eigenem Nutzernamen `local/iobroker_<host>_<instance>`** (seit v0.20.0) — gespeichert in `native.userName`; beim Neu-Koppeln wird ein abweichender alter Nutzer mit SEINEM alten Token gelöscht, nie mit dem neuen.
 44. **Ein Kopplungs-Token wird nur widerrufen, solange das Gerät nicht gespeichert ist** (seit v0.20.0) — danach verzögert ein Fehler nur die Datenpunkte; ein Durchlauf endet nach jedem `await`, wenn das Fenster zu ist, und das Fenster schließt mit seinem Ergebnis auf info.
 45. **Ein Gerät, das nicht antwortet (NETWORK, TIMEOUT), loggt auf debug; nur ein gewarnter Fehler bekommt „connection restored“** (seit v0.20.0) — Flottenregel „offline ist ein Zustand“ (2026-09-22), ersetzt das warn-einmal-Muster aus v0.7.3.
 
-_Belege zu 41–45: `.claude/dev-history.md`, Eintrag „2026-09-24 — v0.20.0: Belege zu DD41–45“._
+_Beleg, Messung und Verlauf jeder Nummer wörtlich in `.claude/dev-history.md` — 1–40 im Eintrag „2026-09-27 — Design-Entscheidungen 1–40: Belege aus CLAUDE.md verlegt“, 41–45 im Eintrag „2026-09-24 — v0.20.0: Belege zu DD41–45“._
 
 ## Error-Handling (seit v0.3.5)
 
@@ -356,7 +161,7 @@ Installationsgeheimnisses und am Mac anders als auf dem Runner — der Abzug mas
 Schreibvorgänge hineinzulesen (eine feste Pause ist am Mac kalibriert, nicht am Runner).
 
 **Mutationstabellen** (`Ressourcen/iobroker-entwicklung/mutation-testing/mutations_homewizard*.py`,
-sechs Stück; `_all` und `_regression_*` sind AGGREGAT-Module, die die zwei Basistabellen dynamisch
+Liste per `ls`; `_all` und `_regression_*` sind AGGREGAT-Module, die die zwei Basistabellen dynamisch
 laden — nie als statische Tabelle überschreiben). Gate D09 prüft trocken, dass jede Nadel noch genau
 einmal trifft. ⚠️ **Ein Umbau verwaist Nadeln, ohne dass ein Gate rot wird** — die Regel gilt dann
 still als geprüft. Beim v0.18.2-Umbau traf das 23 Nadeln (ausgelagerte Dateien, inline gezogene
