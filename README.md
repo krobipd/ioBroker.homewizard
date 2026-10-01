@@ -207,7 +207,7 @@ device's own `connected`, so a stopped adapter no longer leaves the tree looking
     ### **WORK IN PROGRESS**
 -->
 
-### 0.20.0 (2026-09-24)
+### 0.20.0 (2026-09-24) — stable
 
 - Fixed: on Node.js 26 a device no longer stops updating for good after an oversized or interrupted reply from it — the adapter now gives up on that reply and carries on.
 - Changed: the device folder keeps the product name the device reports; the HomeWizard API does not provide the name you give the device in the app, so renaming it there does not reach ioBroker.
